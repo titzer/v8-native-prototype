@@ -1,0 +1,12 @@
+diff --git a/test/cctest/cctest.gyp b/test/cctest/cctest.gyp
+index 276ebd2..b4c70e0 100644
+--- a/test/cctest/cctest.gyp
++++ b/test/cctest/cctest.gyp
+@@ -84,6 +84,7 @@
+         'compiler/test-run-stackcheck.cc',
+         'compiler/test-run-stubs.cc',
+         'compiler/test-run-variables.cc',
++        'compiler/test-run-webasm.cc',
+         'compiler/test-simplified-lowering.cc',
+         'cctest.cc',
+         'gay-fixed.cc',
