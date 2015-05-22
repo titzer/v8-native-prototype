@@ -360,6 +360,14 @@ class LR_WebAsmDecoder {
           len = 2;
           break;
         }
+        case kExprTernary: {
+          Shift(kAstInt32, 3);  // Result type is typeof(x) in {c ? x : y}.
+          break;
+        }
+        case kExprComma: {
+          Shift(kAstInt32, 2);  // Result type is typeof(y) in {x, y}.
+          break;
+        }
 // === Binops that return int32 ========================================
 #define DECLARE_SHIFT_CASE(name, opcode) case kExpr##name:  // fallthrough
           FOREACH_I_II_OPCODE(DECLARE_SHIFT_CASE)
@@ -558,6 +566,64 @@ class LR_WebAsmDecoder {
             buffer[i] = p->tree->children[i]->node;
           }
           p->tree->node = builder_.Call(count, buffer);
+        }
+        break;
+      }
+      case kExprTernary: {
+        // TODO(titzer): reduce duplication with kStmtIfThen.
+        Tree* left = p->tree->children[1];
+        Tree* right = p->tree->children[2];
+        if (p->index == 1) {
+          TypeCheckLast(p, kAstInt32);
+          // TODO(titzer): technically SSA renaming shouldn't be necessary,
+          // just different control and effect dependencies.
+          ifs_.push_back({Split(ssa_env_), Split(ssa_env_)});
+          IfEnv* env = &ifs_.back();
+          builder_.Branch(p->last()->node, &env->true_env->control,
+                          &env->false_env->control);
+          SetEnv(env->true_env);
+        } else if (p->index == 2) {
+          // True expr done. Switch to environment for false branch.
+          if (left->type == kAstStmt) {
+            char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
+            snprintf(buffer, kErrorMsgSize,
+                     "%s[%d] expected expression, found %s statement",
+                     OpcodeName(p->opcode()), p->index - 1,
+                     OpcodeName(p->last()->opcode()));
+            error(p->pc(), buffer, p->last()->pc);
+          }
+          IfEnv* env = &ifs_.back();
+          SetEnv(env->false_env);
+        } else if (p->index == 3) {
+          // False expr done. Switch to environment for merge.
+          TypeCheckLast(p, left->type);
+          IfEnv* env = &ifs_.back();
+          if (ssa_env_->end()) {
+            SetEnv(env->true_env);
+          } else {
+            ssa_env_->state = SsaEnv::kReached;
+            Goto(env->true_env, ssa_env_);
+          }
+          ifs_.pop_back();
+          // Create a phi for the value output.
+          TFNode* a = left->node;
+          TFNode* b = right->node;
+          TFNode* result = a;
+          if (a != b) {
+            TFNode* vals[] = {a, b};
+            result = builder_.Phi(left->type, 2, vals, *builder_.control);
+          }
+          p->tree->node = result;
+          p->tree->type = left->type;
+        }
+
+        break;
+      }
+      case kExprComma: {
+        if (p->done()) {
+          // The type of the comma operator is the type of the last expression.
+          p->tree->type = p->last()->type;
+          p->tree->node = p->last()->node;
         }
         break;
       }

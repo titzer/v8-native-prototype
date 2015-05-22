@@ -50,7 +50,7 @@ struct FunctionEnv {
   unsigned local_int32_count;    // number of int32 locals
   unsigned local_float64_count;  // number of float64 locals
   unsigned local_float32_count;  // number of float32 locals
-  unsigned total_locals;
+  unsigned total_locals;         // sum of parameters and all locals
 
   bool IsValidLocal(unsigned index) { return index < total_locals; }
   unsigned GetLocalCount() { return total_locals; }
@@ -62,7 +62,6 @@ struct FunctionEnv {
     if (index < local_float64_count) return kAstFloat64;
     index -= local_float64_count;
     if (index < local_float32_count) return kAstFloat32;
-    UNREACHABLE();
     return kAstStmt;
   }
 };

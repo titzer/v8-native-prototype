@@ -12,6 +12,12 @@ namespace webasm {
 static AstType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                kAstInt32};
 
+static AstType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
+                                    kAstFloat32, kAstFloat32};
+
+static AstType kIntDoubleTypes5[] = {kAstInt32, kAstFloat64, kAstFloat64,
+                                     kAstFloat64, kAstFloat64};
+
 static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
 static const byte kCodeSetLocal0[] = {kStmtSetLocal, 0, kExprInt8Const, 0};
@@ -33,6 +39,8 @@ class DecoderTest : public TestWithZone {
         sig_i_ii(1, 2, kIntTypes5),
         sig_i_iii(1, 3, kIntTypes5),
         sig_i_iiii(1, 4, kIntTypes5),
+        sig_i_f(1, 1, kIntFloatTypes5),
+        sig_i_d(1, 1, kIntDoubleTypes5),
         sig_v_v(0, 0, kIntTypes5),
         sig_v_i(0, 1, kIntTypes5),
         sig_v_ii(0, 2, kIntTypes5),
@@ -40,6 +48,8 @@ class DecoderTest : public TestWithZone {
         sig_v_iiii(0, 4, kIntTypes5) {
     init_env(&env_i_i, &sig_i_i);
     init_env(&env_v_v, &sig_v_v);
+    init_env(&env_i_f, &sig_i_f);
+    init_env(&env_i_d, &sig_i_d);
   }
 
   FunctionSig sig_i_v;
@@ -47,6 +57,8 @@ class DecoderTest : public TestWithZone {
   FunctionSig sig_i_ii;
   FunctionSig sig_i_iii;
   FunctionSig sig_i_iiii;
+  FunctionSig sig_i_f;
+  FunctionSig sig_i_d;
 
   FunctionSig sig_v_v;
   FunctionSig sig_v_i;
@@ -56,6 +68,8 @@ class DecoderTest : public TestWithZone {
 
   FunctionEnv env_i_i;
   FunctionEnv env_v_v;
+  FunctionEnv env_i_f;
+  FunctionEnv env_i_d;
 
   void init_env(FunctionEnv* env, FunctionSig* sig) {
     env->module = nullptr;
@@ -63,7 +77,7 @@ class DecoderTest : public TestWithZone {
     env->local_int32_count = 0;
     env->local_float64_count = 0;
     env->local_float32_count = 0;
-    env->total_locals = 0;
+    env->total_locals = sig->parameter_count();
   }
 };
 
@@ -411,6 +425,68 @@ TEST_F(DecoderTest, Codeiness) {
          kStmtSetLocal, 0, kExprInt8Const, 0,  // --
          kStmtBreak, 0);                       // --
 }
+
+
+TEST_F(DecoderTest, Ternary1) {
+  VERIFY(kExprTernary, kExprGetLocal, 0, kExprInt8Const, 0, kExprInt8Const, 1);
+  VERIFY(kExprTernary, kExprGetLocal, 0, kExprGetLocal, 0, kExprGetLocal, 0);
+  VERIFY(kExprTernary, kExprGetLocal, 0, kExprInt32Add, kExprGetLocal, 0,
+         kExprGetLocal, 0, kExprInt8Const, 1);
+}
+
+
+TEST_F(DecoderTest, Comma1) {
+  VERIFY(kExprComma, kExprInt8Const, 0, kExprInt8Const, 1);
+  VERIFY(kExprComma, kExprGetLocal, 0, kExprGetLocal, 0);
+  VERIFY(kExprComma, kExprInt32Add, kExprGetLocal, 0, kExprGetLocal, 0,
+         kExprInt8Const, 1);
+}
+
+
+TEST_F(DecoderTest, Ternary_off_end) {
+  static const byte kCode[] = {kExprTernary, kExprGetLocal, 0, kExprGetLocal, 0,
+                               kExprGetLocal, 0};
+  for (size_t len = 1; len < arraysize(kCode); len++) {
+    Verify(kError, &env_i_i, kCode, kCode + len);
+  }
+}
+
+
+TEST_F(DecoderTest, Ternary_type) {
+  {
+    // float|double ? 1 : 2
+    static const byte kCode[] = {kExprTernary, kExprGetLocal, 0, kExprInt8Const,
+                                 1, kExprInt8Const, 2};
+    EXPECT_FAILURE(&env_i_f, kCode);
+    EXPECT_FAILURE(&env_i_d, kCode);
+  }
+  {
+    // 1 ? float|double : 2
+    static const byte kCode[] = {kExprTernary, kExprInt8Const, 1, kExprGetLocal,
+                                 0, kExprInt8Const, 2};
+    EXPECT_FAILURE(&env_i_f, kCode);
+    EXPECT_FAILURE(&env_i_d, kCode);
+  }
+  {
+    // stmt ? 0 : 1
+    static const byte kCode[] = {kExprTernary, kStmtBlock, 0, kExprInt8Const, 0,
+                                 kExprInt8Const, 1};
+    EXPECT_FAILURE(&env_i_i, kCode);
+  }
+  {
+    // 0 ? stmt : 1
+    static const byte kCode[] = {kExprTernary, kExprInt8Const, 0, kStmtBlock, 0,
+                                 kExprInt8Const, 1};
+    EXPECT_FAILURE(&env_i_i, kCode);
+  }
+  {
+    // 0 ? 1 : stmt
+    static const byte kCode[] = {kExprTernary, kExprInt8Const, 0,
+                                 kExprInt8Const, 1, 0, kStmtBlock};
+    EXPECT_FAILURE(&env_i_i, kCode);
+  }
+}
+
 
 //--------------------------------------------------------------------------
 // TODO: not a real test.

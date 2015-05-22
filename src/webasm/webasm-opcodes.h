@@ -58,7 +58,9 @@ enum Atomicity {
   V(GetGlobal, 0x15)                \
   V(GetHeap, 0x16)                  \
   V(CallFunction, 0x17)             \
-  V(CallIndirect, 0x18)
+  V(CallIndirect, 0x18)             \
+  V(Ternary, 0x19)                  \
+  V(Comma, 0x1a)
 
 // Integer binops.
 #define FOREACH_I_II_OPCODE(V) \

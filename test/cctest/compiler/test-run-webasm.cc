@@ -55,7 +55,7 @@ struct CommonSignatures {
     env->local_int32_count = 0;
     env->local_float64_count = 0;
     env->local_float32_count = 0;
-    env->total_locals = 0;
+    env->total_locals = sig->parameter_count();
   }
 };
 
@@ -262,6 +262,31 @@ TEST(Run_WebAsm_Block_If_P_assign) {
     int32_t expected = *i ? 61 : *i;
     CHECK_EQ(expected, r.Call(*i));
   }
+}
+
+
+TEST(Run_WebAsm_Ternary_P) {
+  WebAsmRunner<int32_t> r(kMachInt32);
+  // return p0 ? 11 : 22;
+  static const byte kCode[] = {kStmtReturn, 1, kExprTernary, kExprGetLocal, 0,
+                               kExprInt8Const, 11, kExprInt8Const, 22};
+
+  r.Build(kCode, kCode + arraysize(kCode));
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i ? 11 : 22;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
+TEST(Run_WebAsm_Comma_P) {
+  WebAsmRunner<int32_t> r(kMachInt32);
+  // return p0, 17;
+  static const byte kCode[] = {kStmtReturn, 1, kExprComma, kExprGetLocal, 0,
+                               kExprInt8Const, 17};
+
+  r.Build(kCode, kCode + arraysize(kCode));
+  FOR_INT32_INPUTS(i) { CHECK_EQ(17, r.Call(*i)); }
 }
 
 
