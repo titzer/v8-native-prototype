@@ -15,12 +15,20 @@ static AstType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
 static AstType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
                                     kAstFloat32, kAstFloat32};
 
+static AstType kFloatTypes5[] = {kAstFloat32, kAstFloat32, kAstFloat32,
+                                 kAstFloat32, kAstFloat32};
+
 static AstType kIntDoubleTypes5[] = {kAstInt32, kAstFloat64, kAstFloat64,
                                      kAstFloat64, kAstFloat64};
+
+static AstType kDoubleTypes5[] = {kAstFloat64, kAstFloat64, kAstFloat64,
+                                  kAstFloat64, kAstFloat64};
 
 static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
 static const byte kCodeSetLocal0[] = {kStmtSetLocal, 0, kExprInt8Const, 0};
+
+static const AstType kAstTypes[] = {kAstInt32, kAstFloat32, kAstFloat64};
 
 static const WebAsmOpcode kInt32BinopOpcodes[] = {
     kExprInt32Add,  kExprInt32Sub,  kExprInt32Mul,  kExprInt32SDiv,
@@ -30,6 +38,10 @@ static const WebAsmOpcode kInt32BinopOpcodes[] = {
     kExprInt32Ult,  kExprInt32Ule};
 
 
+#define EXPECT_VERIFIES(env, x) Verify(kSuccess, env, x, x + arraysize(x))
+
+#define EXPECT_FAILURE(env, x) Verify(kError, env, x, x + arraysize(x))
+
 class DecoderTest : public TestWithZone {
  public:
   DecoderTest()
@@ -38,14 +50,16 @@ class DecoderTest : public TestWithZone {
         sig_i_i(1, 1, kIntTypes5),
         sig_i_ii(1, 2, kIntTypes5),
         sig_i_iii(1, 3, kIntTypes5),
-        sig_i_iiii(1, 4, kIntTypes5),
         sig_i_f(1, 1, kIntFloatTypes5),
+        sig_i_ff(1, 2, kIntFloatTypes5),
+        sig_f_ff(1, 2, kFloatTypes5),
         sig_i_d(1, 1, kIntDoubleTypes5),
+        sig_i_dd(1, 2, kIntDoubleTypes5),
+        sig_d_dd(1, 2, kDoubleTypes5),
         sig_v_v(0, 0, kIntTypes5),
         sig_v_i(0, 1, kIntTypes5),
         sig_v_ii(0, 2, kIntTypes5),
-        sig_v_iii(0, 3, kIntTypes5),
-        sig_v_iiii(0, 4, kIntTypes5) {
+        sig_v_iii(0, 3, kIntTypes5) {
     init_env(&env_i_i, &sig_i_i);
     init_env(&env_v_v, &sig_v_v);
     init_env(&env_i_f, &sig_i_f);
@@ -56,15 +70,19 @@ class DecoderTest : public TestWithZone {
   FunctionSig sig_i_i;
   FunctionSig sig_i_ii;
   FunctionSig sig_i_iii;
-  FunctionSig sig_i_iiii;
+
   FunctionSig sig_i_f;
+  FunctionSig sig_i_ff;
+  FunctionSig sig_f_ff;
+
   FunctionSig sig_i_d;
+  FunctionSig sig_i_dd;
+  FunctionSig sig_d_dd;
 
   FunctionSig sig_v_v;
   FunctionSig sig_v_i;
   FunctionSig sig_v_ii;
   FunctionSig sig_v_iii;
-  FunctionSig sig_v_iiii;
 
   FunctionEnv env_i_i;
   FunctionEnv env_v_v;
@@ -79,12 +97,81 @@ class DecoderTest : public TestWithZone {
     env->local_float32_count = 0;
     env->total_locals = sig->parameter_count();
   }
+
+  // A wrapper around VerifyWebAsmCode() that renders a nice failure message.
+  void Verify(ErrorCode expected, FunctionEnv* env, const byte* start,
+              const byte* end) {
+    Result result = VerifyWebAsmCode(env, start, end);
+    if (result.error_code != expected) {
+      ptrdiff_t pc = result.error_pc - result.pc;
+      ptrdiff_t pt = result.error_pt - result.pc;
+      std::ostringstream str;
+      if (expected == kSuccess) {
+        str << "Verification failed: " << result.error_code << " pc = +" << pc
+            << ", pt = +" << pt;
+      } else {
+        str << "Verification expected: " << expected << ", but got "
+            << result.error_code;
+        if (result.error_code != kSuccess) {
+          str << " pc = +" << pc << ", pt = +" << pt;
+        }
+      }
+      FATAL(str.str().c_str());
+    }
+  }
+
+  void TestBinop(WebAsmOpcode opcode, FunctionSig* success) {
+    // Return(op(local[0], local[1]))
+    byte code[] = {kStmtReturn, 1, static_cast<byte>(opcode), kExprGetLocal, 0,
+                   kExprGetLocal, 1};
+    FunctionEnv env;
+    init_env(&env, success);
+    EXPECT_VERIFIES(&env, code);
+
+    // Try all combinations of return and parameter types.
+    for (size_t i = 0; i < arraysize(kAstTypes); i++) {
+      for (size_t j = 0; j < arraysize(kAstTypes); j++) {
+        for (size_t k = 0; k < arraysize(kAstTypes); k++) {
+          AstType types[] = {kAstTypes[i], kAstTypes[j], kAstTypes[k]};
+          if (types[0] != success->GetReturn(0) ||
+              types[1] != success->GetParam(0) ||
+              types[2] != success->GetParam(1)) {
+            // Test signature mismatch.
+            FunctionSig sig(1, 2, types);
+            init_env(&env, &sig);
+            EXPECT_FAILURE(&env, code);
+          }
+        }
+      }
+    }
+  }
+
+  void TestUnop(WebAsmOpcode opcode, AstType ret_type, AstType param_type) {
+    // Return(op(local[0]))
+    byte code[] = {kStmtReturn, 1, static_cast<byte>(opcode), kExprGetLocal, 0};
+    FunctionEnv env;
+    {
+      AstType types[] = {ret_type, param_type};
+      FunctionSig sig(1, 1, types);
+      init_env(&env, &sig);
+      EXPECT_VERIFIES(&env, code);
+    }
+
+    // Try all combinations of return and parameter types.
+    for (size_t i = 0; i < arraysize(kAstTypes); i++) {
+      for (size_t j = 0; j < arraysize(kAstTypes); j++) {
+        AstType types[] = {kAstTypes[i], kAstTypes[j]};
+        if (types[0] != ret_type || types[1] != param_type) {
+          // Test signature mismatch.
+          FunctionSig sig(1, 1, types);
+          init_env(&env, &sig);
+          EXPECT_FAILURE(&env, code);
+        }
+      }
+    }
+  }
 };
 
-
-#define EXPECT_VERIFIES(env, x) Verify(kSuccess, env, x, x + arraysize(x))
-
-#define EXPECT_FAILURE(env, x) Verify(kError, env, x, x + arraysize(x))
 
 static FunctionEnv CreateInt32FunctionEnv(FunctionSig* sig, int count) {
   FunctionEnv env;
@@ -95,29 +182,6 @@ static FunctionEnv CreateInt32FunctionEnv(FunctionSig* sig, int count) {
   env.local_float32_count = count;
   env.total_locals = count + sig->parameter_count();
   return env;
-}
-
-
-// A wrapper around VerifyWebAsmCode() that renders a nice failure message.
-static void Verify(ErrorCode expected, FunctionEnv* env, const byte* start,
-                   const byte* end) {
-  Result result = VerifyWebAsmCode(env, start, end);
-  if (result.error_code != expected) {
-    ptrdiff_t pc = result.error_pc - result.pc;
-    ptrdiff_t pt = result.error_pt - result.pc;
-    std::ostringstream str;
-    if (expected == kSuccess) {
-      str << "Verification failed: " << result.error_code << " pc = +" << pc
-          << ", pt = +" << pt;
-    } else {
-      str << "Verification expected: " << expected << ", but got "
-          << result.error_code;
-      if (result.error_code != kSuccess) {
-        str << " pc = +" << pc << ", pt = +" << pt;
-      }
-    }
-    FATAL(str.str().c_str());
-  }
 }
 
 
@@ -161,7 +225,7 @@ TEST_F(DecoderTest, GetLocal0_local) {
 
 
 TEST_F(DecoderTest, GetLocal0_param_n) {
-  FunctionSig* sigs[] = {&sig_i_i, &sig_i_ii, &sig_i_iii, &sig_i_iiii};
+  FunctionSig* sigs[] = {&sig_i_i, &sig_i_ii, &sig_i_iii};
 
   for (size_t i = 0; i < arraysize(sigs); i++) {
     FunctionEnv env = CreateInt32FunctionEnv(sigs[i], 0);
@@ -487,6 +551,67 @@ TEST_F(DecoderTest, Ternary_type) {
   }
 }
 
+
+TEST_F(DecoderTest, Int32Binops) {
+  TestBinop(kExprInt32Add, &sig_i_ii);
+  TestBinop(kExprInt32Sub, &sig_i_ii);
+  TestBinop(kExprInt32Mul, &sig_i_ii);
+  TestBinop(kExprInt32SDiv, &sig_i_ii);
+  TestBinop(kExprInt32UDiv, &sig_i_ii);
+  TestBinop(kExprInt32SMod, &sig_i_ii);
+  TestBinop(kExprInt32UMod, &sig_i_ii);
+  TestBinop(kExprInt32And, &sig_i_ii);
+  TestBinop(kExprInt32Ior, &sig_i_ii);
+  TestBinop(kExprInt32Xor, &sig_i_ii);
+  TestBinop(kExprInt32Shl, &sig_i_ii);
+  TestBinop(kExprInt32Shr, &sig_i_ii);
+  TestBinop(kExprInt32Sar, &sig_i_ii);
+  TestBinop(kExprInt32Eq, &sig_i_ii);
+  TestBinop(kExprInt32Slt, &sig_i_ii);
+  TestBinop(kExprInt32Sle, &sig_i_ii);
+  TestBinop(kExprInt32Ult, &sig_i_ii);
+  TestBinop(kExprInt32Ule, &sig_i_ii);
+}
+
+
+TEST_F(DecoderTest, DoubleBinops) {
+  TestBinop(kExprFloat64Add, &sig_d_dd);
+  TestBinop(kExprFloat64Sub, &sig_d_dd);
+  TestBinop(kExprFloat64Mul, &sig_d_dd);
+  TestBinop(kExprFloat64Div, &sig_d_dd);
+  TestBinop(kExprFloat64Mod, &sig_d_dd);
+
+  TestBinop(kExprFloat64Eq, &sig_i_dd);
+  TestBinop(kExprFloat64Lt, &sig_i_dd);
+  TestBinop(kExprFloat64Le, &sig_i_dd);
+}
+
+
+TEST_F(DecoderTest, FloatBinops) {
+  TestBinop(kExprFloat32Add, &sig_f_ff);
+  TestBinop(kExprFloat32Sub, &sig_f_ff);
+  TestBinop(kExprFloat32Mul, &sig_f_ff);
+  TestBinop(kExprFloat32Div, &sig_f_ff);
+  TestBinop(kExprFloat32Mod, &sig_f_ff);
+
+  TestBinop(kExprFloat32Eq, &sig_i_ff);
+  TestBinop(kExprFloat32Lt, &sig_i_ff);
+  TestBinop(kExprFloat32Le, &sig_i_ff);
+}
+
+
+TEST_F(DecoderTest, TypeConversions) {
+  TestUnop(kExprInt32FromFloat32, kAstInt32, kAstFloat32);
+  TestUnop(kExprInt32FromFloat64, kAstInt32, kAstFloat64);
+  TestUnop(kExprUint32FromFloat32, kAstInt32, kAstFloat32);
+  TestUnop(kExprUint32FromFloat64, kAstInt32, kAstFloat64);
+  TestUnop(kExprFloat64FromSInt32, kAstFloat64, kAstInt32);
+  TestUnop(kExprFloat64FromUInt32, kAstFloat64, kAstInt32);
+  TestUnop(kExprFloat64FromFloat32, kAstFloat64, kAstFloat32);
+  TestUnop(kExprFloat32FromSInt32, kAstFloat32, kAstInt32);
+  TestUnop(kExprFloat32FromUInt32, kAstFloat32, kAstInt32);
+  TestUnop(kExprFloat32FromFloat64, kAstFloat32, kAstFloat64);
+}
 
 //--------------------------------------------------------------------------
 // TODO: not a real test.

@@ -393,6 +393,22 @@ class LR_WebAsmDecoder {
           break;
 #undef DECLARE_SHIFT_CASE
         // =====================================================================
+        case kExprInt32FromFloat32:   // fallthrough
+        case kExprInt32FromFloat64:   // fallthrough
+        case kExprUint32FromFloat32:  // fallthrough
+        case kExprUint32FromFloat64:  // fallthrough
+          Shift(kAstInt32, 1);
+          break;
+        case kExprFloat64FromSInt32:   // fallthrough
+        case kExprFloat64FromUInt32:   // fallthrough
+        case kExprFloat64FromFloat32:  // fallthrough
+          Shift(kAstFloat64, 1);
+          break;
+        case kExprFloat32FromSInt32:   // fallthrough
+        case kExprFloat32FromUInt32:   // fallthrough
+        case kExprFloat32FromFloat64:  // fallthrough
+          Shift(kAstFloat32, 1);
+          break;
 
         default:
           error(pc_, "Invalid opcode");
@@ -664,6 +680,26 @@ class LR_WebAsmDecoder {
         break;
 #undef DECLARE_REDUCE_CASE
       // =======================================================================
+      case kExprInt32FromFloat64:    // fallthrough
+      case kExprUint32FromFloat64:   // fallthrough
+      case kExprFloat32FromFloat64:  // fallthrough
+        TypeCheckLast(p, kAstFloat64);
+        p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
+        break;
+      case kExprFloat64FromSInt32:  // fallthrough
+      case kExprFloat64FromUInt32:  // fallthrough
+      case kExprFloat32FromSInt32:  // fallthrough
+      case kExprFloat32FromUInt32:  // fallthrough
+        TypeCheckLast(p, kAstInt32);
+        p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
+        break;
+
+      case kExprInt32FromFloat32:    // fallthrough
+      case kExprUint32FromFloat32:   // fallthrough
+      case kExprFloat64FromFloat32:  // fallthrough
+        TypeCheckLast(p, kAstFloat32);
+        p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
+        break;
 
       default:
         break;

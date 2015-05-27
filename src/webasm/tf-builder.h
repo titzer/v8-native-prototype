@@ -65,7 +65,7 @@ struct TFBuilder {
   TFNode* Float32Constant(float value);
   TFNode* Float64Constant(double value);
   TFNode* Binop(WebAsmOpcode opcode, TFNode* left, TFNode* right);
-  TFNode* Unop(WebAsmOpcode opcode, TFNode* left);
+  TFNode* Unop(WebAsmOpcode opcode, TFNode* input);
   unsigned InputCount(TFNode* node);
   bool IsPhiWithMerge(TFNode* phi, TFNode* merge);
   void AppendToMerge(TFNode* merge, TFNode* from);

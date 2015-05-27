@@ -131,7 +131,8 @@ enum Atomicity {
   FOREACH_D_DD_OPCODE(V)       \
   FOREACH_I_DD_OPCODE(V)       \
   FOREACH_F_FF_OPCODE(V)       \
-  FOREACH_I_FF_OPCODE(V)
+  FOREACH_I_FF_OPCODE(V)       \
+  FOREACH_CONVERSION_OPCODE(V)
 
 // All opcodes.
 #define FOREACH_OPCODE(V) \

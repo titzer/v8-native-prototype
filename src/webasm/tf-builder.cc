@@ -198,6 +198,18 @@ TFNode* TFBuilder::Binop(WebAsmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprFloat64Mod:
       op = m->Float64Mod();
       break;
+    case kExprFloat32Add:
+      op = m->Float32Add();
+      break;
+    case kExprFloat32Sub:
+      op = m->Float32Sub();
+      break;
+    case kExprFloat32Mul:
+      op = m->Float32Mul();
+      break;
+    case kExprFloat32Div:
+      op = m->Float32Div();
+      break;
     case kExprFloat64Eq:
       op = m->Float64Equal();
       break;
@@ -207,10 +219,69 @@ TFNode* TFBuilder::Binop(WebAsmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprFloat64Le:
       op = m->Float64LessThanOrEqual();
       break;
+    case kExprFloat32Eq:
+      op = m->Float32Equal();
+      break;
+    case kExprFloat32Lt:
+      op = m->Float32LessThan();
+      break;
+    case kExprFloat32Le:
+      op = m->Float32LessThanOrEqual();
+      break;
     default:
       UNREACHABLE();
   }
   return graph->graph()->NewNode(op, left, right);
+}
+
+
+TFNode* TFBuilder::Unop(WebAsmOpcode opcode, TFNode* input) {
+  if (!graph) return nullptr;
+  const compiler::Operator* op;
+  compiler::MachineOperatorBuilder* m = graph->machine();
+  switch (opcode) {
+    case kExprInt32FromFloat64:
+      op = m->ChangeFloat64ToInt32();
+      break;
+    case kExprUint32FromFloat64:
+      op = m->ChangeFloat64ToUint32();
+      break;
+    case kExprFloat32FromFloat64:
+      op = m->TruncateFloat64ToFloat32();
+      break;
+    case kExprFloat64FromSInt32:
+      op = m->ChangeInt32ToFloat64();
+      break;
+    case kExprFloat64FromUInt32:
+      op = m->ChangeUint32ToFloat64();
+      break;
+    case kExprFloat32FromSInt32:
+      op = m->ChangeInt32ToFloat64();  // TODO(titzer): two conversions
+      input = graph->graph()->NewNode(op, input);
+      op = m->TruncateFloat64ToFloat32();
+      break;
+    case kExprFloat32FromUInt32:
+      op = m->ChangeUint32ToFloat64();  // TODO(titzer): two conversions
+      input = graph->graph()->NewNode(op, input);
+      op = m->TruncateFloat64ToFloat32();
+      break;
+    case kExprInt32FromFloat32:
+      op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
+      input = graph->graph()->NewNode(op, input);
+      op = m->ChangeFloat64ToInt32();
+      break;
+    case kExprUint32FromFloat32:
+      op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
+      input = graph->graph()->NewNode(op, input);
+      op = m->ChangeFloat64ToUint32();
+      break;
+    case kExprFloat64FromFloat32:
+      op = m->ChangeFloat32ToFloat64();
+      break;
+    default:
+      UNREACHABLE();
+  }
+  return graph->graph()->NewNode(op, input);
 }
 
 
@@ -244,7 +315,7 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   if (g->end()) {
     compiler::NodeProperties::MergeControlToEnd(g, graph->common(), ret);
   } else {
-    g->SetEnd(g->NewNode(graph->common()->End(), ret));
+    g->SetEnd(g->NewNode(graph->common()->End(1), ret));
   }
 }
 }
