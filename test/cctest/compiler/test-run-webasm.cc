@@ -6,6 +6,7 @@
 #include "src/compiler/graph-visualizer.h"
 
 #include "src/webasm/webasm-opcodes.h"
+#include "src/webasm/webasm-macro-gen.h"
 #include "src/webasm/decoder.h"
 
 #include "test/cctest/cctest.h"
@@ -102,12 +103,18 @@ class WebAsmRunner : public GraphBuilderTester<ReturnType> {
 };
 
 
+#define BUILD(r, ...)                      \
+  do {                                     \
+    byte code[] = {__VA_ARGS__};           \
+    r.Build(code, code + arraysize(code)); \
+  } while (false)
+
+
 TEST(Run_WebAsmInt8Const) {
   WebAsmRunner<int8_t> r;
   const byte kExpectedValue = 121;
-  static const byte kCode[] = {kStmtReturn, 1, kExprInt8Const, kExpectedValue};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  // return(kExpectedValue)
+  BUILD(r, WASM_RETURN(1, WASM_INT8(kExpectedValue)));
   CHECK_EQ(kExpectedValue, r.Call());
 }
 
@@ -115,10 +122,10 @@ TEST(Run_WebAsmInt8Const) {
 TEST(Run_WebAsmInt8Const_all) {
   for (int value = -128; value <= 127; value++) {
     WebAsmRunner<int8_t> r;
-    byte kCode[] = {kStmtReturn, 1, kExprInt8Const, static_cast<byte>(value)};
-
-    r.Build(kCode, kCode + arraysize(kCode));
-    CHECK_EQ(value, r.Call());
+    // return(value)
+    BUILD(r, WASM_RETURN(1, WASM_INT8(value)));
+    int8_t result = r.Call();
+    CHECK_EQ(value, result);
   }
 }
 
@@ -126,10 +133,8 @@ TEST(Run_WebAsmInt8Const_all) {
 TEST(Run_WebAsmInt32Const) {
   WebAsmRunner<int32_t> r;
   const int32_t kExpectedValue = 0x11223344;
-  static const byte kCode[] = {kStmtReturn, 1, kExprInt32Const,
-                               LE32(kExpectedValue)};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  // return(kExpectedValue)
+  BUILD(r, WASM_RETURN(1, WASM_INT32(kExpectedValue)));
   CHECK_EQ(kExpectedValue, r.Call());
 }
 
@@ -138,9 +143,8 @@ TEST(Run_WebAsmInt32Const_many) {
   FOR_INT32_INPUTS(i) {
     WebAsmRunner<int32_t> r;
     const int32_t kExpectedValue = *i;
-    byte kCode[] = {kStmtReturn, 1, kExprInt32Const, LE32(kExpectedValue)};
-
-    r.Build(kCode, kCode + arraysize(kCode));
+    // return(kExpectedValue)
+    BUILD(r, WASM_RETURN(1, WASM_INT32(kExpectedValue)));
     CHECK_EQ(kExpectedValue, r.Call());
   }
 }
@@ -148,18 +152,16 @@ TEST(Run_WebAsmInt32Const_many) {
 
 TEST(Run_WebAsmInt32Param0) {
   WebAsmRunner<int32_t> r(kMachInt32);
-  static const byte kCode[] = {kStmtReturn, 1, kExprGetLocal, 0};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  // return(local[0])
+  BUILD(r, WASM_RETURN(1, WASM_GET_LOCAL(0)));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i, r.Call(*i)); }
 }
 
 
 TEST(Run_WebAsmInt32Param1) {
   WebAsmRunner<int32_t> r(kMachInt32, kMachInt32);
-  static const byte kCode[] = {kStmtReturn, 1, kExprGetLocal, 1};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  // return(local[1])
+  BUILD(r, WASM_RETURN(1, WASM_GET_LOCAL(1)));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i, r.Call(-111, *i)); }
 }
 
@@ -167,10 +169,7 @@ TEST(Run_WebAsmInt32Param1) {
 TEST(Run_WebAsmInt32Add) {
   WebAsmRunner<int32_t> r;
   // return 11 + 44
-  static const byte kCode[] = {kStmtReturn, 1, kExprInt32Add, kExprInt8Const,
-                               11, kExprInt8Const, 44};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_RETURN(1, WASM_INT32_ADD(WASM_INT8(11), WASM_INT8(44))));
   CHECK_EQ(55, r.Call());
 }
 
@@ -178,10 +177,7 @@ TEST(Run_WebAsmInt32Add) {
 TEST(Run_WebAsmInt32Add_P) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // return p0 + 13
-  static const byte kCode[] = {kStmtReturn, 1, kExprInt32Add, kExprInt8Const,
-                               13, kExprGetLocal, 0};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_RETURN(1, WASM_INT32_ADD(WASM_INT8(13), WASM_GET_LOCAL(0))));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i + 13, r.Call(*i)); }
 }
 
@@ -189,10 +185,8 @@ TEST(Run_WebAsmInt32Add_P) {
 TEST(Run_WebAsmInt32Add_P2) {
   WebAsmRunner<int32_t> r(kMachInt32, kMachInt32);
   // return p0 + p1
-  static const byte kCode[] = {kStmtReturn, 1, kExprInt32Add, kExprGetLocal, 0,
-                               kExprGetLocal, 1};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r,
+        WASM_RETURN(1, WASM_INT32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
   FOR_INT32_INPUTS(i) {
     FOR_INT32_INPUTS(j) {
       int32_t expected = static_cast<int32_t>(static_cast<uint32_t>(*i) +
@@ -207,11 +201,9 @@ TEST(Run_WebAsmInt32Add_P2) {
 TEST(Run_WebAsm_IfThen_P) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // if (p0) return 11; else return 22;
-  static const byte kCode[] = {kStmtIfThen, kExprGetLocal, 0, kStmtReturn, 1,
-                               kExprInt8Const, 11, kStmtReturn, 1,
-                               kExprInt8Const, 22};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),                // --
+                        WASM_RETURN(1, WASM_INT8(11)),    // --
+                        WASM_RETURN(1, WASM_INT8(22))));  // --
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 11 : 22;
     CHECK_EQ(expected, r.Call(*i));
@@ -222,11 +214,10 @@ TEST(Run_WebAsm_IfThen_P) {
 TEST(Run_WebAsm_Block_If_P) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // { if (p0) return 51; return 52; }
-  static const byte kCode[] = {kStmtBlock, 2, kStmtIf, kExprGetLocal, 0,
-                               kStmtReturn, 1, kExprInt8Const, 51, kStmtReturn,
-                               1, kExprInt8Const, 52};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_BLOCK(2,                                       // --
+                      WASM_IF(WASM_GET_LOCAL(0),               // --
+                              WASM_RETURN(1, WASM_INT8(51))),  // --
+                      WASM_RETURN(1, WASM_INT8(52))));         // --
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 51 : 52;
     CHECK_EQ(expected, r.Call(*i));
@@ -237,12 +228,11 @@ TEST(Run_WebAsm_Block_If_P) {
 TEST(Run_WebAsm_Block_IfThen_P_assign) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 71; else p0 = 72; return p0; }
-  static const byte kCode[] = {kStmtBlock, 2, kStmtIfThen, kExprGetLocal, 0,
-                               kStmtSetLocal, 0, kExprInt8Const, 71,
-                               kStmtSetLocal, 0, kExprInt8Const, 72,
-                               kStmtReturn, 1, kExprGetLocal, 0};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_BLOCK(2,                                               // --
+                      WASM_IF_THEN(WASM_GET_LOCAL(0),                  // --
+                                   WASM_SET_LOCAL(0, WASM_INT8(71)),   // --
+                                   WASM_SET_LOCAL(0, WASM_INT8(72))),  // --
+                      WASM_RETURN(1, WASM_GET_LOCAL(0))));
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 71 : 72;
     CHECK_EQ(expected, r.Call(*i));
@@ -253,11 +243,9 @@ TEST(Run_WebAsm_Block_IfThen_P_assign) {
 TEST(Run_WebAsm_Block_If_P_assign) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 61; return p0; }
-  static const byte kCode[] = {kStmtBlock, 2, kStmtIf, kExprGetLocal, 0,
-                               kStmtSetLocal, 0, kExprInt8Const, 61,
-                               kStmtReturn, 1, kExprGetLocal, 0};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_BLOCK(
+               2, WASM_IF(WASM_GET_LOCAL(0), WASM_SET_LOCAL(0, WASM_INT8(61))),
+               WASM_RETURN(1, WASM_GET_LOCAL(0))));
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 61 : *i;
     CHECK_EQ(expected, r.Call(*i));
@@ -268,10 +256,9 @@ TEST(Run_WebAsm_Block_If_P_assign) {
 TEST(Run_WebAsm_Ternary_P) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // return p0 ? 11 : 22;
-  static const byte kCode[] = {kStmtReturn, 1, kExprTernary, kExprGetLocal, 0,
-                               kExprInt8Const, 11, kExprInt8Const, 22};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_RETURN(1, WASM_TERNARY(WASM_GET_LOCAL(0),  // --
+                                       WASM_INT8(11),      // --
+                                       WASM_INT8(22))));   // --
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 11 : 22;
     CHECK_EQ(expected, r.Call(*i));
@@ -282,10 +269,7 @@ TEST(Run_WebAsm_Ternary_P) {
 TEST(Run_WebAsm_Comma_P) {
   WebAsmRunner<int32_t> r(kMachInt32);
   // return p0, 17;
-  static const byte kCode[] = {kStmtReturn, 1, kExprComma, kExprGetLocal, 0,
-                               kExprInt8Const, 17};
-
-  r.Build(kCode, kCode + arraysize(kCode));
+  BUILD(r, WASM_RETURN(1, WASM_COMMA(WASM_GET_LOCAL(0), WASM_INT8(17))));
   FOR_INT32_INPUTS(i) { CHECK_EQ(17, r.Call(*i)); }
 }
 
