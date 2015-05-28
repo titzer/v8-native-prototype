@@ -2,11 +2,12 @@ diff --git a/test/unittests/unittests.gyp b/test/unittests/unittests.gyp
 index 7a298a9..38ef423 100644
 --- a/test/unittests/unittests.gyp
 +++ b/test/unittests/unittests.gyp
-@@ -91,6 +91,7 @@
+@@ -91,6 +91,8 @@
          'run-all-unittests.cc',
          'test-utils.h',
          'test-utils.cc',
 +        'webasm/decoder-unittest.cc',
++        'webasm/webasm-macro-gen-unittest.cc',
          '../../src/startup-data-util.h',
          '../../src/startup-data-util.cc'
        ],

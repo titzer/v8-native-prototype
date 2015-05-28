@@ -229,21 +229,29 @@ class LR_WebAsmDecoder {
         }
         case kStmtBlock: {
           int length = Operand<uint8_t>(pc_);
-          Shift(kAstStmt, length);
-          SsaEnv* cont_env = nullptr;
-          SsaEnv* break_env = UnreachableEnv();
-          blocks_.push_back({cont_env, break_env});
+          if (length == 0) {
+            Leaf(kAstStmt);
+          } else {
+            Shift(kAstStmt, length);
+            SsaEnv* cont_env = nullptr;
+            SsaEnv* break_env = UnreachableEnv();
+            blocks_.push_back({cont_env, break_env});
+          }
           len = 2;
           break;
         }
         case kStmtLoop: {
           int length = Operand<uint8_t>(pc_);
-          Shift(kAstStmt, length);
-          PrepareForLoop(ssa_env_);
-          SsaEnv* cont_env = Split(ssa_env_);
-          SsaEnv* break_env = UnreachableEnv();
-          ssa_env_->state = SsaEnv::kReached;
-          blocks_.push_back({cont_env, break_env});
+          if (length == 0) {
+            Leaf(kAstStmt);  // TODO: that's an infinite loop.
+          } else {
+            Shift(kAstStmt, length);
+            PrepareForLoop(ssa_env_);
+            SsaEnv* cont_env = Split(ssa_env_);
+            SsaEnv* break_env = UnreachableEnv();
+            ssa_env_->state = SsaEnv::kReached;
+            blocks_.push_back({cont_env, break_env});
+          }
           len = 2;
           break;
         }

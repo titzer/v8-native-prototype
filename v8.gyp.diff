@@ -2,7 +2,7 @@ diff --git a/tools/gyp/v8.gyp b/tools/gyp/v8.gyp
 index 2785d48..21a2ef0 100644
 --- a/tools/gyp/v8.gyp
 +++ b/tools/gyp/v8.gyp
-@@ -932,6 +932,12 @@
+@@ -932,6 +932,13 @@
          '../../src/version.h',
          '../../src/vm-state-inl.h',
          '../../src/vm-state.h',
@@ -10,6 +10,7 @@ index 2785d48..21a2ef0 100644
 +        '../../src/webasm/decoder.h',
 +        '../../src/webasm/tf-builder.h',
 +        '../../src/webasm/tf-builder.cc',
++        '../../src/webasm/webasm-macro-gen.h',
 +        '../../src/webasm/webasm-opcodes.cc',
 +        '../../src/webasm/webasm-opcodes.h',
          '../../src/zone.cc',
