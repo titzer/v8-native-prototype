@@ -6,7 +6,7 @@ index 276ebd2..b4c70e0 100644
          'compiler/test-run-stackcheck.cc',
          'compiler/test-run-stubs.cc',
          'compiler/test-run-variables.cc',
-+        'compiler/test-run-webasm.cc',
++        'compiler/test-run-wasm.cc',
          'compiler/test-simplified-lowering.cc',
          'cctest.cc',
          'gay-fixed.cc',

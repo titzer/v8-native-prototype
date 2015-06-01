@@ -7,7 +7,7 @@
 
 namespace v8 {
 namespace internal {
-namespace webasm {
+namespace wasm {
 
 // Types for syntax tree nodes.
 enum AstType {
@@ -139,7 +139,7 @@ enum Atomicity {
   FOREACH_STMT_OPCODE(V)  \
   FOREACH_EXPR_OPCODE(V)
 
-enum WebAsmOpcode {
+enum WasmOpcode {
 // Declare statement opcodes.
 #define DECLARE_NAMED_ENUM(name, opcode) kStmt##name = opcode,
   FOREACH_STMT_OPCODE(DECLARE_NAMED_ENUM)
@@ -151,7 +151,7 @@ enum WebAsmOpcode {
 #undef DECLARE_NAMED_ENUM
 };
 
-const char* OpcodeName(WebAsmOpcode opcode);
+const char* OpcodeName(WasmOpcode opcode);
 const char* TypeName(AstType type);
 const char* TypeName(MemType type);
 }

@@ -5,8 +5,8 @@
 #include "src/compiler/js-graph.h"
 #include "src/compiler/graph-visualizer.h"
 
-#include "src/webasm/webasm-opcodes.h"
-#include "src/webasm/decoder.h"
+#include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/decoder.h"
 
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/graph-builder-tester.h"
@@ -17,7 +17,7 @@
 using namespace v8::base;
 using namespace v8::internal;
 using namespace v8::internal::compiler;
-using namespace v8::internal::webasm;
+using namespace v8::internal::wasm;
 
 #define LE32(x)                                                                \
   static_cast<byte>(x), static_cast<byte>(x >> 8), static_cast<byte>(x >> 16), \
@@ -60,12 +60,12 @@ struct CommonSignatures {
 };
 
 
-// A helper class to build graphs from WebAsm bytecode, generate machine
+// A helper class to build graphs from Wasm bytecode, generate machine
 // code, and run that code.
 template <typename ReturnType>
-class WebAsmRunner : public GraphBuilderTester<ReturnType> {
+class WasmRunner : public GraphBuilderTester<ReturnType> {
  public:
-  WebAsmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
+  WasmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
                MachineType p2 = kMachNone, MachineType p3 = kMachNone,
                MachineType p4 = kMachNone)
       : GraphBuilderTester<ReturnType>(p0, p1, p2, p3, p4),
@@ -102,8 +102,8 @@ class WebAsmRunner : public GraphBuilderTester<ReturnType> {
 };
 
 
-TEST(Run_WebAsmInt8Const) {
-  WebAsmRunner<int8_t> r;
+TEST(Run_WasmInt8Const) {
+  WasmRunner<int8_t> r;
   const byte kExpectedValue = 121;
   static const byte kCode[] = {kStmtReturn, 1, kExprInt8Const, kExpectedValue};
 
@@ -112,9 +112,9 @@ TEST(Run_WebAsmInt8Const) {
 }
 
 
-TEST(Run_WebAsmInt8Const_all) {
+TEST(Run_WasmInt8Const_all) {
   for (int value = -128; value <= 127; value++) {
-    WebAsmRunner<int8_t> r;
+    WasmRunner<int8_t> r;
     byte kCode[] = {kStmtReturn, 1, kExprInt8Const, static_cast<byte>(value)};
 
     r.Build(kCode, kCode + arraysize(kCode));
@@ -123,8 +123,8 @@ TEST(Run_WebAsmInt8Const_all) {
 }
 
 
-TEST(Run_WebAsmInt32Const) {
-  WebAsmRunner<int32_t> r;
+TEST(Run_WasmInt32Const) {
+  WasmRunner<int32_t> r;
   const int32_t kExpectedValue = 0x11223344;
   static const byte kCode[] = {kStmtReturn, 1, kExprInt32Const,
                                LE32(kExpectedValue)};
@@ -134,9 +134,9 @@ TEST(Run_WebAsmInt32Const) {
 }
 
 
-TEST(Run_WebAsmInt32Const_many) {
+TEST(Run_WasmInt32Const_many) {
   FOR_INT32_INPUTS(i) {
-    WebAsmRunner<int32_t> r;
+    WasmRunner<int32_t> r;
     const int32_t kExpectedValue = *i;
     byte kCode[] = {kStmtReturn, 1, kExprInt32Const, LE32(kExpectedValue)};
 
@@ -146,8 +146,8 @@ TEST(Run_WebAsmInt32Const_many) {
 }
 
 
-TEST(Run_WebAsmInt32Param0) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_WasmInt32Param0) {
+  WasmRunner<int32_t> r(kMachInt32);
   static const byte kCode[] = {kStmtReturn, 1, kExprGetLocal, 0};
 
   r.Build(kCode, kCode + arraysize(kCode));
@@ -155,8 +155,8 @@ TEST(Run_WebAsmInt32Param0) {
 }
 
 
-TEST(Run_WebAsmInt32Param1) {
-  WebAsmRunner<int32_t> r(kMachInt32, kMachInt32);
+TEST(Run_WasmInt32Param1) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
   static const byte kCode[] = {kStmtReturn, 1, kExprGetLocal, 1};
 
   r.Build(kCode, kCode + arraysize(kCode));
@@ -164,8 +164,8 @@ TEST(Run_WebAsmInt32Param1) {
 }
 
 
-TEST(Run_WebAsmInt32Add) {
-  WebAsmRunner<int32_t> r;
+TEST(Run_WasmInt32Add) {
+  WasmRunner<int32_t> r;
   // return 11 + 44
   static const byte kCode[] = {kStmtReturn, 1, kExprInt32Add, kExprInt8Const,
                                11, kExprInt8Const, 44};
@@ -175,8 +175,8 @@ TEST(Run_WebAsmInt32Add) {
 }
 
 
-TEST(Run_WebAsmInt32Add_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_WasmInt32Add_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // return p0 + 13
   static const byte kCode[] = {kStmtReturn, 1, kExprInt32Add, kExprInt8Const,
                                13, kExprGetLocal, 0};
@@ -186,8 +186,8 @@ TEST(Run_WebAsmInt32Add_P) {
 }
 
 
-TEST(Run_WebAsmInt32Add_P2) {
-  WebAsmRunner<int32_t> r(kMachInt32, kMachInt32);
+TEST(Run_WasmInt32Add_P2) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
   // return p0 + p1
   static const byte kCode[] = {kStmtReturn, 1, kExprInt32Add, kExprGetLocal, 0,
                                kExprGetLocal, 1};
@@ -204,8 +204,8 @@ TEST(Run_WebAsmInt32Add_P2) {
 
 // TODO: test all Int32 binops
 
-TEST(Run_WebAsm_IfThen_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_IfThen_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // if (p0) return 11; else return 22;
   static const byte kCode[] = {kStmtIfThen, kExprGetLocal, 0, kStmtReturn, 1,
                                kExprInt8Const, 11, kStmtReturn, 1,
@@ -219,8 +219,8 @@ TEST(Run_WebAsm_IfThen_P) {
 }
 
 
-TEST(Run_WebAsm_Block_If_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Block_If_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) return 51; return 52; }
   static const byte kCode[] = {kStmtBlock, 2, kStmtIf, kExprGetLocal, 0,
                                kStmtReturn, 1, kExprInt8Const, 51, kStmtReturn,
@@ -234,8 +234,8 @@ TEST(Run_WebAsm_Block_If_P) {
 }
 
 
-TEST(Run_WebAsm_Block_IfThen_P_assign) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Block_IfThen_P_assign) {
+  WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 71; else p0 = 72; return p0; }
   static const byte kCode[] = {kStmtBlock, 2, kStmtIfThen, kExprGetLocal, 0,
                                kStmtSetLocal, 0, kExprInt8Const, 71,
@@ -250,8 +250,8 @@ TEST(Run_WebAsm_Block_IfThen_P_assign) {
 }
 
 
-TEST(Run_WebAsm_Block_If_P_assign) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Block_If_P_assign) {
+  WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 61; return p0; }
   static const byte kCode[] = {kStmtBlock, 2, kStmtIf, kExprGetLocal, 0,
                                kStmtSetLocal, 0, kExprInt8Const, 61,

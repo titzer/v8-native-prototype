@@ -5,9 +5,9 @@
 #ifndef V8_WEBASM_MACRO_GEN_H_
 #define V8_WEBASM_MACRO_GEN_H_
 
-#include "src/webasm/webasm-opcodes.h"
+#include "src/wasm/wasm-opcodes.h"
 
-// Convenience macros for building WebAsm bytecode directly into a byte array.
+// Convenience macros for building Wasm bytecode directly into a byte array.
 
 //------------------------------------------------------------------------------
 // Statements.

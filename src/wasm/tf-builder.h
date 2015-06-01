@@ -15,7 +15,7 @@ class Node;
 class JSGraph;
 }
 
-namespace webasm {
+namespace wasm {
 
 typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
@@ -64,8 +64,8 @@ struct TFBuilder {
   TFNode* Int32Constant(int value);
   TFNode* Float32Constant(float value);
   TFNode* Float64Constant(double value);
-  TFNode* Binop(WebAsmOpcode opcode, TFNode* left, TFNode* right);
-  TFNode* Unop(WebAsmOpcode opcode, TFNode* input);
+  TFNode* Binop(WasmOpcode opcode, TFNode* left, TFNode* right);
+  TFNode* Unop(WasmOpcode opcode, TFNode* input);
   unsigned InputCount(TFNode* node);
   bool IsPhiWithMerge(TFNode* phi, TFNode* merge);
   void AppendToMerge(TFNode* merge, TFNode* from);
@@ -90,7 +90,7 @@ struct TFBuilder {
 };
 }
 }
-}  // namespace v8::internal::webasm
+}  // namespace v8::internal::wasm
 
 
 #endif  // V8_WEBASM_TF_BUILDER_H_

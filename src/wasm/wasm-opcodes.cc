@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/webasm/webasm-opcodes.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {
-namespace webasm {
+namespace wasm {
 
-const char* OpcodeName(WebAsmOpcode opcode) {
+const char* OpcodeName(WasmOpcode opcode) {
   switch (opcode) {
 #define DECLARE_NAME_CASE(name, opcode) \
   case kStmt##name:                     \

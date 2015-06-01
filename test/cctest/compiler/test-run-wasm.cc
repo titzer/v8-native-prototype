@@ -5,9 +5,9 @@
 #include "src/compiler/js-graph.h"
 #include "src/compiler/graph-visualizer.h"
 
-#include "src/webasm/webasm-opcodes.h"
-#include "src/webasm/webasm-macro-gen.h"
-#include "src/webasm/decoder.h"
+#include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/wasm-macro-gen.h"
+#include "src/wasm/decoder.h"
 
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/graph-builder-tester.h"
@@ -18,7 +18,7 @@
 using namespace v8::base;
 using namespace v8::internal;
 using namespace v8::internal::compiler;
-using namespace v8::internal::webasm;
+using namespace v8::internal::wasm;
 
 #define LE32(x)                                                                \
   static_cast<byte>(x), static_cast<byte>(x >> 8), static_cast<byte>(x >> 16), \
@@ -61,12 +61,12 @@ struct CommonSignatures {
 };
 
 
-// A helper class to build graphs from WebAsm bytecode, generate machine
+// A helper class to build graphs from Wasm bytecode, generate machine
 // code, and run that code.
 template <typename ReturnType>
-class WebAsmRunner : public GraphBuilderTester<ReturnType> {
+class WasmRunner : public GraphBuilderTester<ReturnType> {
  public:
-  WebAsmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
+  WasmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
                MachineType p2 = kMachNone, MachineType p3 = kMachNone,
                MachineType p4 = kMachNone)
       : GraphBuilderTester<ReturnType>(p0, p1, p2, p3, p4),
@@ -110,8 +110,8 @@ class WebAsmRunner : public GraphBuilderTester<ReturnType> {
   } while (false)
 
 
-TEST(Run_WebAsmInt8Const) {
-  WebAsmRunner<int8_t> r;
+TEST(Run_WasmInt8Const) {
+  WasmRunner<int8_t> r;
   const byte kExpectedValue = 121;
   // return(kExpectedValue)
   BUILD(r, WASM_RETURN(1, WASM_INT8(kExpectedValue)));
@@ -119,9 +119,9 @@ TEST(Run_WebAsmInt8Const) {
 }
 
 
-TEST(Run_WebAsmInt8Const_all) {
+TEST(Run_WasmInt8Const_all) {
   for (int value = -128; value <= 127; value++) {
-    WebAsmRunner<int8_t> r;
+    WasmRunner<int8_t> r;
     // return(value)
     BUILD(r, WASM_RETURN(1, WASM_INT8(value)));
     int8_t result = r.Call();
@@ -130,8 +130,8 @@ TEST(Run_WebAsmInt8Const_all) {
 }
 
 
-TEST(Run_WebAsmInt32Const) {
-  WebAsmRunner<int32_t> r;
+TEST(Run_WasmInt32Const) {
+  WasmRunner<int32_t> r;
   const int32_t kExpectedValue = 0x11223344;
   // return(kExpectedValue)
   BUILD(r, WASM_RETURN(1, WASM_INT32(kExpectedValue)));
@@ -139,9 +139,9 @@ TEST(Run_WebAsmInt32Const) {
 }
 
 
-TEST(Run_WebAsmInt32Const_many) {
+TEST(Run_WasmInt32Const_many) {
   FOR_INT32_INPUTS(i) {
-    WebAsmRunner<int32_t> r;
+    WasmRunner<int32_t> r;
     const int32_t kExpectedValue = *i;
     // return(kExpectedValue)
     BUILD(r, WASM_RETURN(1, WASM_INT32(kExpectedValue)));
@@ -150,40 +150,40 @@ TEST(Run_WebAsmInt32Const_many) {
 }
 
 
-TEST(Run_WebAsmInt32Param0) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_WasmInt32Param0) {
+  WasmRunner<int32_t> r(kMachInt32);
   // return(local[0])
   BUILD(r, WASM_RETURN(1, WASM_GET_LOCAL(0)));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i, r.Call(*i)); }
 }
 
 
-TEST(Run_WebAsmInt32Param1) {
-  WebAsmRunner<int32_t> r(kMachInt32, kMachInt32);
+TEST(Run_WasmInt32Param1) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
   // return(local[1])
   BUILD(r, WASM_RETURN(1, WASM_GET_LOCAL(1)));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i, r.Call(-111, *i)); }
 }
 
 
-TEST(Run_WebAsmInt32Add) {
-  WebAsmRunner<int32_t> r;
+TEST(Run_WasmInt32Add) {
+  WasmRunner<int32_t> r;
   // return 11 + 44
   BUILD(r, WASM_RETURN(1, WASM_INT32_ADD(WASM_INT8(11), WASM_INT8(44))));
   CHECK_EQ(55, r.Call());
 }
 
 
-TEST(Run_WebAsmInt32Add_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_WasmInt32Add_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // return p0 + 13
   BUILD(r, WASM_RETURN(1, WASM_INT32_ADD(WASM_INT8(13), WASM_GET_LOCAL(0))));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i + 13, r.Call(*i)); }
 }
 
 
-TEST(Run_WebAsmInt32Add_P2) {
-  WebAsmRunner<int32_t> r(kMachInt32, kMachInt32);
+TEST(Run_WasmInt32Add_P2) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
   // return p0 + p1
   BUILD(r,
         WASM_RETURN(1, WASM_INT32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
@@ -198,8 +198,8 @@ TEST(Run_WebAsmInt32Add_P2) {
 
 // TODO: test all Int32 binops
 
-TEST(Run_WebAsm_IfThen_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_IfThen_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // if (p0) return 11; else return 22;
   BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),                // --
                         WASM_RETURN(1, WASM_INT8(11)),    // --
@@ -211,8 +211,8 @@ TEST(Run_WebAsm_IfThen_P) {
 }
 
 
-TEST(Run_WebAsm_Block_If_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Block_If_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) return 51; return 52; }
   BUILD(r, WASM_BLOCK(2,                                       // --
                       WASM_IF(WASM_GET_LOCAL(0),               // --
@@ -225,8 +225,8 @@ TEST(Run_WebAsm_Block_If_P) {
 }
 
 
-TEST(Run_WebAsm_Block_IfThen_P_assign) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Block_IfThen_P_assign) {
+  WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 71; else p0 = 72; return p0; }
   BUILD(r, WASM_BLOCK(2,                                               // --
                       WASM_IF_THEN(WASM_GET_LOCAL(0),                  // --
@@ -240,8 +240,8 @@ TEST(Run_WebAsm_Block_IfThen_P_assign) {
 }
 
 
-TEST(Run_WebAsm_Block_If_P_assign) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Block_If_P_assign) {
+  WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 61; return p0; }
   BUILD(r, WASM_BLOCK(
                2, WASM_IF(WASM_GET_LOCAL(0), WASM_SET_LOCAL(0, WASM_INT8(61))),
@@ -253,8 +253,8 @@ TEST(Run_WebAsm_Block_If_P_assign) {
 }
 
 
-TEST(Run_WebAsm_Ternary_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Ternary_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // return p0 ? 11 : 22;
   BUILD(r, WASM_RETURN(1, WASM_TERNARY(WASM_GET_LOCAL(0),  // --
                                        WASM_INT8(11),      // --
@@ -266,8 +266,8 @@ TEST(Run_WebAsm_Ternary_P) {
 }
 
 
-TEST(Run_WebAsm_Comma_P) {
-  WebAsmRunner<int32_t> r(kMachInt32);
+TEST(Run_Wasm_Comma_P) {
+  WasmRunner<int32_t> r(kMachInt32);
   // return p0, 17;
   BUILD(r, WASM_RETURN(1, WASM_COMMA(WASM_GET_LOCAL(0), WASM_INT8(17))));
   FOR_INT32_INPUTS(i) { CHECK_EQ(17, r.Call(*i)); }

@@ -3,13 +3,13 @@
 #include "src/signature.h"
 #include "src/zone-containers.h"
 
-#include "src/webasm/decoder.h"
-#include "src/webasm/webasm-opcodes.h"
-#include "src/webasm/tf-builder.h"
+#include "src/wasm/decoder.h"
+#include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/tf-builder.h"
 
 namespace v8 {
 namespace internal {
-namespace webasm {
+namespace wasm {
 
 // The root of a decoded tree.
 struct Tree {
@@ -19,7 +19,7 @@ struct Tree {
   TFNode* node;       // node in the TurboFan graph.
   Tree* children[1];  // pointers to children.
 
-  WebAsmOpcode opcode() const { return static_cast<WebAsmOpcode>(*pc); }
+  WasmOpcode opcode() const { return static_cast<WasmOpcode>(*pc); }
 };
 
 // A production represents an incomplete decoded tree in the LR decoder.
@@ -27,7 +27,7 @@ struct Production {
   Tree* tree;  // the root of the syntax tree.
   int index;   // the current index into the children of the tree.
 
-  WebAsmOpcode opcode() const { return static_cast<WebAsmOpcode>(*pc()); }
+  WasmOpcode opcode() const { return static_cast<WasmOpcode>(*pc()); }
   const byte* pc() const { return tree->pc; }
   bool done() const { return index >= tree->count; }
   Tree* last() const { return index > 0 ? tree->children[index - 1] : nullptr; }
@@ -64,11 +64,11 @@ struct IfEnv {
   SsaEnv* false_env;
 };
 
-// A LR-parser strategy for decoding WebAsm code that uses an explicit
+// A LR-parser strategy for decoding Wasm code that uses an explicit
 // shift-reduce strategy with multiple internal stacks.
-class LR_WebAsmDecoder {
+class LR_WasmDecoder {
  public:
-  LR_WebAsmDecoder(Zone* zone, TFGraph* g)
+  LR_WasmDecoder(Zone* zone, TFGraph* g)
       : zone_(zone),
         builder_(zone, g),
         trees_(zone),
@@ -198,7 +198,7 @@ class LR_WebAsmDecoder {
       }
 
       int len = 1;
-      WebAsmOpcode opcode = static_cast<WebAsmOpcode>(*pc_);
+      WasmOpcode opcode = static_cast<WasmOpcode>(*pc_);
 
       switch (opcode) {
         case kStmtSetLocal: {
@@ -438,7 +438,7 @@ class LR_WebAsmDecoder {
   }
 
   void Reduce(Production* p) {
-    WebAsmOpcode opcode = p->opcode();
+    WasmOpcode opcode = p->opcode();
     switch (opcode) {
       case kStmtSetLocal: {
         unsigned index = LocalIndexOperand(p->pc());
@@ -942,9 +942,9 @@ class LR_WebAsmDecoder {
 };
 
 
-Result VerifyWebAsmCode(FunctionEnv* env, const byte* start, const byte* end) {
+Result VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end) {
   Zone zone;
-  LR_WebAsmDecoder decoder(&zone, nullptr);
+  LR_WasmDecoder decoder(&zone, nullptr);
   Result result = decoder.Decode(env, start, end);
   return result;
 }
@@ -953,18 +953,18 @@ Result VerifyWebAsmCode(FunctionEnv* env, const byte* start, const byte* end) {
 Result BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
                     const byte* end) {
   Zone zone;
-  LR_WebAsmDecoder decoder(&zone, graph);
+  LR_WasmDecoder decoder(&zone, graph);
   Result result = decoder.Decode(env, start, end);
   return result;
 }
 
 
-void TestWebAsmDecodingSpeed() {
+void TestWasmDecodingSpeed() {
   byte code[] = {kStmtSetLocal, 0, kExprInt32Add, kExprGetLocal, 0,
                  kExprInt8Const, 5};
 
   Zone zone;
-  LR_WebAsmDecoder decoder(&zone, nullptr);
+  LR_WasmDecoder decoder(&zone, nullptr);
   FunctionSig::Builder builder(&zone, 1, 1);
   builder.AddReturn(kAstInt32);
   builder.AddParam(kAstInt32);

@@ -8,7 +8,7 @@
 #include "src/zone.h"
 #include "src/signature.h"
 #include "src/zone-containers.h"
-#include "src/webasm/webasm-opcodes.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {
@@ -18,7 +18,7 @@ class Node;
 class JSGraph;
 }
 
-namespace webasm {
+namespace wasm {
 
 typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
@@ -100,7 +100,7 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree);
 std::ostream& operator<<(std::ostream& os, const Result& result);
 std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code);
 
-Result VerifyWebAsmCode(FunctionEnv* env, const byte* start, const byte* end);
+Result VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end);
 Result BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
                     const byte* end);
 }

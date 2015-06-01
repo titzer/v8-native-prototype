@@ -6,13 +6,13 @@
 #include "src/compiler/common-operator.h"
 #include "src/compiler/machine-operator.h"
 
-#include "src/webasm/webasm-opcodes.h"
+#include "src/wasm/wasm-opcodes.h"
 
-#include "src/webasm/tf-builder.h"
+#include "src/wasm/tf-builder.h"
 
 namespace v8 {
 namespace internal {
-namespace webasm {
+namespace wasm {
 
 static compiler::MachineType MachineTypeFor(AstType type) {
   switch (type) {
@@ -124,7 +124,7 @@ TFNode* TFBuilder::Int32Constant(int value) {
 }
 
 
-TFNode* TFBuilder::Binop(WebAsmOpcode opcode, TFNode* left, TFNode* right) {
+TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
   if (!graph) return nullptr;
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
@@ -235,7 +235,7 @@ TFNode* TFBuilder::Binop(WebAsmOpcode opcode, TFNode* left, TFNode* right) {
 }
 
 
-TFNode* TFBuilder::Unop(WebAsmOpcode opcode, TFNode* input) {
+TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
   if (!graph) return nullptr;
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();

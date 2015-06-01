@@ -3,11 +3,11 @@
 // found in the LICENSE file.
 
 #include "test/unittests/test-utils.h"
-#include "src/webasm/webasm-macro-gen.h"
+#include "src/wasm/wasm-macro-gen.h"
 
 namespace v8 {
 namespace internal {
-namespace webasm {
+namespace wasm {
 
 class MacroGenTest : public TestWithZone {};
 

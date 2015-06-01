@@ -3,12 +3,12 @@
 // found in the LICENSE file.
 
 #include "test/unittests/test-utils.h"
-#include "src/webasm/decoder.h"
-#include "src/webasm/webasm-macro-gen.h"
+#include "src/wasm/decoder.h"
+#include "src/wasm/wasm-macro-gen.h"
 
 namespace v8 {
 namespace internal {
-namespace webasm {
+namespace wasm {
 
 static AstType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                kAstInt32};
@@ -31,7 +31,7 @@ static const byte kCodeSetLocal0[] = {kStmtSetLocal, 0, kExprInt8Const, 0};
 
 static const AstType kAstTypes[] = {kAstInt32, kAstFloat32, kAstFloat64};
 
-static const WebAsmOpcode kInt32BinopOpcodes[] = {
+static const WasmOpcode kInt32BinopOpcodes[] = {
     kExprInt32Add,  kExprInt32Sub,  kExprInt32Mul,  kExprInt32SDiv,
     kExprInt32UDiv, kExprInt32SMod, kExprInt32UMod, kExprInt32And,
     kExprInt32Ior,  kExprInt32Xor,  kExprInt32Shl,  kExprInt32Shr,
@@ -99,10 +99,10 @@ class DecoderTest : public TestWithZone {
     env->total_locals = sig->parameter_count();
   }
 
-  // A wrapper around VerifyWebAsmCode() that renders a nice failure message.
+  // A wrapper around VerifyWasmCode() that renders a nice failure message.
   void Verify(ErrorCode expected, FunctionEnv* env, const byte* start,
               const byte* end) {
-    Result result = VerifyWebAsmCode(env, start, end);
+    Result result = VerifyWasmCode(env, start, end);
     if (result.error_code != expected) {
       ptrdiff_t pc = result.error_pc - result.pc;
       ptrdiff_t pt = result.error_pt - result.pc;
@@ -121,7 +121,7 @@ class DecoderTest : public TestWithZone {
     }
   }
 
-  void TestBinop(WebAsmOpcode opcode, FunctionSig* success) {
+  void TestBinop(WasmOpcode opcode, FunctionSig* success) {
     // Return(op(local[0], local[1]))
     byte code[] = {kStmtReturn, 1, static_cast<byte>(opcode), kExprGetLocal, 0,
                    kExprGetLocal, 1};
@@ -147,7 +147,7 @@ class DecoderTest : public TestWithZone {
     }
   }
 
-  void TestUnop(WebAsmOpcode opcode, AstType ret_type, AstType param_type) {
+  void TestUnop(WasmOpcode opcode, AstType ret_type, AstType param_type) {
     // Return(op(local[0]))
     byte code[] = {kStmtReturn, 1, static_cast<byte>(opcode), kExprGetLocal, 0};
     FunctionEnv env;
@@ -680,11 +680,11 @@ TEST_F(DecoderTest, MacrosInt32) {
 //--------------------------------------------------------------------------
 // TODO: not a real test.
 //--------------------------------------------------------------------------
-void TestWebAsmDecodingSpeed();
+void TestWasmDecodingSpeed();
 
 
 TEST_F(DecoderTest, Speed) {
-  //  TestWebAsmDecodingSpeed();
+  //  TestWasmDecodingSpeed();
 }
 }
 }
