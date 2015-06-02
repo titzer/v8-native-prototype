@@ -67,8 +67,8 @@ template <typename ReturnType>
 class WasmRunner : public GraphBuilderTester<ReturnType> {
  public:
   WasmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
-               MachineType p2 = kMachNone, MachineType p3 = kMachNone,
-               MachineType p4 = kMachNone)
+             MachineType p2 = kMachNone, MachineType p3 = kMachNone,
+             MachineType p4 = kMachNone)
       : GraphBuilderTester<ReturnType>(p0, p1, p2, p3, p4),
         jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
                 this->machine()) {
@@ -273,5 +273,31 @@ TEST(Run_Wasm_Comma_P) {
   FOR_INT32_INPUTS(i) { CHECK_EQ(17, r.Call(*i)); }
 }
 
+
+TEST(Run_Wasm_CountDown) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_BLOCK(
+            2, WASM_LOOP(2, WASM_IF(WASM_NOT(WASM_GET_LOCAL(0)), WASM_BREAK(0)),
+                         WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
+                                                          WASM_INT8(1)))),
+            WASM_RETURN(1, WASM_GET_LOCAL(0))));
+  CHECK_EQ(0, r.Call(1));
+  CHECK_EQ(0, r.Call(10));
+  CHECK_EQ(0, r.Call(100));
+}
+
+
+TEST(Run_Wasm_WhileCountDown) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(
+               2, WASM_WHILE(WASM_GET_LOCAL(0),
+                             WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
+                                                              WASM_INT8(1)))),
+               WASM_RETURN(1, WASM_GET_LOCAL(0))));
+  CHECK_EQ(0, r.Call(1));
+  CHECK_EQ(0, r.Call(10));
+  CHECK_EQ(0, r.Call(100));
+}
 
 #endif  // V8_TURBOFAN_TARGET

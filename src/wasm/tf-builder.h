@@ -87,6 +87,8 @@ struct TFBuilder {
   TFNode* SetGlobal(unsigned, TFNode* val) { return nullptr; }
   TFNode* GetHeap(MemType type, TFNode* index) { return nullptr; }
   TFNode* SetHeap(MemType type, TFNode* index, TFNode* val) { return nullptr; }
+
+  static void PrintDebugName(TFNode* node);
 };
 }
 }

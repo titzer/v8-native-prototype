@@ -247,9 +247,10 @@ class LR_WasmDecoder {
           } else {
             Shift(kAstStmt, length);
             PrepareForLoop(ssa_env_);
-            SsaEnv* cont_env = Split(ssa_env_);
-            SsaEnv* break_env = UnreachableEnv();
+            SsaEnv* cont_env = ssa_env_;
+            ssa_env_ = Split(ssa_env_);
             ssa_env_->state = SsaEnv::kReached;
+            SsaEnv* break_env = UnreachableEnv();
             blocks_.push_back({cont_env, break_env});
           }
           len = 2;
@@ -374,6 +375,10 @@ class LR_WasmDecoder {
         }
         case kExprComma: {
           Shift(kAstInt32, 2);  // Result type is typeof(y) in {x, y}.
+          break;
+        }
+        case kExprBoolNot: {
+          Shift(kAstInt32, 1);
           break;
         }
 // === Binops that return int32 ========================================
@@ -651,6 +656,13 @@ class LR_WasmDecoder {
         }
         break;
       }
+      case kExprBoolNot: {
+        TypeCheckLast(p, kAstInt32);
+        if (p->done()) {
+          p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
+        }
+        break;
+      }
 // === Binops that take int32 ============================================
 #define DECLARE_REDUCE_CASE(name, opcode) case kExpr##name:  // fallthrough
         FOREACH_I_II_OPCODE(DECLARE_REDUCE_CASE)
@@ -768,26 +780,23 @@ class LR_WasmDecoder {
         TFNode* merge = to->control;
         // Extend the existing merge.
         builder_.AppendToMerge(merge, from->control);
-        if (to->effect != from->effect) {
-          // Merge effects.
-          if (builder_.IsPhiWithMerge(to->effect, merge)) {
-            builder_.AppendToPhi(merge, to->effect, from->effect);
-          } else {
-            unsigned count = builder_.InputCount(merge);
-            TFNode** effects = builder_.Buffer(count);
-            for (int j = 0; j < count - 1; j++) effects[j] = to->effect;
-            effects[count - 1] = from->effect;
-            to->effect = builder_.EffectPhi(count, effects, merge);
-          }
+        // Merge effects.
+        if (builder_.IsPhiWithMerge(to->effect, merge)) {
+          builder_.AppendToPhi(merge, to->effect, from->effect);
+        } else if (to->effect != from->effect) {
+          unsigned count = builder_.InputCount(merge);
+          TFNode** effects = builder_.Buffer(count);
+          for (int j = 0; j < count - 1; j++) effects[j] = to->effect;
+          effects[count - 1] = from->effect;
+          to->effect = builder_.EffectPhi(count, effects, merge);
         }
         // Merge locals.
         for (int i = EnvironmentCount() - 1; i >= 0; i--) {
           TFNode* tnode = to->locals[i];
           TFNode* fnode = from->locals[i];
-          if (tnode == fnode) continue;
           if (builder_.IsPhiWithMerge(tnode, merge)) {
             builder_.AppendToPhi(merge, tnode, fnode);
-          } else {
+          } else if (tnode != fnode) {
             unsigned count = builder_.InputCount(merge);
             TFNode** vals = builder_.Buffer(count);
             for (int j = 0; j < count - 1; j++) vals[j] = tnode;
@@ -937,8 +946,35 @@ class LR_WasmDecoder {
       result_.error_msg = msg;
       result_.error_pc = pc;
       result_.error_pt = pt;
+#if DEBUG
+      PrintStackForDebugging();
+#endif
     }
   }
+
+#if DEBUG
+  void PrintStackForDebugging() { PrintProduction(0); }
+
+  void PrintProduction(size_t depth) {
+    if (depth >= stack_.size()) return;
+    Production* p = &stack_[depth];
+    for (size_t d = 0; d < depth; d++) PrintF("  ");
+    PrintF("@%d %s [%d]\n", static_cast<int>(p->tree->pc - start_),
+           OpcodeName(p->opcode()), p->tree->count);
+    for (int i = 0; i < p->index; i++) {
+      Tree* child = p->tree->children[i];
+      for (size_t d = 0; d <= depth; d++) PrintF("  ");
+      PrintF("@%d %s [%d]", static_cast<int>(child->pc - start_),
+             OpcodeName(child->opcode()), child->count);
+      if (child->node) {
+        PrintF(" => TF");
+        TFBuilder::PrintDebugName(child->node);
+      }
+      PrintF("\n");
+    }
+    PrintProduction(depth + 1);
+  }
+#endif
 };
 
 

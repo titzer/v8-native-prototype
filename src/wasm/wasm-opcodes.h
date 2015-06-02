@@ -60,7 +60,8 @@ enum Atomicity {
   V(CallFunction, 0x17)             \
   V(CallIndirect, 0x18)             \
   V(Ternary, 0x19)                  \
-  V(Comma, 0x1a)
+  V(Comma, 0x1a)                    \
+  V(BoolNot, 0x1b)
 
 // Integer binops.
 #define FOREACH_I_II_OPCODE(V) \

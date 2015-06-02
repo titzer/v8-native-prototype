@@ -50,6 +50,14 @@
   kExprCallIndirect, static_cast<byte>(index), func
 #define WASM_TERNARY(cond, tval, fval) kExprTernary, cond, tval, fval
 #define WASM_COMMA(left, right) kExprComma, left, right
+#define WASM_NOT(x) kExprBoolNot, x
+
+
+//------------------------------------------------------------------------------
+// Statements that are composed of multiple bytecodes.
+//------------------------------------------------------------------------------
+#define WASM_WHILE(x, y) \
+  kStmtLoop, 2, kStmtIf, kExprBoolNot, x, kStmtBreak, 0, y
 
 
 //------------------------------------------------------------------------------

@@ -71,7 +71,7 @@ bool TFBuilder::IsPhiWithMerge(TFNode* phi, TFNode* merge) {
 void TFBuilder::AppendToMerge(TFNode* merge, TFNode* from) {
   if (graph) {
     DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
-    merge->AppendInput(zone, from);
+    merge->AppendInput(graph->zone(), from);
     merge->set_op(
         graph->common()->ResizeMergeOrPhi(merge->op(), merge->InputCount()));
   }
@@ -84,7 +84,7 @@ void TFBuilder::AppendToPhi(TFNode* merge, TFNode* phi, TFNode* from) {
     DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
     phi->set_op(
         graph->common()->ResizeMergeOrPhi(phi->op(), phi->InputCount()));
-    phi->InsertInput(zone, from->InputCount() - 1, from);
+    phi->InsertInput(graph->zone(), phi->InputCount() - 1, from);
   }
 }
 
@@ -240,6 +240,9 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
+    case kExprBoolNot:
+      op = m->Word32Equal();
+      return graph->graph()->NewNode(op, input, graph->ZeroConstant());
     case kExprInt32FromFloat64:
       op = m->ChangeFloat64ToInt32();
       break;
@@ -317,6 +320,11 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   } else {
     g->SetEnd(g->NewNode(graph->common()->End(1), ret));
   }
+}
+
+
+void TFBuilder::PrintDebugName(TFNode* node) {
+  PrintF("#%d:%s", node->id(), node->op()->mnemonic());
 }
 }
 }
