@@ -179,8 +179,8 @@ static FunctionEnv CreateInt32FunctionEnv(FunctionSig* sig, int count) {
   env.module = nullptr;
   env.sig = sig;
   env.local_int32_count = count;
-  env.local_float64_count = count;
-  env.local_float32_count = count;
+  env.local_float64_count = 0;
+  env.local_float32_count = 0;
   env.total_locals = count + sig->parameter_count();
   return env;
 }

@@ -29,6 +29,31 @@ static compiler::MachineType MachineTypeFor(AstType type) {
 }
 
 
+static compiler::MachineType MachineTypeFor(MemType type) {
+  switch (type) {
+    case kMemInt8:
+      return compiler::kMachInt8;
+    case kMemInt16:
+      return compiler::kMachInt16;
+    case kMemInt32:
+      return compiler::kMachInt32;
+    case kMemUint8:
+      return compiler::kMachUint8;
+    case kMemUint16:
+      return compiler::kMachUint16;
+    case kMemUint32:
+      return compiler::kMachUint32;
+    case kMemFloat64:
+      return compiler::kMachFloat64;
+    case kMemFloat32:
+      return compiler::kMachFloat32;
+    default:
+      UNREACHABLE();
+      return compiler::kMachAnyTagged;
+  }
+}
+
+
 TFNode* TFBuilder::Error() {
   if (!graph) return nullptr;
   return graph->DeadControl();
@@ -288,6 +313,11 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
 }
 
 
+TFNode* TFBuilder::Float32Constant(float value) {
+  return graph ? graph->Float32Constant(value) : nullptr;
+}
+
+
 TFNode* TFBuilder::Float64Constant(double value) {
   return graph ? graph->Float64Constant(value) : nullptr;
 }
@@ -320,6 +350,44 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   } else {
     g->SetEnd(g->NewNode(graph->common()->End(1), ret));
   }
+}
+
+
+TFNode* TFBuilder::HeapBuffer() {
+  if (!heap_buffer) heap_buffer = graph->IntPtrConstant(heap_start);
+  return heap_buffer;
+}
+
+
+TFNode* TFBuilder::HeapSize() {
+  if (!heap_size) heap_size = graph->IntPtrConstant(heap_end - heap_start);
+  return heap_size;
+}
+
+
+TFNode* TFBuilder::GetHeap(MemType type, TFNode* index) {
+  if (!graph) return nullptr;
+  const compiler::Operator* op =
+      graph->machine()->CheckedLoad(MachineTypeFor(type));
+  TFNode* heap_buffer = HeapBuffer();
+  TFNode* heap_size = HeapSize();
+  TFNode* node = graph->graph()->NewNode(op, heap_buffer, index, heap_size,
+                                         *effect, *control);
+  *effect = node;
+  return node;
+}
+
+
+TFNode* TFBuilder::SetHeap(MemType type, TFNode* index, TFNode* val) {
+  if (!graph) return nullptr;
+  const compiler::Operator* op =
+      graph->machine()->CheckedStore(MachineTypeFor(type));
+  TFNode* heap_buffer = HeapBuffer();
+  TFNode* heap_size = HeapSize();
+  TFNode* node = graph->graph()->NewNode(op, heap_buffer, index, heap_size, val,
+                                         *effect, *control);
+  *effect = node;
+  return node;
 }
 
 

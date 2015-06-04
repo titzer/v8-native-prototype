@@ -135,14 +135,40 @@ class LR_WasmDecoder {
     FunctionSig* sig = function_env_->sig;
     TFNode* start = builder_.Start(sig->parameter_count());
     SsaEnv* ssa_env = Split(nullptr);
-    TFNode* zero = builder_.Int32Constant(0);
-    for (int i = EnvironmentCount() - 1; i >= 0; i--) {
-      ssa_env->locals[i] = i < sig->parameter_count()
-                               ? builder_.Param(i, sig->GetParam(i))
-                               : zero;
+    int pos = 0;
+    // Initialize parameters.
+    for (int i = 0; i < sig->parameter_count(); i++) {
+      ssa_env->locals[pos++] = builder_.Param(i, sig->GetParam(i));
     }
+    // Initialize int32 locals.
+    if (function_env_->local_int32_count > 0) {
+      TFNode* zero = builder_.Int32Constant(0);
+      for (int i = 0; i < function_env_->local_int32_count; i++) {
+        ssa_env->locals[pos++] = zero;
+      }
+    }
+    // Initialize float32 locals.
+    if (function_env_->local_float32_count > 0) {
+      TFNode* zero = builder_.Float32Constant(0);
+      for (int i = 0; i < function_env_->local_float32_count; i++) {
+        ssa_env->locals[pos++] = zero;
+      }
+    }
+    // Initialize float64 locals.
+    if (function_env_->local_float64_count > 0) {
+      TFNode* zero = builder_.Float64Constant(0);
+      for (int i = 0; i < function_env_->local_float64_count; i++) {
+        ssa_env->locals[pos++] = zero;
+      }
+    }
+    DCHECK_EQ(function_env_->total_locals, pos);
+    DCHECK_EQ(EnvironmentCount(), pos);
     ssa_env->control = start;
     ssa_env->effect = start;
+    if (function_env_->module) {
+      builder_.heap_start = function_env_->module->heap_start;
+      builder_.heap_end = function_env_->module->heap_end;
+    }
     SetEnv(ssa_env);
   }
 
@@ -310,6 +336,18 @@ class LR_WasmDecoder {
         case kExprInt32Const: {
           int32_t value = Operand<int32_t>(pc_);
           Leaf(kAstInt32, builder_.Int32Constant(value));
+          len = 5;
+          break;
+        }
+        case kExprFloat32Const: {
+          float value = Operand<float>(pc_);
+          Leaf(kAstFloat32, builder_.Float32Constant(value));
+          len = 5;
+          break;
+        }
+        case kExprFloat64Const: {
+          double value = Operand<double>(pc_);
+          Leaf(kAstFloat64, builder_.Float64Constant(value));
           len = 5;
           break;
         }

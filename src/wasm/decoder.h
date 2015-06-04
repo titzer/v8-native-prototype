@@ -28,17 +28,20 @@ typedef Signature<AstType> FunctionSig;
 // Interface the module environment during decoding, including information about
 // the global variables and the function tables.
 struct ModuleEnv {
-  ZoneVector<FunctionSig*> function_sigs;
-  ZoneVector<FunctionSig*> function_table_sigs;
-  ZoneVector<MemType> global_types;
+  uintptr_t heap_start;
+  uintptr_t heap_end;
 
-  bool IsValidGlobal(unsigned index) { return index < global_types.size(); }
-  MemType GetGlobalType(unsigned index) { return global_types[index]; }
+  ZoneVector<FunctionSig*>* function_sigs;
+  ZoneVector<FunctionSig*>* function_table_sigs;
+  ZoneVector<MemType>* global_types;
+
+  bool IsValidGlobal(unsigned index) { return index < global_types->size(); }
+  MemType GetGlobalType(unsigned index) { return global_types->at(index); }
   FunctionSig* GetFunctionSignature(unsigned index) {
-    return function_sigs[index];
+    return function_sigs->at(index);
   }
   FunctionSig* GetFunctionTableSignature(unsigned index) {
-    return function_table_sigs[index];
+    return function_table_sigs->at(index);
   }
 };
 
@@ -48,8 +51,8 @@ struct FunctionEnv {
   ModuleEnv* module;             // module environment
   FunctionSig* sig;              // signature of this function
   unsigned local_int32_count;    // number of int32 locals
-  unsigned local_float64_count;  // number of float64 locals
   unsigned local_float32_count;  // number of float32 locals
+  unsigned local_float64_count;  // number of float64 locals
   unsigned total_locals;         // sum of parameters and all locals
 
   bool IsValidLocal(unsigned index) { return index < total_locals; }
@@ -59,9 +62,9 @@ struct FunctionEnv {
     index -= sig->parameter_count();
     if (index < local_int32_count) return kAstInt32;
     index -= local_int32_count;
-    if (index < local_float64_count) return kAstFloat64;
-    index -= local_float64_count;
     if (index < local_float32_count) return kAstFloat32;
+    index -= local_float32_count;
+    if (index < local_float64_count) return kAstFloat64;
     return kAstStmt;
   }
 };

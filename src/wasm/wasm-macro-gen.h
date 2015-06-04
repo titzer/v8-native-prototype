@@ -36,7 +36,11 @@
 #define WASM_INT32(val)                                                 \
   kExprInt32Const, static_cast<byte>(val), static_cast<byte>(val >> 8), \
       static_cast<byte>(val >> 16), static_cast<byte>(val >> 24)
-//#define WASM_FLOAT32(val)
+#define WASM_FLOAT32(val)                                       \
+  kExprFloat32Const, static_cast<byte>(bit_cast<int32_t>(val)), \
+      static_cast<byte>(bit_cast<int32_t>(val) >> 8),           \
+      static_cast<byte>(bit_cast<int32_t>(val) >> 16),          \
+      static_cast<byte>(bit_cast<int32_t>(val) >> 24)
 //#define WASM_FLOAT64(val)
 #define WASM_GET_LOCAL(index) kExprGetLocal, static_cast<byte>(index)
 #define WASM_GET_GLOBAL(index) kExprGetGlobal, static_cast<byte>(index)
@@ -54,11 +58,19 @@
 
 
 //------------------------------------------------------------------------------
-// Statements that are composed of multiple bytecodes.
+// Statements and expressions that are composed of multiple bytecodes.
 //------------------------------------------------------------------------------
 #define WASM_WHILE(x, y) \
   kStmtLoop, 2, kStmtIf, kExprBoolNot, x, kStmtBreak, 0, y
+#define WASM_INC_LOCAL(index)                                       \
+  kStmtSetLocal, static_cast<byte>(index), kExprInt32Add, kInt8, 1, \
+      kExprGetLocal, static_cast<byte>(index)
+#define WASM_INC_LOCAL_BY(index, count)                          \
+  kStmtSetLocal, static_cast<byte>(index), kExprInt32Add, kInt8, \
+      static_cast<int8_t>(count), kExprGetLocal, static_cast<byte>(index)
 
+
+#define WASM_BINOP(opcode, x, y) static_cast<byte>(opcode), x, y
 
 //------------------------------------------------------------------------------
 // Integer binops.
