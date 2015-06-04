@@ -206,6 +206,26 @@ TEST_F(DecoderTest, Int32Const) {
 }
 
 
+TEST_F(DecoderTest, Float32Const) {
+  byte code[] = {kExprFloat32Const, 0, 0, 0, 0};
+  float* ptr = reinterpret_cast<float*>(code + 1);
+  for (int i = 0; i < 30; i++) {
+    *ptr = i * -7.75f;
+    EXPECT_VERIFIES(&env_i_i, code);
+  }
+}
+
+
+TEST_F(DecoderTest, Float64Const) {
+  byte code[] = {kExprFloat64Const, 0, 0, 0, 0, 0, 0, 0, 0};
+  double* ptr = reinterpret_cast<double*>(code + 1);
+  for (int i = 0; i < 30; i++) {
+    *ptr = i * 33.45;
+    EXPECT_VERIFIES(&env_i_i, code);
+  }
+}
+
+
 TEST_F(DecoderTest, Int32Const_off_end) {
   byte code[] = {kExprInt32Const, 0xaa, 0xbb, 0xcc, 0x44};
 

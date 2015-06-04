@@ -207,6 +207,24 @@ TEST(Run_WasmInt32Add_P2) {
   }
 }
 
+TEST(Run_WasmFloat32Add) {
+  WasmRunner<int32_t> r;
+  // return int(11.5f + 44.5f)
+  BUILD(r, WASM_RETURN(1, WASM_INT32_FROM_FLOAT32(WASM_FLOAT32_ADD(
+                              WASM_FLOAT32(11.5f), WASM_FLOAT32(44.5f)))));
+  CHECK_EQ(56, r.Call());
+}
+
+
+TEST(Run_WasmFloat64Add) {
+  WasmRunner<int32_t> r;
+  // return int(13.5d + 43.5d)
+  BUILD(r, WASM_RETURN(1, WASM_INT32_FROM_FLOAT64(WASM_FLOAT64_ADD(
+                              WASM_FLOAT64(13.5), WASM_FLOAT64(43.5)))));
+  CHECK_EQ(57, r.Call());
+}
+
+
 // TODO: test all Int32 binops
 
 TEST(Run_Wasm_IfThen_P) {

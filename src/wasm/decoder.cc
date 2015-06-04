@@ -348,7 +348,7 @@ class LR_WasmDecoder {
         case kExprFloat64Const: {
           double value = Operand<double>(pc_);
           Leaf(kAstFloat64, builder_.Float64Constant(value));
-          len = 5;
+          len = 9;
           break;
         }
         case kExprGetLocal: {

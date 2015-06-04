@@ -38,10 +38,18 @@
       static_cast<byte>(val >> 16), static_cast<byte>(val >> 24)
 #define WASM_FLOAT32(val)                                       \
   kExprFloat32Const, static_cast<byte>(bit_cast<int32_t>(val)), \
-      static_cast<byte>(bit_cast<int32_t>(val) >> 8),           \
-      static_cast<byte>(bit_cast<int32_t>(val) >> 16),          \
-      static_cast<byte>(bit_cast<int32_t>(val) >> 24)
-//#define WASM_FLOAT64(val)
+      static_cast<byte>(bit_cast<uint32_t>(val) >> 8),          \
+      static_cast<byte>(bit_cast<uint32_t>(val) >> 16),         \
+      static_cast<byte>(bit_cast<uint32_t>(val) >> 24)
+#define WASM_FLOAT64(val)                                        \
+  kExprFloat64Const, static_cast<byte>(bit_cast<uint64_t>(val)), \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 8),           \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 16),          \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 24),          \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 32),          \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 40),          \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 48),          \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 56)
 #define WASM_GET_LOCAL(index) kExprGetLocal, static_cast<byte>(index)
 #define WASM_GET_GLOBAL(index) kExprGetGlobal, static_cast<byte>(index)
 #define WASM_GET_HEAP(type, index) kExprGetHeap, static_cast<byte>(type), index
