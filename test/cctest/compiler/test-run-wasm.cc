@@ -225,7 +225,112 @@ TEST(Run_WasmFloat64Add) {
 }
 
 
-// TODO: test all Int32 binops
+void TestInt32Binop(WasmOpcode opcode, int32_t expected, int32_t a, int32_t b) {
+  {
+    WasmRunner<int32_t> r;
+    // return K op K
+    BUILD(r, WASM_RETURN(1, WASM_BINOP(opcode, WASM_INT32(a), WASM_INT32(b))));
+    CHECK_EQ(expected, r.Call());
+  }
+  {
+    WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+    // return a op b
+    BUILD(r, WASM_RETURN(
+                 1, WASM_BINOP(opcode, WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+    CHECK_EQ(expected, r.Call(a, b));
+  }
+}
+
+
+TEST(Run_WasmInt32Binops) {
+  TestInt32Binop(kExprInt32Add, 88888888, 33333333, 55555555);
+  TestInt32Binop(kExprInt32Sub, -1111111, 7777777, 8888888);
+  TestInt32Binop(kExprInt32Mul, 65130756, 88734, 734);
+  TestInt32Binop(kExprInt32SDiv, -66, -4777344, 72384);
+  TestInt32Binop(kExprInt32UDiv, 805306368, 0xF0000000, 5);
+  TestInt32Binop(kExprInt32SMod, -3, -3003, 1000);
+  TestInt32Binop(kExprInt32UMod, 4, 4004, 1000);
+  TestInt32Binop(kExprInt32And, 0xEE, 0xFFEE, 0xFF0000FF);
+  TestInt32Binop(kExprInt32Ior, 0xF0FF00FF, 0xF0F000EE, 0x000F0011);
+  TestInt32Binop(kExprInt32Xor, 0xABCDEF01, 0xABCDEFFF, 0xFE);
+  TestInt32Binop(kExprInt32Shl, 0xA0000000, 0xA, 28);
+  TestInt32Binop(kExprInt32Shr, 0x07000010, 0x70000100, 4);
+  TestInt32Binop(kExprInt32Sar, 0xFF000000, 0x80000000, 7);
+  TestInt32Binop(kExprInt32Eq, 1, -99, -99);
+  TestInt32Binop(kExprInt32Slt, 1, -4, 4);
+  TestInt32Binop(kExprInt32Sle, 0, -2, -3);
+  TestInt32Binop(kExprInt32Ult, 1, 0, -6);
+  TestInt32Binop(kExprInt32Ule, 1, 98978, 0xF0000000);
+}
+
+
+void TestFloat32Binop(WasmOpcode opcode, int32_t expected, float a, float b) {
+  WasmRunner<int32_t> r;
+  // return K op K
+  BUILD(r,
+        WASM_RETURN(1, WASM_BINOP(opcode, WASM_FLOAT32(a), WASM_FLOAT32(b))));
+  CHECK_EQ(expected, r.Call());
+  // TODO(titzer): test float parameters
+}
+
+
+void TestFloat32BinopWithConvert(WasmOpcode opcode, int32_t expected, float a,
+                                 float b) {
+  WasmRunner<int32_t> r;
+  // return int(K op K)
+  BUILD(r, WASM_RETURN(1, WASM_INT32_FROM_FLOAT32(WASM_BINOP(
+                              opcode, WASM_FLOAT32(a), WASM_FLOAT32(b)))));
+  CHECK_EQ(expected, r.Call());
+  // TODO(titzer): test float parameters
+}
+
+
+void TestFloat64Binop(WasmOpcode opcode, int32_t expected, double a, double b) {
+  WasmRunner<int32_t> r;
+  // return K op K
+  BUILD(r,
+        WASM_RETURN(1, WASM_BINOP(opcode, WASM_FLOAT64(a), WASM_FLOAT64(b))));
+  CHECK_EQ(expected, r.Call());
+  // TODO(titzer): test double parameters
+}
+
+
+void TestFloat64BinopWithConvert(WasmOpcode opcode, int32_t expected, double a,
+                                 double b) {
+  WasmRunner<int32_t> r;
+  // return int(K op K)
+  BUILD(r, WASM_RETURN(1, WASM_INT32_FROM_FLOAT64(WASM_BINOP(
+                              opcode, WASM_FLOAT64(a), WASM_FLOAT64(b)))));
+  CHECK_EQ(expected, r.Call());
+  // TODO(titzer): test double parameters
+}
+
+
+TEST(Run_WasmFloat32Binops) {
+  TestFloat32Binop(kExprFloat32Eq, 1, 8.125, 8.125);
+  TestFloat32Binop(kExprFloat32Lt, 1, -9.5, -9);
+  TestFloat32Binop(kExprFloat32Le, 1, -1111, -1111);
+
+  TestFloat32BinopWithConvert(kExprFloat32Add, 10, 3.5, 6.5);
+  TestFloat32BinopWithConvert(kExprFloat32Sub, 2, 44.5, 42.5);
+  TestFloat32BinopWithConvert(kExprFloat32Mul, -66, -132.1, 0.5);
+  TestFloat32BinopWithConvert(kExprFloat32Div, 11, 22.1, 2);
+  // TODO(titzer):  TestFloat32BinopWithConvert(kExprFloat32Mod, 3, 13.3, 10);
+}
+
+
+TEST(Run_WasmFloat64Binops) {
+  TestFloat64Binop(kExprFloat64Eq, 1, 16.25, 16.25);
+  TestFloat64Binop(kExprFloat64Lt, 1, -32.4, 11.7);
+  TestFloat64Binop(kExprFloat64Le, 1, -88.9, -88.9);
+
+  TestFloat64BinopWithConvert(kExprFloat64Add, 100, 43.5, 56.5);
+  TestFloat64BinopWithConvert(kExprFloat64Sub, 200, 12200.1, 12000.1);
+  TestFloat64BinopWithConvert(kExprFloat64Mul, -33, 134, -0.25);
+  TestFloat64BinopWithConvert(kExprFloat64Div, -1111, -2222.3, 2);
+  // TODO(titzer):  TestFloat64BinopWithConvert(kExprFloat64Mod, 3, 13.3, 10);
+}
+
 
 TEST(Run_Wasm_IfThen_P) {
   WasmRunner<int32_t> r(kMachInt32);
