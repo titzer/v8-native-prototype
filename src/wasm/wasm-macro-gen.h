@@ -20,11 +20,14 @@
 #define WASM_IF(cond, tstmt) kStmtIf, cond, tstmt
 #define WASM_IF_THEN(cond, tstmt, fstmt) kStmtIfThen, cond, tstmt, fstmt
 #define WASM_NOP kStmtBlock, 0
-#define WASM_BLOCK(count, ...) kStmtBlock, count, __VA_ARGS__
-#define WASM_LOOP(count, ...) kStmtLoop, count, __VA_ARGS__
-#define WASM_CONTINUE(depth) kStmtContinue, depth
-#define WASM_BREAK(depth) kStmtBreak, depth
-#define WASM_RETURN(count, ...) kStmtReturn, count, __VA_ARGS__
+#define WASM_BLOCK(count, ...) kStmtBlock, static_cast<byte>(count), __VA_ARGS__
+#define WASM_LOOP(count, ...) kStmtLoop, static_cast<byte>(count), __VA_ARGS__
+#define WASM_SWITCH(count, key, ...) \
+  kStmtSwitch, static_cast<byte>(count), key, __VA_ARGS__
+#define WASM_CONTINUE(depth) kStmtContinue, static_cast<byte>(depth)
+#define WASM_BREAK(depth) kStmtBreak, static_cast<byte>(depth)
+#define WASM_RETURN(count, ...) \
+  kStmtReturn, static_cast<byte>(count), __VA_ARGS__
 
 
 //------------------------------------------------------------------------------

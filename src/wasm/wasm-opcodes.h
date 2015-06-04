@@ -13,8 +13,8 @@ namespace wasm {
 enum AstType {
   kAstStmt = 0,     // a statement node
   kAstInt32 = 1,    // expression that produces an int32 value
-  kAstFloat64 = 2,  // expression that produces a float64 value
-  kAstFloat32 = 3   // expression that produces a float32 value
+  kAstFloat32 = 2,  // expression that produces a float32 value
+  kAstFloat64 = 3   // expression that produces a float64 value
 };
 
 // Types for heap accesses and globals.
@@ -44,10 +44,11 @@ enum Atomicity {
   V(If, 0x03)                  \
   V(IfThen, 0x04)              \
   V(Block, 0x05)               \
-  V(Loop, 0x06)                \
-  V(Continue, 0x07)            \
-  V(Break, 0x08)               \
-  V(Return, 0x09)
+  V(Switch, 0x06)              \
+  V(Loop, 0x07)                \
+  V(Continue, 0x08)            \
+  V(Break, 0x09)               \
+  V(Return, 0x0a)
 
 #define FOREACH_EXPR_OPCODE_MISC(V) \
   V(Int8Const, 0x10)                \

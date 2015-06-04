@@ -334,6 +334,25 @@ TEST_F(DecoderTest, SetLocalN_local) {
 }
 
 
+TEST_F(DecoderTest, Switch0) {
+  static const byte code[] = {kStmtSwitch, 0, kExprInt8Const, 0};
+  EXPECT_VERIFIES(&env_i_i, code);
+}
+
+
+TEST_F(DecoderTest, Switch1) {
+  static const byte code[] = {kStmtSwitch, 1, kExprInt8Const, 0, kStmtBlock, 0};
+  EXPECT_VERIFIES(&env_i_i, code);
+}
+
+
+TEST_F(DecoderTest, Switch2) {
+  static const byte code[] = {kStmtSwitch, 2, kExprInt8Const, 0, kStmtBlock, 0,
+                              kStmtBlock, 0};
+  EXPECT_VERIFIES(&env_i_i, code);
+}
+
+
 TEST_F(DecoderTest, Block0) {
   static const byte code[] = {kStmtBlock, 0};
   EXPECT_VERIFIES(&env_i_i, code);

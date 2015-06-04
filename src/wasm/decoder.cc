@@ -253,6 +253,15 @@ class LR_WasmDecoder {
           Shift(kAstStmt, 3);
           break;
         }
+        case kStmtSwitch: {
+          int length = Operand<uint8_t>(pc_);
+          Shift(kAstStmt, length + 1);
+          SsaEnv* cont_env = nullptr;
+          SsaEnv* break_env = UnreachableEnv();
+          blocks_.push_back({cont_env, break_env});
+          len = 2;
+          break;
+        }
         case kStmtBlock: {
           int length = Operand<uint8_t>(pc_);
           if (length == 0) {
@@ -303,13 +312,7 @@ class LR_WasmDecoder {
           unsigned depth = Operand<uint8_t>(pc_);
           if (depth < blocks_.size()) {
             Block* block = &blocks_[blocks_.size() - depth - 1];
-            if (block->break_env == nullptr) {
-              // This is the first break from this block.
-              block->break_env = Split(ssa_env_);
-            } else {
-              // There was already a break from this block. Merge.
-              Goto(ssa_env_, block->break_env);
-            }
+            Goto(ssa_env_, block->break_env);
             ssa_env_->state = SsaEnv::kControlEnd;
           } else {
             error(pc_, "improperly nested break");
@@ -517,6 +520,37 @@ class LR_WasmDecoder {
           } else {
             error(p->pc(), "Typecheck failed in SetHeap", val->pc);
           }
+        }
+        break;
+      }
+      case kStmtSwitch: {
+        TFNode* key = p->tree->children[0]->node;
+        if (p->index == 1) {
+          // Condition done. Split environment for first case.
+          TypeCheckLast(p, kAstInt32);
+          ifs_.push_back({Split(ssa_env_), ssa_env_});
+          IfEnv* env = &ifs_.back();
+          builder_.Branch(key, &env->true_env->control,
+                          &env->false_env->control);
+          SetEnv(env->true_env);
+        } else {
+          // Just finished a case.
+          TypeCheckLast(p, kAstStmt);
+          TFNode* caseval = builder_.Int32Constant(p->index - 1);
+          TFNode* cond = builder_.Binop(kExprInt32Eq, key, caseval);
+          // TODO: handle fall-thru from this case to the next.
+          IfEnv* env = &ifs_.back();
+          SetEnv(env->false_env);
+          builder_.Branch(cond, &env->true_env->control,
+                          &env->false_env->control);
+          SetEnv(env->true_env);
+        }
+        if (p->done()) {
+          ifs_.pop_back();
+          Block* last = &blocks_.back();
+          Goto(ssa_env_, last->break_env);
+          SetEnv(last->break_env);
+          blocks_.pop_back();
         }
         break;
       }
@@ -782,6 +816,7 @@ class LR_WasmDecoder {
   }
 
   void Goto(SsaEnv* from, SsaEnv* to) {
+    DCHECK_NOT_NULL(to);
     if (from->end()) return;
     switch (to->state) {
       case SsaEnv::kUnreachable: {  // Overwrite destination.
