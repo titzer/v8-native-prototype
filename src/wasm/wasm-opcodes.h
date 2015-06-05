@@ -45,10 +45,11 @@ enum Atomicity {
   V(IfThen, 0x04)              \
   V(Block, 0x05)               \
   V(Switch, 0x06)              \
-  V(Loop, 0x07)                \
-  V(Continue, 0x08)            \
-  V(Break, 0x09)               \
-  V(Return, 0x0a)
+  V(SwitchNf, 0x07)            \
+  V(Loop, 0x08)                \
+  V(Continue, 0x09)            \
+  V(Break, 0x0a)               \
+  V(Return, 0x0b)
 
 #define FOREACH_EXPR_OPCODE_MISC(V) \
   V(Int8Const, 0x10)                \

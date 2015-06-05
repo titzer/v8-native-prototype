@@ -334,22 +334,55 @@ TEST_F(DecoderTest, SetLocalN_local) {
 }
 
 
-TEST_F(DecoderTest, Switch0) {
+TEST_F(DecoderTest, Switches0) {
   static const byte code[] = {kStmtSwitch, 0, kExprInt8Const, 0};
   EXPECT_VERIFIES(&env_i_i, code);
+  static const byte codenf[] = {kStmtSwitchNf, 0, kExprInt8Const, 0};
+  EXPECT_VERIFIES(&env_i_i, codenf);
 }
 
 
-TEST_F(DecoderTest, Switch1) {
+TEST_F(DecoderTest, Switches1) {
   static const byte code[] = {kStmtSwitch, 1, kExprInt8Const, 0, kStmtBlock, 0};
   EXPECT_VERIFIES(&env_i_i, code);
+  static const byte codenf[] = {kStmtSwitchNf, 1, kExprInt8Const, 0, kStmtBlock,
+                                0};
+  EXPECT_VERIFIES(&env_i_i, codenf);
 }
 
 
-TEST_F(DecoderTest, Switch2) {
+TEST_F(DecoderTest, Switches2) {
   static const byte code[] = {kStmtSwitch, 2, kExprInt8Const, 0, kStmtBlock, 0,
                               kStmtBlock, 0};
   EXPECT_VERIFIES(&env_i_i, code);
+  static const byte codenf[] = {kStmtSwitchNf, 2, kExprInt8Const, 0, kStmtBlock,
+                                0, kStmtBlock, 0};
+  EXPECT_VERIFIES(&env_i_i, codenf);
+}
+
+
+TEST_F(DecoderTest, Switches4) {
+  static const byte code[] = {kStmtSwitch, 4, kExprInt8Const, 0, kStmtBlock, 0,
+                              kStmtBlock, 0, kStmtBlock, 0, kStmtBlock, 0};
+  EXPECT_VERIFIES(&env_i_i, code);
+  static const byte codenf[] = {kStmtSwitchNf, 4, kExprInt8Const, 0, kStmtBlock,
+                                0, kStmtBlock, 0, kStmtBlock, 0, kStmtBlock, 0};
+  EXPECT_VERIFIES(&env_i_i, codenf);
+}
+
+
+TEST_F(DecoderTest, Switches4_break) {
+  for (int i = 0; i < 4; i++) {
+    byte code[] = {kStmtSwitch, 4, kExprInt8Const, 0, kStmtBlock, 0, kStmtBlock,
+                   0, kStmtBlock, 0, kStmtBlock, 0};
+    code[4 + i * 2] = kStmtBreak;
+    EXPECT_VERIFIES(&env_i_i, code);
+
+    byte codenf[] = {kStmtSwitchNf, 4, kExprInt8Const, 0, kStmtBlock, 0,
+                     kStmtBlock, 0, kStmtBlock, 0, kStmtBlock, 0};
+    codenf[4 + i * 2] = kStmtBreak;
+    EXPECT_VERIFIES(&env_i_i, codenf);
+  }
 }
 
 

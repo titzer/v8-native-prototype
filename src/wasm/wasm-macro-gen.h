@@ -24,6 +24,8 @@
 #define WASM_LOOP(count, ...) kStmtLoop, static_cast<byte>(count), __VA_ARGS__
 #define WASM_SWITCH(count, key, ...) \
   kStmtSwitch, static_cast<byte>(count), key, __VA_ARGS__
+#define WASM_SWITCH_NF(count, key, ...) \
+  kStmtSwitchNf, static_cast<byte>(count), key, __VA_ARGS__
 #define WASM_CONTINUE(depth) kStmtContinue, static_cast<byte>(depth)
 #define WASM_BREAK(depth) kStmtBreak, static_cast<byte>(depth)
 #define WASM_RETURN(count, ...) \

@@ -253,7 +253,8 @@ class LR_WasmDecoder {
           Shift(kAstStmt, 3);
           break;
         }
-        case kStmtSwitch: {
+        case kStmtSwitch:  // fallthru
+        case kStmtSwitchNf: {
           int length = Operand<uint8_t>(pc_);
           Shift(kAstStmt, length + 1);
           SsaEnv* cont_env = nullptr;
@@ -523,10 +524,11 @@ class LR_WasmDecoder {
         }
         break;
       }
-      case kStmtSwitch: {
+      case kStmtSwitch:  // fallthru
+      case kStmtSwitchNf: {
         TFNode* key = p->tree->children[0]->node;
         if (p->index == 1) {
-          // Condition done. Split environment for first case.
+          // Condition done. Build comparison for first case.
           TypeCheckLast(p, kAstInt32);
           ifs_.push_back({Split(ssa_env_), ssa_env_});
           IfEnv* env = &ifs_.back();
@@ -536,21 +538,35 @@ class LR_WasmDecoder {
         } else {
           // Just finished a case.
           TypeCheckLast(p, kAstStmt);
-          TFNode* caseval = builder_.Int32Constant(p->index - 1);
-          TFNode* cond = builder_.Binop(kExprInt32Eq, key, caseval);
-          // TODO: handle fall-thru from this case to the next.
+          SsaEnv* fallthru = ssa_env_;
           IfEnv* env = &ifs_.back();
-          SetEnv(env->false_env);
-          builder_.Branch(cond, &env->true_env->control,
-                          &env->false_env->control);
-          SetEnv(env->true_env);
-        }
-        if (p->done()) {
-          ifs_.pop_back();
-          Block* last = &blocks_.back();
-          Goto(ssa_env_, last->break_env);
-          SetEnv(last->break_env);
-          blocks_.pop_back();
+          if (!p->done()) {
+            // Build comparison for next case.
+            TFNode* caseval = builder_.Int32Constant(p->index - 1);
+            TFNode* cond = builder_.Binop(kExprInt32Eq, key, caseval);
+            SsaEnv* true_env = env->true_env = Split(env->false_env);
+            SetEnv(env->false_env);
+            builder_.Branch(cond, &true_env->control, &env->false_env->control);
+            if (!fallthru->end()) {
+              // StmtSwitch falls through to next case, StmtSwitchNf to the end.
+              SsaEnv* next = p->opcode() == kStmtSwitch
+                                 ? true_env
+                                 : blocks_.back().break_env;
+              Goto(fallthru, next);
+            }
+            SetEnv(true_env);
+          } else {
+            // Finished all cases.
+            Block* last = &blocks_.back();
+            Goto(env->false_env, last->break_env);
+            if (!fallthru->end()) {
+              // Handle fallthru from this case to the end.
+              Goto(fallthru, last->break_env);
+            }
+            SetEnv(last->break_env);
+            ifs_.pop_back();
+            blocks_.pop_back();
+          }
         }
         break;
       }
@@ -561,7 +577,7 @@ class LR_WasmDecoder {
           Block* last = &blocks_.back();
           if (!ssa_env_->end()) {
             Goto(ssa_env_,
-                 opcode == kStmtBlock ? last->break_env : last->cont_env);
+                 opcode == kStmtLoop ? last->cont_env : last->break_env);
           }
           SetEnv(last->break_env);
           blocks_.pop_back();
@@ -722,7 +738,8 @@ class LR_WasmDecoder {
       }
       case kExprComma: {
         if (p->done()) {
-          // The type of the comma operator is the type of the last expression.
+          // The type of the comma operator is the type of the last
+          // expression.
           p->tree->type = p->last()->type;
           p->tree->node = p->last()->node;
         }
