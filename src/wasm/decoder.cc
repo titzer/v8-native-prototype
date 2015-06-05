@@ -227,6 +227,9 @@ class LR_WasmDecoder {
       WasmOpcode opcode = static_cast<WasmOpcode>(*pc_);
 
       switch (opcode) {
+        case kStmtNop:
+          Leaf(kAstStmt);
+          break;
         case kStmtSetLocal: {
           LocalIndexOperand(pc_);  // Check valid local index.
           Shift(kAstStmt, 1);

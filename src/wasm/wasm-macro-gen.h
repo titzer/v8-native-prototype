@@ -19,7 +19,7 @@
   kStmtSetHeap, static_cast<byte>(type), index, val
 #define WASM_IF(cond, tstmt) kStmtIf, cond, tstmt
 #define WASM_IF_THEN(cond, tstmt, fstmt) kStmtIfThen, cond, tstmt, fstmt
-#define WASM_NOP kStmtBlock, 0
+#define WASM_NOP kStmtNop
 #define WASM_BLOCK(count, ...) kStmtBlock, static_cast<byte>(count), __VA_ARGS__
 #define WASM_LOOP(count, ...) kStmtLoop, static_cast<byte>(count), __VA_ARGS__
 #define WASM_SWITCH(count, key, ...) \

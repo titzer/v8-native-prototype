@@ -38,18 +38,19 @@ enum Atomicity {
 };
 
 #define FOREACH_STMT_OPCODE(V) \
-  V(SetLocal, 0x00)            \
-  V(SetGlobal, 0x01)           \
-  V(SetHeap, 0x02)             \
-  V(If, 0x03)                  \
-  V(IfThen, 0x04)              \
-  V(Block, 0x05)               \
-  V(Switch, 0x06)              \
-  V(SwitchNf, 0x07)            \
-  V(Loop, 0x08)                \
-  V(Continue, 0x09)            \
-  V(Break, 0x0a)               \
-  V(Return, 0x0b)
+  V(Nop, 0x00)                 \
+  V(SetLocal, 0x01)            \
+  V(SetGlobal, 0x02)           \
+  V(SetHeap, 0x03)             \
+  V(If, 0x04)                  \
+  V(IfThen, 0x05)              \
+  V(Block, 0x06)               \
+  V(Switch, 0x07)              \
+  V(SwitchNf, 0x08)            \
+  V(Loop, 0x09)                \
+  V(Continue, 0x0a)            \
+  V(Break, 0x0b)               \
+  V(Return, 0x0c)
 
 #define FOREACH_EXPR_OPCODE_MISC(V) \
   V(Int8Const, 0x10)                \
