@@ -535,7 +535,9 @@ class LR_WasmDecoder {
           TypeCheckLast(p, kAstInt32);
           ifs_.push_back({Split(ssa_env_), ssa_env_});
           IfEnv* env = &ifs_.back();
-          builder_.Branch(key, &env->true_env->control,
+          TFNode* caseval = builder_.Int32Constant(0);
+          TFNode* cond = builder_.Binop(kExprInt32Eq, key, caseval);
+          builder_.Branch(cond, &env->true_env->control,
                           &env->false_env->control);
           SetEnv(env->true_env);
         } else {

@@ -568,4 +568,118 @@ TEST(Run_Wasm_HeapFloat64_Mul) {
                              kMemFloat64);
   CHECK_EQ(32, buffer[0]);
 }
+
+
+TEST(Run_Wasm_Switch0) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_ID(kStmtSwitch, 0, WASM_GET_LOCAL(0)),
+                      WASM_RETURN(1, WASM_GET_LOCAL(0))));
+  CHECK_EQ(0, r.Call(0));
+  CHECK_EQ(1, r.Call(1));
+  CHECK_EQ(2, r.Call(2));
+  CHECK_EQ(32, r.Call(32));
+}
+
+
+TEST(Run_Wasm_Switch1) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_SWITCH(1, WASM_GET_LOCAL(0),
+                                     WASM_SET_LOCAL(0, WASM_INT8(44))),
+                      WASM_RETURN(1, WASM_GET_LOCAL(0))));
+  CHECK_EQ(44, r.Call(0));
+  CHECK_EQ(1, r.Call(1));
+  CHECK_EQ(2, r.Call(2));
+  CHECK_EQ(-834, -834);
+}
+
+
+TEST(Run_Wasm_Switch4_fallthru) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_SWITCH(4,                               // --
+                                     WASM_GET_LOCAL(0),               // key
+                                     WASM_NOP,                        // case 0
+                                     WASM_RETURN(1, WASM_INT8(45)),   // case 1
+                                     WASM_NOP,                        // case 2
+                                     WASM_RETURN(1, WASM_INT8(47))),  // case 3
+                      WASM_RETURN(1, WASM_GET_LOCAL(0))));
+
+  CHECK_EQ(-1, r.Call(-1));
+  CHECK_EQ(45, r.Call(0));
+  CHECK_EQ(45, r.Call(1));
+  CHECK_EQ(47, r.Call(2));
+  CHECK_EQ(47, r.Call(3));
+  CHECK_EQ(4, r.Call(4));
+  CHECK_EQ(-834, -834);
+}
+
+
+#define APPEND(code, pos, fragment)                 \
+  do {                                              \
+    memcpy(code + pos, fragment, sizeof(fragment)); \
+    pos += sizeof(fragment);                        \
+  } while (false)
+
+
+TEST(Run_Wasm_Switch_Ret_N) {
+  Zone zone;
+  for (int i = 3; i < 256; i += 28) {
+    byte header[] = {kStmtBlock, 2, kStmtSwitch, static_cast<byte>(i),
+                     kExprGetLocal, 0};
+    byte ccase[] = {WASM_RETURN(1, WASM_INT32(i))};
+    byte footer[] = {WASM_RETURN(1, WASM_GET_LOCAL(0))};
+    byte* code = zone.NewArray<byte>(sizeof(header) + i * sizeof(ccase) +
+                                     sizeof(footer));
+    int pos = 0;
+    // Add header code.
+    APPEND(code, pos, header);
+    for (int j = 0; j < i; j++) {
+      // Add case code.
+      byte ccase[] = {WASM_RETURN(1, WASM_INT32((10 + j)))};
+      APPEND(code, pos, ccase);
+    }
+    // Add footer code.
+    APPEND(code, pos, footer);
+    // Build graph.
+    WasmRunner<int32_t> r(kMachInt32);
+    r.Build(code, code + pos);
+    // Run.
+    for (int j = -1; j < i + 5; j++) {
+      int expected = j >= 0 && j < i ? (10 + j) : j;
+      CHECK_EQ(expected, r.Call(j));
+    }
+  }
+}
+
+
+TEST(Run_Wasm_Switch_Nf_N) {
+  Zone zone;
+  for (int i = 3; i < 256; i += 28) {
+    byte header[] = {kStmtBlock, 2, kStmtSwitchNf, static_cast<byte>(i),
+                     kExprGetLocal, 0};
+    byte ccase[] = {WASM_SET_LOCAL(0, WASM_INT32(i))};
+    byte footer[] = {WASM_RETURN(1, WASM_GET_LOCAL(0))};
+    byte* code = zone.NewArray<byte>(sizeof(header) + i * sizeof(ccase) +
+                                     sizeof(footer));
+    int pos = 0;
+    // Add header code.
+    APPEND(code, pos, header);
+    for (int j = 0; j < i; j++) {
+      // Add case code.
+      byte ccase[] = {WASM_SET_LOCAL(0, WASM_INT32((10 + j)))};
+      APPEND(code, pos, ccase);
+    }
+    // Add footer code.
+    APPEND(code, pos, footer);
+    // Build graph.
+    WasmRunner<int32_t> r(kMachInt32);
+    r.Build(code, code + pos);
+    // Run.
+    for (int j = -1; j < i + 5; j++) {
+      int expected = j >= 0 && j < i ? (10 + j) : j;
+      CHECK_EQ(expected, r.Call(j));
+    }
+  }
+}
+
+
 #endif  // V8_TURBOFAN_TARGET

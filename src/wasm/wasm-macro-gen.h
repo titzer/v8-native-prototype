@@ -35,6 +35,7 @@
 //------------------------------------------------------------------------------
 // Misc expressions.
 //------------------------------------------------------------------------------
+#define WASM_ID(...) __VA_ARGS__
 #define WASM_ZERO kExprInt8Const, 0
 #define WASM_ONE kExprInt8Const, 1
 #define WASM_INT8(val) kExprInt8Const, static_cast<byte>(val)
