@@ -20,11 +20,6 @@ using namespace v8::internal;
 using namespace v8::internal::compiler;
 using namespace v8::internal::wasm;
 
-#define LE32(x)                                                                \
-  static_cast<byte>(x), static_cast<byte>(x >> 8), static_cast<byte>(x >> 16), \
-      static_cast<byte>(x >> 24)
-
-
 // Helpers for many common signatures that involve int32 types.
 static AstType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                kAstInt32};
@@ -34,21 +29,25 @@ struct CommonSignatures {
       : sig_i_v(1, 0, kIntTypes5),
         sig_i_i(1, 1, kIntTypes5),
         sig_i_ii(1, 2, kIntTypes5),
-        sig_i_iii(1, 3, kIntTypes5) {
+        sig_i_iii(1, 3, kIntTypes5),
+        sig_v_v(0, 0, nullptr) {
     init_env(&env_i_v, &sig_i_v);
     init_env(&env_i_i, &sig_i_i);
     init_env(&env_i_ii, &sig_i_ii);
     init_env(&env_i_iii, &sig_i_iii);
+    init_env(&env_v_v, &sig_v_v);
   }
 
   FunctionSig sig_i_v;
   FunctionSig sig_i_i;
   FunctionSig sig_i_ii;
   FunctionSig sig_i_iii;
+  FunctionSig sig_v_v;
   FunctionEnv env_i_v;
   FunctionEnv env_i_i;
   FunctionEnv env_i_ii;
   FunctionEnv env_i_iii;
+  FunctionEnv env_v_v;
 
   void init_env(FunctionEnv* env, FunctionSig* sig) {
     env->module = nullptr;
@@ -339,6 +338,14 @@ TEST(Run_Wasm_IfThen_P) {
     int32_t expected = *i ? 11 : 22;
     CHECK_EQ(expected, r.Call(*i));
   }
+}
+
+
+TEST(Run_Wasm_VoidReturn) {
+  WasmRunner<void> r;
+  r.function_env = &r.sigs_.env_v_v;
+  BUILD(r, WASM_RETURN0);
+  // TODO: code generator fixes:  r.Call();
 }
 
 

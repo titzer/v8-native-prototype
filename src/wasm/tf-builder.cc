@@ -338,6 +338,12 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   DCHECK_NOT_NULL(*control);
   DCHECK_NOT_NULL(*effect);
 
+  if (count == 0) {
+    // Handle a return of void.
+    vals[0] = graph->ZeroConstant();
+    count = 1;
+  }
+
   compiler::Graph* g = graph->graph();
   TFNode** buf = Buffer(count + 2);
   if (buf != vals) memcpy(buf, vals, sizeof(TFNode*) * count);

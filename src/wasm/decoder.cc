@@ -327,7 +327,13 @@ class LR_WasmDecoder {
           break;
         }
         case kStmtReturn: {
-          Shift(kAstStmt, static_cast<int>(function_env_->sig->return_count()));
+          int count = static_cast<int>(function_env_->sig->return_count());
+          if (count == 0) {
+            builder_.Return(0, builder_.Buffer(0));
+            Leaf(kAstStmt);
+          } else {
+            Shift(kAstStmt, count);
+          }
           break;
         }
         case kExprInt8Const: {

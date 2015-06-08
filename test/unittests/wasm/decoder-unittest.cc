@@ -556,6 +556,14 @@ TEST_F(DecoderTest, Loop2_break) {
 }
 
 
+TEST_F(DecoderTest, ReturnVoid) {
+  static const byte code[] = {kStmtReturn};
+  EXPECT_VERIFIES(&env_v_v, code);
+  EXPECT_FAILURE(&env_i_i, code);
+  EXPECT_FAILURE(&env_i_f, code);
+}
+
+
 #define VERIFY(...)                                        \
   do {                                                     \
     static const byte code[] = {__VA_ARGS__};              \
