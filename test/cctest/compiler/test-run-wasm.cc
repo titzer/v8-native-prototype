@@ -56,7 +56,7 @@ struct CommonSignatures {
     env->local_int32_count = 0;
     env->local_float64_count = 0;
     env->local_float32_count = 0;
-    env->total_locals = sig->parameter_count();
+    env->total_locals = static_cast<unsigned>(sig->parameter_count());
   }
 };
 
@@ -102,7 +102,7 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
   }
 
   byte AllocateLocal(AstType type) {
-    int result = function_env->sig->parameter_count();
+    int result = static_cast<int>(function_env->sig->parameter_count());
     if (type == kAstInt32) result += function_env->local_int32_count++;
     if (type == kAstFloat32) result += function_env->local_float32_count++;
     if (type == kAstFloat64) result += function_env->local_float64_count++;

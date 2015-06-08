@@ -96,7 +96,7 @@ class DecoderTest : public TestWithZone {
     env->local_int32_count = 0;
     env->local_float64_count = 0;
     env->local_float32_count = 0;
-    env->total_locals = sig->parameter_count();
+    env->total_locals = static_cast<unsigned>(sig->parameter_count());
   }
 
   // A wrapper around VerifyWasmCode() that renders a nice failure message.
@@ -181,7 +181,7 @@ static FunctionEnv CreateInt32FunctionEnv(FunctionSig* sig, int count) {
   env.local_int32_count = count;
   env.local_float64_count = 0;
   env.local_float32_count = 0;
-  env.total_locals = count + sig->parameter_count();
+  env.total_locals = static_cast<unsigned>(count + sig->parameter_count());
   return env;
 }
 

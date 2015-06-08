@@ -133,31 +133,32 @@ class LR_WasmDecoder {
 
   void InitSsaEnv() {
     FunctionSig* sig = function_env_->sig;
-    TFNode* start = builder_.Start(sig->parameter_count());
+    int param_count = static_cast<int>(sig->parameter_count());
+    TFNode* start = builder_.Start(param_count);
     SsaEnv* ssa_env = Split(nullptr);
     int pos = 0;
     // Initialize parameters.
-    for (int i = 0; i < sig->parameter_count(); i++) {
+    for (int i = 0; i < param_count; i++) {
       ssa_env->locals[pos++] = builder_.Param(i, sig->GetParam(i));
     }
     // Initialize int32 locals.
     if (function_env_->local_int32_count > 0) {
       TFNode* zero = builder_.Int32Constant(0);
-      for (int i = 0; i < function_env_->local_int32_count; i++) {
+      for (unsigned i = 0; i < function_env_->local_int32_count; i++) {
         ssa_env->locals[pos++] = zero;
       }
     }
     // Initialize float32 locals.
     if (function_env_->local_float32_count > 0) {
       TFNode* zero = builder_.Float32Constant(0);
-      for (int i = 0; i < function_env_->local_float32_count; i++) {
+      for (unsigned i = 0; i < function_env_->local_float32_count; i++) {
         ssa_env->locals[pos++] = zero;
       }
     }
     // Initialize float64 locals.
     if (function_env_->local_float64_count > 0) {
       TFNode* zero = builder_.Float64Constant(0);
-      for (int i = 0; i < function_env_->local_float64_count; i++) {
+      for (unsigned i = 0; i < function_env_->local_float64_count; i++) {
         ssa_env->locals[pos++] = zero;
       }
     }
@@ -391,7 +392,7 @@ class LR_WasmDecoder {
             } else {
               error(pc_, "function call should return exactly 1 result");
             }
-            Shift(type, sig->parameter_count());
+            Shift(type, static_cast<int>(sig->parameter_count()));
           } else {
             Leaf(kAstInt32);
           }
@@ -407,7 +408,7 @@ class LR_WasmDecoder {
             } else {
               error(pc_, "function call should return exactly 1 result");
             }
-            Shift(type, 1 + sig->parameter_count());
+            Shift(type, static_cast<int>(1 + sig->parameter_count()));
           } else {
             Leaf(kAstInt32);
           }
