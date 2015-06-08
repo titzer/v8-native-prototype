@@ -327,12 +327,7 @@ class LR_WasmDecoder {
           break;
         }
         case kStmtReturn: {
-          unsigned count = Operand<uint8_t>(pc_);
-          if (count != function_env_->sig->return_count()) {
-            error(pc_, "mismatched return value count");
-          }
-          Shift(kAstStmt, count);
-          len = 2;
+          Shift(kAstStmt, static_cast<int>(function_env_->sig->return_count()));
           break;
         }
         case kExprInt8Const: {

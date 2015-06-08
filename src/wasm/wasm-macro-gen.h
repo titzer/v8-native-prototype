@@ -28,8 +28,8 @@
   kStmtSwitchNf, static_cast<byte>(count), key, __VA_ARGS__
 #define WASM_CONTINUE(depth) kStmtContinue, static_cast<byte>(depth)
 #define WASM_BREAK(depth) kStmtBreak, static_cast<byte>(depth)
-#define WASM_RETURN(count, ...) \
-  kStmtReturn, static_cast<byte>(count), __VA_ARGS__
+#define WASM_RETURN0 kStmtReturn
+#define WASM_RETURN(...) kStmtReturn, __VA_ARGS__
 
 
 //------------------------------------------------------------------------------

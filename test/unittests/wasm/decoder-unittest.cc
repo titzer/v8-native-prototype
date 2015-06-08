@@ -123,7 +123,7 @@ class DecoderTest : public TestWithZone {
 
   void TestBinop(WasmOpcode opcode, FunctionSig* success) {
     // Return(op(local[0], local[1]))
-    byte code[] = {kStmtReturn, 1, static_cast<byte>(opcode), kExprGetLocal, 0,
+    byte code[] = {kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0,
                    kExprGetLocal, 1};
     FunctionEnv env;
     init_env(&env, success);
@@ -149,7 +149,7 @@ class DecoderTest : public TestWithZone {
 
   void TestUnop(WasmOpcode opcode, AstType ret_type, AstType param_type) {
     // Return(op(local[0]))
-    byte code[] = {kStmtReturn, 1, static_cast<byte>(opcode), kExprGetLocal, 0};
+    byte code[] = {kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0};
     FunctionEnv env;
     {
       AstType types[] = {ret_type, param_type};
@@ -703,7 +703,7 @@ TEST_F(DecoderTest, MacrosStmt) {
   VERIFY(WASM_LOOP(1, WASM_NOP));
   VERIFY(WASM_LOOP(1, WASM_BREAK(0)));
   VERIFY(WASM_LOOP(1, WASM_CONTINUE(0)));
-  VERIFY(WASM_RETURN(1, WASM_ZERO));
+  VERIFY(WASM_RETURN(WASM_ZERO));
 }
 
 
@@ -725,11 +725,30 @@ TEST_F(DecoderTest, MacrosNestedBlocks) {
 
 
 TEST_F(DecoderTest, MultipleReturn) {
-#if 0
-  // TODO(titzer): multiple returns require an appropriate signature.
-  VERIFY(WASM_RETURN(2, WASM_ZERO, WASM_ONE));
-  VERIFY(WASM_RETURN(3, WASM_ZERO, WASM_ONE, WASM_INT8(33)));
-#endif
+  FunctionSig sig_ii_v(2, 0, kIntTypes5);
+  FunctionEnv env_ii_v;
+  init_env(&env_ii_v, &sig_ii_v);
+  {
+    static const byte code[] = {WASM_RETURN(WASM_ZERO, WASM_ONE)};
+    EXPECT_VERIFIES(&env_ii_v, code);
+  }
+  {
+    static const byte code[] = {WASM_RETURN(WASM_ZERO)};
+    EXPECT_FAILURE(&env_ii_v, code);
+  }
+
+  FunctionSig sig_iii_v(3, 0, kIntTypes5);
+  FunctionEnv env_iii_v;
+  init_env(&env_iii_v, &sig_iii_v);
+  {
+    static const byte code[] = {
+        WASM_RETURN(WASM_ZERO, WASM_ONE, WASM_INT8(44))};
+    EXPECT_VERIFIES(&env_iii_v, code);
+  }
+  {
+    static const byte code[] = {WASM_RETURN(WASM_ZERO, WASM_ONE)};
+    EXPECT_FAILURE(&env_iii_v, code);
+  }
 }
 
 
