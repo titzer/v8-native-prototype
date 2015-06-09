@@ -255,6 +255,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     default:
       UNREACHABLE();
+      op = nullptr;
   }
   return graph->graph()->NewNode(op, left, right);
 }
@@ -308,6 +309,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     default:
       UNREACHABLE();
+      op = nullptr;
   }
   return graph->graph()->NewNode(op, input);
 }
