@@ -2,7 +2,7 @@ diff --git a/tools/gyp/v8.gyp b/tools/gyp/v8.gyp
 index 2785d48..21a2ef0 100644
 --- a/tools/gyp/v8.gyp
 +++ b/tools/gyp/v8.gyp
-@@ -932,6 +932,13 @@
+@@ -932,6 +932,15 @@
          '../../src/version.h',
          '../../src/vm-state-inl.h',
          '../../src/vm-state.h',
@@ -11,6 +11,8 @@ index 2785d48..21a2ef0 100644
 +        '../../src/wasm/tf-builder.h',
 +        '../../src/wasm/tf-builder.cc',
 +        '../../src/wasm/wasm-macro-gen.h',
++        '../../src/wasm/wasm-module.cc',
++        '../../src/wasm/wasm-module.h',
 +        '../../src/wasm/wasm-opcodes.cc',
 +        '../../src/wasm/wasm-opcodes.h',
          '../../src/zone.cc',
