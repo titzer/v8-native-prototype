@@ -169,10 +169,10 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt32UDiv:
       op = m->Uint32Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt32SMod:
+    case kExprInt32SRem:
       op = m->Int32Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt32UMod:
+    case kExprInt32URem:
       op = m->Uint32Mod();
       return graph->graph()->NewNode(op, left, right, *control);
     case kExprInt32And:
@@ -219,9 +219,6 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprFloat64Div:
       op = m->Float64Div();
-      break;
-    case kExprFloat64Mod:
-      op = m->Float64Mod();
       break;
     case kExprFloat32Add:
       op = m->Float32Add();

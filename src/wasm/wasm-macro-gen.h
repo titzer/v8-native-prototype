@@ -94,8 +94,8 @@
 #define WASM_INT32_MUL(x, y) kExprInt32Mul, x, y
 #define WASM_INT32_SDIV(x, y) kExprInt32SDiv, x, y
 #define WASM_INT32_UDIV(x, y) kExprInt32UDiv, x, y
-#define WASM_INT32_SMOD(x, y) kExprInt32SMod, x, y
-#define WASM_INT32_UMOD(x, y) kExprInt32UMod, x, y
+#define WASM_INT32_SREM(x, y) kExprInt32SRem, x, y
+#define WASM_INT32_UREM(x, y) kExprInt32URem, x, y
 #define WASM_INT32_AND(x, y) kExprInt32And, x, y
 #define WASM_INT32_IOR(x, y) kExprInt32Ior, x, y
 #define WASM_INT32_XOR(x, y) kExprInt32Xor, x, y
@@ -115,7 +115,6 @@
 #define WASM_FLOAT64_SUB(x, y) kExprFloat64Sub, x, y
 #define WASM_FLOAT64_MUL(x, y) kExprFloat64Mul, x, y
 #define WASM_FLOAT64_DIV(x, y) kExprFloat64Div, x, y
-#define WASM_FLOAT64_MOD(x, y) kExprFloat64Mod, x, y
 #define WASM_FLOAT64_EQ(x, y) kExprFloat64Eq, x, y
 #define WASM_FLOAT64_LT(x, y) kExprFloat64Lt, x, y
 #define WASM_FLOAT64_LE(x, y) kExprFloat64Le, x, y
@@ -128,7 +127,6 @@
 #define WASM_FLOAT32_SUB(x, y) kExprFloat32Sub, x, y
 #define WASM_FLOAT32_MUL(x, y) kExprFloat32Mul, x, y
 #define WASM_FLOAT32_DIV(x, y) kExprFloat32Div, x, y
-#define WASM_FLOAT32_MOD(x, y) kExprFloat32Mod, x, y
 #define WASM_FLOAT32_EQ(x, y) kExprFloat32Eq, x, y
 #define WASM_FLOAT32_LT(x, y) kExprFloat32Lt, x, y
 #define WASM_FLOAT32_LE(x, y) kExprFloat32Le, x, y

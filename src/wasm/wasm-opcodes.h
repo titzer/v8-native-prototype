@@ -73,8 +73,8 @@ enum Atomicity {
   V(Int32Mul, 0x22)            \
   V(Int32SDiv, 0x23)           \
   V(Int32UDiv, 0x24)           \
-  V(Int32SMod, 0x25)           \
-  V(Int32UMod, 0x26)           \
+  V(Int32SRem, 0x25)           \
+  V(Int32URem, 0x26)           \
   V(Int32And, 0x27)            \
   V(Int32Ior, 0x28)            \
   V(Int32Xor, 0x29)            \
@@ -92,8 +92,7 @@ enum Atomicity {
   V(Float64Add, 0x40)          \
   V(Float64Sub, 0x41)          \
   V(Float64Mul, 0x42)          \
-  V(Float64Div, 0x43)          \
-  V(Float64Mod, 0x44)
+  V(Float64Div, 0x43)
 
 // Float64 binops that produce int32.
 #define FOREACH_I_DD_OPCODE(V) \
@@ -106,8 +105,7 @@ enum Atomicity {
   V(Float32Add, 0x50)          \
   V(Float32Sub, 0x51)          \
   V(Float32Mul, 0x52)          \
-  V(Float32Div, 0x53)          \
-  V(Float32Mod, 0x54)
+  V(Float32Div, 0x53)
 
 // Float32 binops that produce int32.
 #define FOREACH_I_FF_OPCODE(V) \

@@ -246,8 +246,8 @@ TEST(Run_WasmInt32Binops) {
   TestInt32Binop(kExprInt32Mul, 65130756, 88734, 734);
   TestInt32Binop(kExprInt32SDiv, -66, -4777344, 72384);
   TestInt32Binop(kExprInt32UDiv, 805306368, 0xF0000000, 5);
-  TestInt32Binop(kExprInt32SMod, -3, -3003, 1000);
-  TestInt32Binop(kExprInt32UMod, 4, 4004, 1000);
+  TestInt32Binop(kExprInt32SRem, -3, -3003, 1000);
+  TestInt32Binop(kExprInt32URem, 4, 4004, 1000);
   TestInt32Binop(kExprInt32And, 0xEE, 0xFFEE, 0xFF0000FF);
   TestInt32Binop(kExprInt32Ior, 0xF0FF00FF, 0xF0F000EE, 0x000F0011);
   TestInt32Binop(kExprInt32Xor, 0xABCDEF01, 0xABCDEFFF, 0xFE);
@@ -311,7 +311,7 @@ TEST(Run_WasmFloat32Binops) {
   TestFloat32BinopWithConvert(kExprFloat32Sub, 2, 44.5, 42.5);
   TestFloat32BinopWithConvert(kExprFloat32Mul, -66, -132.1, 0.5);
   TestFloat32BinopWithConvert(kExprFloat32Div, 11, 22.1, 2);
-  // TODO(titzer):  TestFloat32BinopWithConvert(kExprFloat32Mod, 3, 13.3, 10);
+  // TODO(titzer):  TestFloat32BinopWithConvert(kExprFloat32Rem, 3, 13.3, 10);
 }
 
 
@@ -324,7 +324,7 @@ TEST(Run_WasmFloat64Binops) {
   TestFloat64BinopWithConvert(kExprFloat64Sub, 200, 12200.1, 12000.1);
   TestFloat64BinopWithConvert(kExprFloat64Mul, -33, 134, -0.25);
   TestFloat64BinopWithConvert(kExprFloat64Div, -1111, -2222.3, 2);
-  // TODO(titzer):  TestFloat64BinopWithConvert(kExprFloat64Mod, 3, 13.3, 10);
+  // TODO(titzer):  TestFloat64BinopWithConvert(kExprFloat64Rem, 3, 13.3, 10);
 }
 
 

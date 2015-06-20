@@ -33,7 +33,7 @@ static const AstType kAstTypes[] = {kAstInt32, kAstFloat32, kAstFloat64};
 
 static const WasmOpcode kInt32BinopOpcodes[] = {
     kExprInt32Add,  kExprInt32Sub,  kExprInt32Mul,  kExprInt32SDiv,
-    kExprInt32UDiv, kExprInt32SMod, kExprInt32UMod, kExprInt32And,
+    kExprInt32UDiv, kExprInt32SRem, kExprInt32URem, kExprInt32And,
     kExprInt32Ior,  kExprInt32Xor,  kExprInt32Shl,  kExprInt32Shr,
     kExprInt32Sar,  kExprInt32Eq,   kExprInt32Slt,  kExprInt32Sle,
     kExprInt32Ult,  kExprInt32Ule};
@@ -645,8 +645,8 @@ TEST_F(DecoderTest, Int32Binops) {
   TestBinop(kExprInt32Mul, &sig_i_ii);
   TestBinop(kExprInt32SDiv, &sig_i_ii);
   TestBinop(kExprInt32UDiv, &sig_i_ii);
-  TestBinop(kExprInt32SMod, &sig_i_ii);
-  TestBinop(kExprInt32UMod, &sig_i_ii);
+  TestBinop(kExprInt32SRem, &sig_i_ii);
+  TestBinop(kExprInt32URem, &sig_i_ii);
   TestBinop(kExprInt32And, &sig_i_ii);
   TestBinop(kExprInt32Ior, &sig_i_ii);
   TestBinop(kExprInt32Xor, &sig_i_ii);
@@ -666,7 +666,6 @@ TEST_F(DecoderTest, DoubleBinops) {
   TestBinop(kExprFloat64Sub, &sig_d_dd);
   TestBinop(kExprFloat64Mul, &sig_d_dd);
   TestBinop(kExprFloat64Div, &sig_d_dd);
-  TestBinop(kExprFloat64Mod, &sig_d_dd);
 
   TestBinop(kExprFloat64Eq, &sig_i_dd);
   TestBinop(kExprFloat64Lt, &sig_i_dd);
@@ -679,7 +678,6 @@ TEST_F(DecoderTest, FloatBinops) {
   TestBinop(kExprFloat32Sub, &sig_f_ff);
   TestBinop(kExprFloat32Mul, &sig_f_ff);
   TestBinop(kExprFloat32Div, &sig_f_ff);
-  TestBinop(kExprFloat32Mod, &sig_f_ff);
 
   TestBinop(kExprFloat32Eq, &sig_i_ff);
   TestBinop(kExprFloat32Lt, &sig_i_ff);
@@ -766,8 +764,8 @@ TEST_F(DecoderTest, MacrosInt32) {
   VERIFY(WASM_INT32_MUL(WASM_GET_LOCAL(0), WASM_INT8(14)));
   VERIFY(WASM_INT32_SDIV(WASM_GET_LOCAL(0), WASM_INT8(15)));
   VERIFY(WASM_INT32_UDIV(WASM_GET_LOCAL(0), WASM_INT8(16)));
-  VERIFY(WASM_INT32_SMOD(WASM_GET_LOCAL(0), WASM_INT8(17)));
-  VERIFY(WASM_INT32_UMOD(WASM_GET_LOCAL(0), WASM_INT8(18)));
+  VERIFY(WASM_INT32_SREM(WASM_GET_LOCAL(0), WASM_INT8(17)));
+  VERIFY(WASM_INT32_UREM(WASM_GET_LOCAL(0), WASM_INT8(18)));
   VERIFY(WASM_INT32_AND(WASM_GET_LOCAL(0), WASM_INT8(19)));
   VERIFY(WASM_INT32_IOR(WASM_GET_LOCAL(0), WASM_INT8(20)));
   VERIFY(WASM_INT32_XOR(WASM_GET_LOCAL(0), WASM_INT8(21)));
