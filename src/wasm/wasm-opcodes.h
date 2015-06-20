@@ -87,52 +87,86 @@ enum Atomicity {
   V(Int32Ult, 0x30)            \
   V(Int32Ule, 0x31)
 
+// Integer unops.
+#define FOREACH_I_I_OPCODE(V) \
+  V(Int32Clz, 0x32)           \
+  V(Int32Ctz, 0x33)           \
+  V(Int32PopCnt, 0x34)
+
 // Float64 binops that produce float64.
 #define FOREACH_D_DD_OPCODE(V) \
   V(Float64Add, 0x40)          \
   V(Float64Sub, 0x41)          \
   V(Float64Mul, 0x42)          \
-  V(Float64Div, 0x43)
+  V(Float64Div, 0x43)          \
+  V(Float64Min, 0x44)          \
+  V(Float64Max, 0x45)
+
+// Float64 unops.
+#define FOREACH_D_D_OPCODE(V) \
+  V(Float64Abs, 0x46)         \
+  V(Float64Neg, 0x47)         \
+  V(Float64CopySign, 0x48)    \
+  V(Float64Ceil, 0x49)        \
+  V(Float64Floor, 0x4a)       \
+  V(Float64Trunc, 0x4b)       \
+  V(Float64NearestInt, 0x4c)  \
+  V(Float64Sqrt, 0x4d)
 
 // Float64 binops that produce int32.
 #define FOREACH_I_DD_OPCODE(V) \
-  V(Float64Eq, 0x45)           \
-  V(Float64Lt, 0x46)           \
-  V(Float64Le, 0x47)
+  V(Float64Eq, 0x4e)           \
+  V(Float64Lt, 0x4f)           \
+  V(Float64Le, 0x50)
 
 // Float32 binops that produce float32.
 #define FOREACH_F_FF_OPCODE(V) \
-  V(Float32Add, 0x50)          \
-  V(Float32Sub, 0x51)          \
-  V(Float32Mul, 0x52)          \
-  V(Float32Div, 0x53)
+  V(Float32Add, 0x60)          \
+  V(Float32Sub, 0x61)          \
+  V(Float32Mul, 0x62)          \
+  V(Float32Div, 0x63)          \
+  V(Float32Min, 0x64)          \
+  V(Float32Max, 0x65)
+
+// Float32 unops.
+#define FOREACH_F_F_OPCODE(V) \
+  V(Float32Abs, 0x66)         \
+  V(Float32Neg, 0x67)         \
+  V(Float32CopySign, 0x68)    \
+  V(Float32Ceil, 0x69)        \
+  V(Float32Floor, 0x6a)       \
+  V(Float32Trunc, 0x6b)       \
+  V(Float32NearestInt, 0x6c)  \
+  V(Float32Sqrt, 0x6d)
 
 // Float32 binops that produce int32.
 #define FOREACH_I_FF_OPCODE(V) \
-  V(Float32Eq, 0x55)           \
-  V(Float32Lt, 0x56)           \
-  V(Float32Le, 0x57)
+  V(Float32Eq, 0x6e)           \
+  V(Float32Lt, 0x6f)           \
+  V(Float32Le, 0x70)
 
 // Conversions between primitive types.
 #define FOREACH_CONVERSION_OPCODE(V) \
-  V(Int32FromFloat32, 0x60)          \
-  V(Int32FromFloat64, 0x61)          \
-  V(Uint32FromFloat32, 0x62)         \
-  V(Uint32FromFloat64, 0x63)         \
-  V(Float64FromSInt32, 0x64)         \
-  V(Float64FromUInt32, 0x65)         \
-  V(Float64FromFloat32, 0x66)        \
-  V(Float32FromSInt32, 0x67)         \
-  V(Float32FromUInt32, 0x68)         \
-  V(Float32FromFloat64, 0x69)
+  V(Int32FromFloat32, 0x80)          \
+  V(Int32FromFloat64, 0x81)          \
+  V(Uint32FromFloat32, 0x82)         \
+  V(Uint32FromFloat64, 0x83)         \
+  V(Float64FromSInt32, 0x84)         \
+  V(Float64FromUInt32, 0x85)         \
+  V(Float64FromFloat32, 0x86)        \
+  V(Float32FromSInt32, 0x87)         \
+  V(Float32FromUInt32, 0x88)         \
+  V(Float32FromFloat64, 0x89)
 
 // Expression opcodes.
 #define FOREACH_EXPR_OPCODE(V) \
   FOREACH_EXPR_OPCODE_MISC(V)  \
   FOREACH_I_II_OPCODE(V)       \
   FOREACH_D_DD_OPCODE(V)       \
+  FOREACH_D_D_OPCODE(V)        \
   FOREACH_I_DD_OPCODE(V)       \
   FOREACH_F_FF_OPCODE(V)       \
+  FOREACH_F_F_OPCODE(V)        \
   FOREACH_I_FF_OPCODE(V)       \
   FOREACH_CONVERSION_OPCODE(V)
 
