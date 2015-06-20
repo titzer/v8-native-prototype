@@ -218,7 +218,7 @@ class LR_WasmDecoder {
   void DecodeFunctionBody() {
     if (pc_ >= limit_) return;  // Nothing to do.
 
-    while (true) {
+    while (true) {  // decoding loop.
       if (ssa_env_->end()) {
         error(pc_, "unreachable code");
         return;
@@ -226,6 +226,21 @@ class LR_WasmDecoder {
 
       int len = 1;
       WasmOpcode opcode = static_cast<WasmOpcode>(*pc_);
+
+      const FunctionSig* sig = SimpleExprSig(opcode);
+      if (sig) {
+        // A simple expression with a fixed signature.
+        Shift(sig->GetReturn(), sig->parameter_count());
+        pc_ += len;
+        if (pc_ >= limit_) {
+          // End of code reached or exceeded.
+          if (pc_ > limit_ && result_.error_pc != nullptr) {
+            error(pc_, "Beyond end of code");
+          }
+          return;
+        }
+        continue;  // back to decoding loop.
+      }
 
       switch (opcode) {
         case kStmtNop:
@@ -238,7 +253,7 @@ class LR_WasmDecoder {
           break;
         }
         case kStmtSetGlobal: {
-          GlobalIndexOperand(pc_);  // Check valid global index
+          GlobalIndexOperand(pc_);  // Check valid global index.
           Shift(kAstStmt, 1);
           len = 2;
           break;
@@ -425,52 +440,6 @@ class LR_WasmDecoder {
           Shift(kAstInt32, 2);  // Result type is typeof(y) in {x, y}.
           break;
         }
-        case kExprBoolNot: {
-          Shift(kAstInt32, 1);
-          break;
-        }
-// === Binops that return int32 ========================================
-#define DECLARE_SHIFT_CASE(name, opcode) case kExpr##name:  // fallthrough
-          FOREACH_I_II_OPCODE(DECLARE_SHIFT_CASE)
-          FOREACH_I_FF_OPCODE(DECLARE_SHIFT_CASE)
-          FOREACH_I_DD_OPCODE(DECLARE_SHIFT_CASE)
-          Shift(kAstInt32, 2);
-          break;
-#undef DECLARE_SHIFT_CASE
-// =====================================================================
-
-// === Binops that return float32 ======================================
-#define DECLARE_SHIFT_CASE(name, opcode) case kExpr##name:  // fallthrough
-          FOREACH_F_FF_OPCODE(DECLARE_SHIFT_CASE)
-          Shift(kAstFloat32, 2);
-          break;
-#undef DECLARE_SHIFT_CASE
-// =====================================================================
-
-// === Binops that return float64 ======================================
-#define DECLARE_SHIFT_CASE(name, opcode) case kExpr##name:  // fallthrough
-          FOREACH_D_DD_OPCODE(DECLARE_SHIFT_CASE)
-          Shift(kAstFloat64, 2);
-          break;
-#undef DECLARE_SHIFT_CASE
-        // =====================================================================
-        case kExprInt32FromFloat32:   // fallthrough
-        case kExprInt32FromFloat64:   // fallthrough
-        case kExprUint32FromFloat32:  // fallthrough
-        case kExprUint32FromFloat64:  // fallthrough
-          Shift(kAstInt32, 1);
-          break;
-        case kExprFloat64FromSInt32:   // fallthrough
-        case kExprFloat64FromUInt32:   // fallthrough
-        case kExprFloat64FromFloat32:  // fallthrough
-          Shift(kAstFloat64, 1);
-          break;
-        case kExprFloat32FromSInt32:   // fallthrough
-        case kExprFloat32FromUInt32:   // fallthrough
-        case kExprFloat32FromFloat64:  // fallthrough
-          Shift(kAstFloat32, 1);
-          break;
-
         default:
           error(pc_, "Invalid opcode");
           return;
@@ -492,6 +461,23 @@ class LR_WasmDecoder {
 
   void Reduce(Production* p) {
     WasmOpcode opcode = p->opcode();
+    const FunctionSig* sig = SimpleExprSig(opcode);
+    if (sig) {
+      // A simple expression with a fixed signature.
+      TypeCheckLast(p, sig->GetParam(p->index - 1));
+      if (p->done()) {
+        if (sig->parameter_count() == 2) {
+          p->tree->node = builder_.Binop(opcode, p->tree->children[0]->node,
+                                         p->tree->children[1]->node);
+        } else if (sig->parameter_count() == 1) {
+          p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
+        } else {
+          UNREACHABLE();
+        }
+      }
+      return;
+    }
+
     switch (opcode) {
       case kStmtSetLocal: {
         unsigned index = LocalIndexOperand(p->pc());
@@ -713,8 +699,8 @@ class LR_WasmDecoder {
             char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
             snprintf(buffer, kErrorMsgSize,
                      "%s[%d] expected expression, found %s statement",
-                     OpcodeName(p->opcode()), p->index - 1,
-                     OpcodeName(p->last()->opcode()));
+                     WasmOpcodes::OpcodeName(p->opcode()), p->index - 1,
+                     WasmOpcodes::OpcodeName(p->last()->opcode()));
             error(p->pc(), buffer, p->last()->pc);
           }
           IfEnv* env = &ifs_.back();
@@ -753,71 +739,6 @@ class LR_WasmDecoder {
         }
         break;
       }
-      case kExprBoolNot: {
-        TypeCheckLast(p, kAstInt32);
-        if (p->done()) {
-          p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
-        }
-        break;
-      }
-// === Binops that take int32 ============================================
-#define DECLARE_REDUCE_CASE(name, opcode) case kExpr##name:  // fallthrough
-        FOREACH_I_II_OPCODE(DECLARE_REDUCE_CASE)
-        TypeCheckLast(p, kAstInt32);
-        if (p->done()) {
-          p->tree->node = builder_.Binop(opcode, p->tree->children[0]->node,
-                                         p->tree->children[1]->node);
-        }
-        break;
-#undef DECLARE_REDUCE_CASE
-// =======================================================================
-
-// === Binops that take float32 ==========================================
-#define DECLARE_REDUCE_CASE(name, opcode) case kExpr##name:  // fallthrough
-        FOREACH_F_FF_OPCODE(DECLARE_REDUCE_CASE)
-        FOREACH_I_FF_OPCODE(DECLARE_REDUCE_CASE)
-        TypeCheckLast(p, kAstFloat32);
-        if (p->done()) {
-          p->tree->node = builder_.Binop(opcode, p->tree->children[0]->node,
-                                         p->tree->children[1]->node);
-        }
-        break;
-#undef DECLARE_REDUCE_CASE
-// =======================================================================
-
-// === Binops that take float64 ==========================================
-#define DECLARE_REDUCE_CASE(name, opcode) case kExpr##name:  // fallthrough
-        FOREACH_D_DD_OPCODE(DECLARE_REDUCE_CASE)
-        FOREACH_I_DD_OPCODE(DECLARE_REDUCE_CASE)
-        TypeCheckLast(p, kAstFloat64);
-        if (p->done()) {
-          p->tree->node = builder_.Binop(opcode, p->tree->children[0]->node,
-                                         p->tree->children[1]->node);
-        }
-        break;
-#undef DECLARE_REDUCE_CASE
-      // =======================================================================
-      case kExprInt32FromFloat64:    // fallthrough
-      case kExprUint32FromFloat64:   // fallthrough
-      case kExprFloat32FromFloat64:  // fallthrough
-        TypeCheckLast(p, kAstFloat64);
-        p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
-        break;
-      case kExprFloat64FromSInt32:  // fallthrough
-      case kExprFloat64FromUInt32:  // fallthrough
-      case kExprFloat32FromSInt32:  // fallthrough
-      case kExprFloat32FromUInt32:  // fallthrough
-        TypeCheckLast(p, kAstInt32);
-        p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
-        break;
-
-      case kExprInt32FromFloat32:    // fallthrough
-      case kExprUint32FromFloat32:   // fallthrough
-      case kExprFloat64FromFloat32:  // fallthrough
-        TypeCheckLast(p, kAstFloat32);
-        p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
-        break;
-
       default:
         break;
     }
@@ -828,8 +749,10 @@ class LR_WasmDecoder {
       char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
       snprintf(buffer, kErrorMsgSize,
                "%s[%d] expected type %s, found %s of type %s",
-               OpcodeName(p->opcode()), p->index - 1, TypeName(expected),
-               OpcodeName(p->last()->opcode()), TypeName(p->last()->type));
+               WasmOpcodes::OpcodeName(p->opcode()), p->index - 1,
+               WasmOpcodes::TypeName(expected),
+               WasmOpcodes::OpcodeName(p->last()->opcode()),
+               WasmOpcodes::TypeName(p->last()->type));
       error(p->pc(), buffer, p->last()->pc);
     }
   }
@@ -978,6 +901,10 @@ class LR_WasmDecoder {
     return *reinterpret_cast<const V*>(pc + 1);
   }
 
+  const FunctionSig* SimpleExprSig(WasmOpcode opcode) {
+    return reinterpret_cast<const FunctionSig*>(WasmOpcodes::Signature(opcode));
+  }
+
   int EnvironmentCount() {
     return static_cast<int>(function_env_->GetLocalCount());
   }
@@ -1067,12 +994,12 @@ class LR_WasmDecoder {
     Production* p = &stack_[depth];
     for (size_t d = 0; d < depth; d++) PrintF("  ");
     PrintF("@%d %s [%d]\n", static_cast<int>(p->tree->pc - start_),
-           OpcodeName(p->opcode()), p->tree->count);
+           WasmOpcodes::OpcodeName(p->opcode()), p->tree->count);
     for (int i = 0; i < p->index; i++) {
       Tree* child = p->tree->children[i];
       for (size_t d = 0; d <= depth; d++) PrintF("  ");
       PrintF("@%d %s [%d]", static_cast<int>(child->pc - start_),
-             OpcodeName(child->opcode()), child->count);
+             WasmOpcodes::OpcodeName(child->opcode()), child->count);
       if (child->node) {
         PrintF(" => TF");
         TFBuilder::PrintDebugName(child->node);
@@ -1140,7 +1067,7 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree) {
     os << "null";
     return os;
   }
-  PrintF("%s", OpcodeName(tree.opcode()));
+  PrintF("%s", WasmOpcodes::OpcodeName(tree.opcode()));
   if (tree.count > 0) os << "(";
   for (int i = 0; i < tree.count; i++) {
     if (i > 0) os << ", ";
