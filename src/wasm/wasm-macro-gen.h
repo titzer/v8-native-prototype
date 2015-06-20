@@ -21,6 +21,7 @@
 #define WASM_IF_THEN(cond, tstmt, fstmt) kStmtIfThen, cond, tstmt, fstmt
 #define WASM_NOP kStmtNop
 #define WASM_BLOCK(count, ...) kStmtBlock, static_cast<byte>(count), __VA_ARGS__
+#define WASM_INFINITE_LOOP kStmtLoop, 0
 #define WASM_LOOP(count, ...) kStmtLoop, static_cast<byte>(count), __VA_ARGS__
 #define WASM_SWITCH(count, key, ...) \
   kStmtSwitch, static_cast<byte>(count), key, __VA_ARGS__

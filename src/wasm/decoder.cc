@@ -283,7 +283,8 @@ class LR_WasmDecoder {
         case kStmtLoop: {
           int length = Operand<uint8_t>(pc_);
           if (length == 0) {
-            Leaf(kAstStmt);  // TODO: that's an infinite loop.
+            BuildInfiniteLoop();
+            Leaf(kAstStmt);
           } else {
             Shift(kAstStmt, length);
             PrepareForLoop(ssa_env_);
@@ -910,7 +911,16 @@ class LR_WasmDecoder {
     return from->Kill();
   }
 
+  void BuildInfiniteLoop() {
+    PrepareForLoop(ssa_env_);
+    SsaEnv* cont_env = ssa_env_;
+    ssa_env_ = Split(ssa_env_);
+    ssa_env_->state = SsaEnv::kReached;
+    Goto(ssa_env_, cont_env);
+  }
+
   void PrepareForLoop(SsaEnv* env) {
+    // TODO(titzer): add Terminate for all loops.
     env->state = SsaEnv::kMerged;
     env->control = builder_.Loop(env->control);
     env->effect = builder_.EffectPhi(1, &env->effect, env->control);

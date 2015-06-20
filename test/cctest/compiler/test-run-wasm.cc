@@ -686,4 +686,19 @@ TEST(Run_Wasm_Switch_Nf_N) {
 }
 
 
+TEST(Build_Wasm_Infinite_Loop) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // Only build the graph, don't run the code.
+  BUILD(r, WASM_INFINITE_LOOP);
+}
+
+
+TEST(Run_Wasm_Infinite_Loop_not_taken) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_INFINITE_LOOP,
+                        WASM_RETURN(WASM_INT8(45))));
+  // Run the code, but don't go into the infinite loop.
+  CHECK_EQ(45, r.Call(0));
+}
+
 #endif  // V8_TURBOFAN_TARGET
