@@ -56,7 +56,7 @@ static compiler::MachineType MachineTypeFor(MemType type) {
 
 TFNode* TFBuilder::Error() {
   if (!graph) return nullptr;
-  return graph->DeadControl();
+  return graph->Dead();
 }
 
 

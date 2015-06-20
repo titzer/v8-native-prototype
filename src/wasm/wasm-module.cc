@@ -63,8 +63,9 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   }
 
   // Create the JSArrayBuffer backed by the raw memory.
-  isolate->heap()->RegisterNewArrayBuffer(backing_store, size);
   Handle<JSArrayBuffer> buffer = factory->NewJSArrayBuffer();
+  isolate->heap()->RegisterNewArrayBuffer(isolate->heap()->InNewSpace(*buffer),
+                                          backing_store, size);
   buffer->set_backing_store(backing_store);
   buffer->set_is_external(false);
   buffer->set_is_neuterable(false);
