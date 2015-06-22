@@ -108,10 +108,11 @@ static void InitSigTable() {
 #undef SET_SIG_TABLE
 }
 
-const void* WasmOpcodes::Signature(WasmOpcode opcode) {
+FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
   // TODO(titzer): use LazyInstance to make this thread safe.
   if (kSimpleExprSigTable[kExprInt32Add] == 0) InitSigTable();
-  return kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]];
+  return const_cast<FunctionSig*>(
+      kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]]);
 }
 }
 }

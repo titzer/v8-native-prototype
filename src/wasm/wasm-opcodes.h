@@ -5,6 +5,8 @@
 #ifndef V8_WEBASM_OPCODES_H_
 #define V8_WEBASM_OPCODES_H_
 
+#include "src/signature.h"
+
 namespace v8 {
 namespace internal {
 namespace wasm {
@@ -36,6 +38,8 @@ enum Atomicity {
   kAcquire = 2,     // acquire semantics
   kRelease = 3      // release semantics
 };
+
+typedef Signature<AstType> FunctionSig;
 
 // Statements.
 #define FOREACH_STMT_OPCODE(V) \
@@ -164,7 +168,7 @@ class WasmOpcodes {
   static const char* OpcodeName(WasmOpcode opcode);
   static const char* TypeName(AstType type);
   static const char* TypeName(MemType type);
-  static const void* Signature(WasmOpcode opcode);
+  static FunctionSig* Signature(WasmOpcode opcode);
 };
 }
 }

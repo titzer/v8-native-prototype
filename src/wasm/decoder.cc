@@ -227,7 +227,7 @@ class LR_WasmDecoder {
       int len = 1;
       WasmOpcode opcode = static_cast<WasmOpcode>(*pc_);
 
-      const FunctionSig* sig = SimpleExprSig(opcode);
+      FunctionSig* sig = WasmOpcodes::Signature(opcode);
       if (sig) {
         // A simple expression with a fixed signature.
         Shift(sig->GetReturn(), sig->parameter_count());
@@ -461,7 +461,7 @@ class LR_WasmDecoder {
 
   void Reduce(Production* p) {
     WasmOpcode opcode = p->opcode();
-    const FunctionSig* sig = SimpleExprSig(opcode);
+    FunctionSig* sig = WasmOpcodes::Signature(opcode);
     if (sig) {
       // A simple expression with a fixed signature.
       TypeCheckLast(p, sig->GetParam(p->index - 1));
@@ -899,10 +899,6 @@ class LR_WasmDecoder {
       return -1;
     }
     return *reinterpret_cast<const V*>(pc + 1);
-  }
-
-  const FunctionSig* SimpleExprSig(WasmOpcode opcode) {
-    return reinterpret_cast<const FunctionSig*>(WasmOpcodes::Signature(opcode));
   }
 
   int EnvironmentCount() {

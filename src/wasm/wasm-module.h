@@ -11,8 +11,6 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-class FunctionSig;
-
 // Static representation of a wasm function.
 struct WasmFunction {
   FunctionSig* sig;      // signature of the function.

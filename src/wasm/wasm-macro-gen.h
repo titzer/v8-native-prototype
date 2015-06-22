@@ -85,6 +85,7 @@
       static_cast<int8_t>(count), kExprGetLocal, static_cast<byte>(index)
 
 
+#define WASM_UNOP(opcode, x) static_cast<byte>(opcode), x
 #define WASM_BINOP(opcode, x, y) static_cast<byte>(opcode), x, y
 
 //------------------------------------------------------------------------------

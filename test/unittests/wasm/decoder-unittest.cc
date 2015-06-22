@@ -147,6 +147,10 @@ class DecoderTest : public TestWithZone {
     }
   }
 
+  void TestUnop(WasmOpcode opcode, FunctionSig* success) {
+    TestUnop(opcode, success->GetReturn(), success->GetParam(0));
+  }
+
   void TestUnop(WasmOpcode opcode, AstType ret_type, AstType param_type) {
     // Return(op(local[0]))
     byte code[] = {kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0};
@@ -779,6 +783,23 @@ TEST_F(DecoderTest, MacrosInt32) {
   VERIFY(WASM_INT32_ULE(WASM_GET_LOCAL(0), WASM_INT8(29)));
 }
 
+
+TEST_F(DecoderTest, AllSimpleExpressions) {
+// Test all simple expressions which are described by a signature.
+#define DECODE_TEST(name, opcode, sig)                      \
+  {                                                         \
+    FunctionSig* sig = WasmOpcodes::Signature(kExpr##name); \
+    if (sig->parameter_count() == 1) {                      \
+      TestUnop(kExpr##name, sig);                           \
+    } else {                                                \
+      TestBinop(kExpr##name, sig);                          \
+    }                                                       \
+  }
+
+  FOREACH_SIMPLE_EXPR_OPCODE(DECODE_TEST);
+
+#undef DECODE_TEST
+}
 
 //--------------------------------------------------------------------------
 // TODO: not a real test.
