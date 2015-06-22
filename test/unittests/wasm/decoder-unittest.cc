@@ -10,26 +10,26 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-static AstType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
+static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                kAstInt32};
 
-static AstType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
+static LocalType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
                                     kAstFloat32, kAstFloat32};
 
-static AstType kFloatTypes5[] = {kAstFloat32, kAstFloat32, kAstFloat32,
+static LocalType kFloatTypes5[] = {kAstFloat32, kAstFloat32, kAstFloat32,
                                  kAstFloat32, kAstFloat32};
 
-static AstType kIntDoubleTypes5[] = {kAstInt32, kAstFloat64, kAstFloat64,
+static LocalType kIntDoubleTypes5[] = {kAstInt32, kAstFloat64, kAstFloat64,
                                      kAstFloat64, kAstFloat64};
 
-static AstType kDoubleTypes5[] = {kAstFloat64, kAstFloat64, kAstFloat64,
+static LocalType kDoubleTypes5[] = {kAstFloat64, kAstFloat64, kAstFloat64,
                                   kAstFloat64, kAstFloat64};
 
 static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
 static const byte kCodeSetLocal0[] = {kStmtSetLocal, 0, kExprInt8Const, 0};
 
-static const AstType kAstTypes[] = {kAstInt32, kAstFloat32, kAstFloat64};
+static const LocalType kLocalTypes[] = {kAstInt32, kAstFloat32, kAstFloat64};
 
 static const WasmOpcode kInt32BinopOpcodes[] = {
     kExprInt32Add,  kExprInt32Sub,  kExprInt32Mul,  kExprInt32SDiv,
@@ -130,10 +130,10 @@ class DecoderTest : public TestWithZone {
     EXPECT_VERIFIES(&env, code);
 
     // Try all combinations of return and parameter types.
-    for (size_t i = 0; i < arraysize(kAstTypes); i++) {
-      for (size_t j = 0; j < arraysize(kAstTypes); j++) {
-        for (size_t k = 0; k < arraysize(kAstTypes); k++) {
-          AstType types[] = {kAstTypes[i], kAstTypes[j], kAstTypes[k]};
+    for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
+      for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
+        for (size_t k = 0; k < arraysize(kLocalTypes); k++) {
+          LocalType types[] = {kLocalTypes[i], kLocalTypes[j], kLocalTypes[k]};
           if (types[0] != success->GetReturn(0) ||
               types[1] != success->GetParam(0) ||
               types[2] != success->GetParam(1)) {
@@ -151,21 +151,21 @@ class DecoderTest : public TestWithZone {
     TestUnop(opcode, success->GetReturn(), success->GetParam(0));
   }
 
-  void TestUnop(WasmOpcode opcode, AstType ret_type, AstType param_type) {
+  void TestUnop(WasmOpcode opcode, LocalType ret_type, LocalType param_type) {
     // Return(op(local[0]))
     byte code[] = {kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0};
     FunctionEnv env;
     {
-      AstType types[] = {ret_type, param_type};
+      LocalType types[] = {ret_type, param_type};
       FunctionSig sig(1, 1, types);
       init_env(&env, &sig);
       EXPECT_VERIFIES(&env, code);
     }
 
     // Try all combinations of return and parameter types.
-    for (size_t i = 0; i < arraysize(kAstTypes); i++) {
-      for (size_t j = 0; j < arraysize(kAstTypes); j++) {
-        AstType types[] = {kAstTypes[i], kAstTypes[j]};
+    for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
+      for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
+        LocalType types[] = {kLocalTypes[i], kLocalTypes[j]};
         if (types[0] != ret_type || types[1] != param_type) {
           // Test signature mismatch.
           FunctionSig sig(1, 1, types);

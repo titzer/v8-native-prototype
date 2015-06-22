@@ -23,7 +23,7 @@ namespace wasm {
 typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
 
-typedef Signature<AstType> FunctionSig;
+typedef Signature<LocalType> FunctionSig;
 
 // Interface the module environment during decoding, including information about
 // the global variables and the function tables.
@@ -57,7 +57,7 @@ struct FunctionEnv {
 
   bool IsValidLocal(unsigned index) { return index < total_locals; }
   unsigned GetLocalCount() { return total_locals; }
-  AstType GetLocalType(unsigned index) {
+  LocalType GetLocalType(unsigned index) {
     if (index < sig->parameter_count()) return sig->GetParam(index);
     index -= sig->parameter_count();
     if (index < local_int32_count) return kAstInt32;

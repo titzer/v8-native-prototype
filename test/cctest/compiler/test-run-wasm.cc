@@ -21,7 +21,7 @@ using namespace v8::internal::compiler;
 using namespace v8::internal::wasm;
 
 // Helpers for many common signatures that involve int32 types.
-static AstType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
+static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                kAstInt32};
 
 struct CommonSignatures {
@@ -100,7 +100,7 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
     }
   }
 
-  byte AllocateLocal(AstType type) {
+  byte AllocateLocal(LocalType type) {
     int result = static_cast<int>(function_env->sig->parameter_count());
     if (type == kAstInt32) result += function_env->local_int32_count++;
     if (type == kAstFloat32) result += function_env->local_float32_count++;
@@ -539,7 +539,7 @@ TEST(Run_Wasm_HeapFloat32_Sum) {
 
 template <typename T>
 void GenerateAndRunFold(WasmOpcode binop, T* buffer, size_t size,
-                        AstType astType, MemType memType) {
+                        LocalType astType, MemType memType) {
   WasmRunner<int32_t> r(kMachInt32);
   const byte kAccum = r.AllocateLocal(astType);
   ModuleEnv module;

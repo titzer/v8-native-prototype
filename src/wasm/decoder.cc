@@ -13,7 +13,7 @@ namespace wasm {
 
 // The root of a decoded tree.
 struct Tree {
-  AstType type : 3;   // tree type.
+  LocalType type : 3;   // tree type.
   int count : 29;     // number of children.
   const byte* pc;     // start of the syntax tree.
   TFNode* node;       // node in the TurboFan graph.
@@ -173,7 +173,7 @@ class LR_WasmDecoder {
     SetEnv(ssa_env);
   }
 
-  void Leaf(AstType type, TFNode* node = nullptr) {
+  void Leaf(LocalType type, TFNode* node = nullptr) {
     size_t size = sizeof(Tree);
     Tree* tree = reinterpret_cast<Tree*>(zone_->New(size));
     tree->type = type;
@@ -184,7 +184,7 @@ class LR_WasmDecoder {
     Reduce(tree);
   }
 
-  void Shift(AstType type, unsigned count) {
+  void Shift(LocalType type, unsigned count) {
     if (count == 0) return Leaf(type);
     size_t size = sizeof(Tree) + (count - 1) * sizeof(Tree*);
     Tree* tree = reinterpret_cast<Tree*>(zone_->New(size));
@@ -388,14 +388,14 @@ class LR_WasmDecoder {
         }
         case kExprGetGlobal: {
           unsigned index = GlobalIndexOperand(pc_);
-          AstType type =
-              AstTypeFor(function_env_->module->GetGlobalType(index));
+          LocalType type =
+              LocalTypeFor(function_env_->module->GetGlobalType(index));
           Leaf(type, builder_.GetGlobal(index));
           len = 2;
           break;
         }
         case kExprGetHeap: {
-          AstType type = AstTypeFor(MemAccessTypeOperand(pc_));
+          LocalType type = LocalTypeFor(MemAccessTypeOperand(pc_));
           Shift(type, 1);
           len = 2;
           break;
@@ -403,7 +403,7 @@ class LR_WasmDecoder {
         case kExprCallFunction: {
           FunctionSig* sig = FunctionIndexOperand(pc_);
           if (sig) {
-            AstType type = kAstInt32;
+            LocalType type = kAstInt32;
             if (sig->return_count() == 1) {
               type = sig->GetReturn();
             } else {
@@ -419,7 +419,7 @@ class LR_WasmDecoder {
         case kExprCallIndirect: {
           FunctionSig* sig = FunctionTableIndexOperand(pc_);
           if (sig) {
-            AstType type = kAstInt32;
+            LocalType type = kAstInt32;
             if (sig->return_count() == 1) {
               type = sig->GetReturn();
             } else {
@@ -492,8 +492,8 @@ class LR_WasmDecoder {
       case kStmtSetGlobal: {
         unsigned index = LocalIndexOperand(p->pc());
         Tree* val = p->last();
-        AstType global =
-            AstTypeFor(function_env_->module->GetGlobalType(index));
+        LocalType global =
+            LocalTypeFor(function_env_->module->GetGlobalType(index));
         if (global == val->type) {
           p->tree->node = builder_.SetGlobal(index, val->node);
         } else {
@@ -507,7 +507,7 @@ class LR_WasmDecoder {
         } else if (p->index == 2) {
           Tree* val = p->last();
           MemType type = MemAccessTypeOperand(p->pc());
-          if (AstTypeFor(type) == val->type) {
+          if (LocalTypeFor(type) == val->type) {
             Tree* ival = p->tree->children[0];
             p->tree->node = builder_.SetHeap(type, ival->node, val->node);
           } else {
@@ -744,7 +744,7 @@ class LR_WasmDecoder {
     }
   }
 
-  void TypeCheckLast(Production* p, AstType expected) {
+  void TypeCheckLast(Production* p, LocalType expected) {
     if (p->last()->type != expected) {
       char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
       snprintf(buffer, kErrorMsgSize,
@@ -953,7 +953,7 @@ class LR_WasmDecoder {
     }
   }
 
-  AstType AstTypeFor(MemType type) {
+  LocalType LocalTypeFor(MemType type) {
     switch (type) {
       case kMemInt8:
       case kMemUint8:

@@ -12,7 +12,7 @@ namespace internal {
 namespace wasm {
 
 // Types for syntax tree nodes.
-enum AstType {
+enum LocalType {
   kAstStmt = 0,     // a statement node
   kAstInt32 = 1,    // expression that produces an int32 value
   kAstFloat32 = 2,  // expression that produces a float32 value
@@ -39,7 +39,7 @@ enum Atomicity {
   kRelease = 3      // release semantics
 };
 
-typedef Signature<AstType> FunctionSig;
+typedef Signature<LocalType> FunctionSig;
 
 // Statements.
 #define FOREACH_STMT_OPCODE(V) \
@@ -166,7 +166,7 @@ enum WasmOpcode {
 class WasmOpcodes {
  public:
   static const char* OpcodeName(WasmOpcode opcode);
-  static const char* TypeName(AstType type);
+  static const char* TypeName(LocalType type);
   static const char* TypeName(MemType type);
   static FunctionSig* Signature(WasmOpcode opcode);
 };

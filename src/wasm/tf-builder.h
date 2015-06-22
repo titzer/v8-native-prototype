@@ -64,10 +64,10 @@ struct TFBuilder {
   //-----------------------------------------------------------------------
   TFNode* Error();
   TFNode* Start(unsigned params);
-  TFNode* Param(unsigned index, AstType type);
+  TFNode* Param(unsigned index, LocalType type);
   TFNode* Loop(TFNode* entry);
   TFNode* Merge(unsigned count, TFNode** controls);
-  TFNode* Phi(AstType type, unsigned count, TFNode** vals, TFNode* control);
+  TFNode* Phi(LocalType type, unsigned count, TFNode** vals, TFNode* control);
   TFNode* EffectPhi(unsigned count, TFNode** effects, TFNode* control);
   TFNode* Int32Constant(int value);
   TFNode* Float32Constant(float value);

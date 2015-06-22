@@ -9,7 +9,7 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-typedef Signature<AstType> FunctionSig;
+typedef Signature<LocalType> FunctionSig;
 
 const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
   switch (opcode) {
@@ -31,7 +31,7 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
 }
 
 
-const char* WasmOpcodes::TypeName(AstType type) {
+const char* WasmOpcodes::TypeName(LocalType type) {
   switch (type) {
     case kAstStmt:
       return "<stmt>";
@@ -74,7 +74,7 @@ const char* WasmOpcodes::TypeName(MemType type) {
 // TODO(titzer): not static-initializer safe. Wrap in LazyInstance.
 #define DECLARE_SIG(name, index, ...)             \
   static const int kSigIndex_##name = index;      \
-  static AstType kTypes_##name[] = {__VA_ARGS__}; \
+  static LocalType kTypes_##name[] = {__VA_ARGS__}; \
   static const FunctionSig kSig_##name(           \
       1, static_cast<int>(arraysize(kTypes_##name)) - 1, kTypes_##name)
 

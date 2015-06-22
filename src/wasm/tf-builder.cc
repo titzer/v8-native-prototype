@@ -14,7 +14,7 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-static compiler::MachineType MachineTypeFor(AstType type) {
+static compiler::MachineType MachineTypeFor(LocalType type) {
   switch (type) {
     case kAstInt32:
       return compiler::kMachInt32;
@@ -69,10 +69,10 @@ TFNode* TFBuilder::Start(unsigned params) {
 }
 
 
-TFNode* TFBuilder::Param(unsigned index, AstType type) {
+TFNode* TFBuilder::Param(unsigned index, LocalType type) {
   if (!graph) return nullptr;
   compiler::Graph* g = graph->graph();
-  // TODO: use AstType for parameters
+  // TODO: use LocalType for parameters
   return g->NewNode(graph->common()->Parameter(index), g->start());
 }
 
@@ -121,7 +121,7 @@ TFNode* TFBuilder::Merge(unsigned count, TFNode** controls) {
 }
 
 
-TFNode* TFBuilder::Phi(AstType type, unsigned count, TFNode** vals,
+TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
                        TFNode* control) {
   if (!graph) return nullptr;
   TFNode** buf = Buffer(count + 1);
