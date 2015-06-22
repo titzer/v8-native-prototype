@@ -1,8 +1,8 @@
 diff --git a/test/cctest/cctest.gyp b/test/cctest/cctest.gyp
-index 276ebd2..b4c70e0 100644
+index a1f49b9..a48eb4e 100644
 --- a/test/cctest/cctest.gyp
 +++ b/test/cctest/cctest.gyp
-@@ -84,6 +84,7 @@
+@@ -82,6 +82,7 @@
          'compiler/test-run-stackcheck.cc',
          'compiler/test-run-stubs.cc',
          'compiler/test-run-variables.cc',

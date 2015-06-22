@@ -1,8 +1,8 @@
 diff --git a/test/unittests/unittests.gyp b/test/unittests/unittests.gyp
-index 7a298a9..38ef423 100644
+index 64c4b10..78e8aee 100644
 --- a/test/unittests/unittests.gyp
 +++ b/test/unittests/unittests.gyp
-@@ -91,6 +91,8 @@
+@@ -94,6 +94,8 @@
          'run-all-unittests.cc',
          'test-utils.h',
          'test-utils.cc',

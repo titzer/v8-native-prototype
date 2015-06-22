@@ -15,8 +15,8 @@ echo Patching from $PATCH into $V8_DIR...
 cp -r $PATCH/src/* src/
 cp -r $PATCH/test/* test/
 
-patch -p1 < $PATCH/v8.gyp.diff
-patch -p1 < $PATCH/cctest.gyp.diff
-patch -p1 < $PATCH/unittests.gyp.diff
+for p in $PATCH/*.diff; do
+    patch -p1 < $p
+done
 
 popd
