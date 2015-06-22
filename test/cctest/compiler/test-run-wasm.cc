@@ -22,7 +22,7 @@ using namespace v8::internal::wasm;
 
 // Helpers for many common signatures that involve int32 types.
 static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
-                               kAstInt32};
+                                 kAstInt32};
 
 struct CommonSignatures {
   CommonSignatures()

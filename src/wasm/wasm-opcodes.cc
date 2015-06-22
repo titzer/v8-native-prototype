@@ -72,10 +72,10 @@ const char* WasmOpcodes::TypeName(MemType type) {
 
 
 // TODO(titzer): not static-initializer safe. Wrap in LazyInstance.
-#define DECLARE_SIG(name, index, ...)             \
-  static const int kSigIndex_##name = index;      \
+#define DECLARE_SIG(name, index, ...)               \
+  static const int kSigIndex_##name = index;        \
   static LocalType kTypes_##name[] = {__VA_ARGS__}; \
-  static const FunctionSig kSig_##name(           \
+  static const FunctionSig kSig_##name(             \
       1, static_cast<int>(arraysize(kTypes_##name)) - 1, kTypes_##name)
 
 DECLARE_SIG(i_ii, 1, kAstInt32, kAstInt32, kAstInt32);

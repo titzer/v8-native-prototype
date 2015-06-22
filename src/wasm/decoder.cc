@@ -13,11 +13,11 @@ namespace wasm {
 
 // The root of a decoded tree.
 struct Tree {
-  LocalType type : 3;   // tree type.
-  int count : 29;     // number of children.
-  const byte* pc;     // start of the syntax tree.
-  TFNode* node;       // node in the TurboFan graph.
-  Tree* children[1];  // pointers to children.
+  LocalType type : 3;  // tree type.
+  int count : 29;      // number of children.
+  const byte* pc;      // start of the syntax tree.
+  TFNode* node;        // node in the TurboFan graph.
+  Tree* children[1];   // pointers to children.
 
   WasmOpcode opcode() const { return static_cast<WasmOpcode>(*pc); }
 };
@@ -137,33 +137,35 @@ class LR_WasmDecoder {
     TFNode* start = builder_.Start(param_count);
     SsaEnv* ssa_env = Split(nullptr);
     int pos = 0;
-    // Initialize parameters.
-    for (int i = 0; i < param_count; i++) {
-      ssa_env->locals[pos++] = builder_.Param(i, sig->GetParam(i));
-    }
-    // Initialize int32 locals.
-    if (function_env_->local_int32_count > 0) {
-      TFNode* zero = builder_.Int32Constant(0);
-      for (unsigned i = 0; i < function_env_->local_int32_count; i++) {
-        ssa_env->locals[pos++] = zero;
+    if (builder_.graph) {
+      // Initialize parameters.
+      for (int i = 0; i < param_count; i++) {
+        ssa_env->locals[pos++] = builder_.Param(i, sig->GetParam(i));
       }
-    }
-    // Initialize float32 locals.
-    if (function_env_->local_float32_count > 0) {
-      TFNode* zero = builder_.Float32Constant(0);
-      for (unsigned i = 0; i < function_env_->local_float32_count; i++) {
-        ssa_env->locals[pos++] = zero;
+      // Initialize int32 locals.
+      if (function_env_->local_int32_count > 0) {
+        TFNode* zero = builder_.Int32Constant(0);
+        for (unsigned i = 0; i < function_env_->local_int32_count; i++) {
+          ssa_env->locals[pos++] = zero;
+        }
       }
-    }
-    // Initialize float64 locals.
-    if (function_env_->local_float64_count > 0) {
-      TFNode* zero = builder_.Float64Constant(0);
-      for (unsigned i = 0; i < function_env_->local_float64_count; i++) {
-        ssa_env->locals[pos++] = zero;
+      // Initialize float32 locals.
+      if (function_env_->local_float32_count > 0) {
+        TFNode* zero = builder_.Float32Constant(0);
+        for (unsigned i = 0; i < function_env_->local_float32_count; i++) {
+          ssa_env->locals[pos++] = zero;
+        }
       }
+      // Initialize float64 locals.
+      if (function_env_->local_float64_count > 0) {
+        TFNode* zero = builder_.Float64Constant(0);
+        for (unsigned i = 0; i < function_env_->local_float64_count; i++) {
+          ssa_env->locals[pos++] = zero;
+        }
+      }
+      DCHECK_EQ(function_env_->total_locals, pos);
+      DCHECK_EQ(EnvironmentCount(), pos);
     }
-    DCHECK_EQ(function_env_->total_locals, pos);
-    DCHECK_EQ(EnvironmentCount(), pos);
     ssa_env->control = start;
     ssa_env->effect = start;
     if (function_env_->module) {
@@ -247,15 +249,13 @@ class LR_WasmDecoder {
           Leaf(kAstStmt);
           break;
         case kStmtSetLocal: {
-          LocalIndexOperand(pc_);  // Check valid local index.
+          LocalIndexOperand(pc_, &len);  // Check valid local index.
           Shift(kAstStmt, 1);
-          len = 2;
           break;
         }
         case kStmtSetGlobal: {
-          GlobalIndexOperand(pc_);  // Check valid global index.
+          GlobalIndexOperand(pc_, &len);  // Check valid global index.
           Shift(kAstStmt, 1);
-          len = 2;
           break;
         }
         case kStmtSetHeap: {
@@ -377,21 +377,17 @@ class LR_WasmDecoder {
           break;
         }
         case kExprGetLocal: {
-          unsigned index = LocalIndexOperand(pc_);
-          // TODO: redundant validity check for local index.
-          TFNode* val = function_env_->IsValidLocal(index)
-                            ? ssa_env_->locals[index]
-                            : builder_.Error();
+          uint32_t index = LocalIndexOperand(pc_, &len);
+          TFNode* val =
+              builder_.graph ? ssa_env_->locals[index] : builder_.Error();
           Leaf(function_env_->GetLocalType(index), val);
-          len = 2;
           break;
         }
         case kExprGetGlobal: {
-          unsigned index = GlobalIndexOperand(pc_);
+          uint32_t index = GlobalIndexOperand(pc_, &len);
           LocalType type =
               LocalTypeFor(function_env_->module->GetGlobalType(index));
           Leaf(type, builder_.GetGlobal(index));
-          len = 2;
           break;
         }
         case kExprGetHeap: {
@@ -401,7 +397,7 @@ class LR_WasmDecoder {
           break;
         }
         case kExprCallFunction: {
-          FunctionSig* sig = FunctionIndexOperand(pc_);
+          FunctionSig* sig = FunctionIndexOperand(pc_, &len);
           if (sig) {
             LocalType type = kAstInt32;
             if (sig->return_count() == 1) {
@@ -413,11 +409,10 @@ class LR_WasmDecoder {
           } else {
             Leaf(kAstInt32);
           }
-          len = 2;
           break;
         }
         case kExprCallIndirect: {
-          FunctionSig* sig = FunctionTableIndexOperand(pc_);
+          FunctionSig* sig = FunctionTableIndexOperand(pc_, &len);
           if (sig) {
             LocalType type = kAstInt32;
             if (sig->return_count() == 1) {
@@ -429,7 +424,6 @@ class LR_WasmDecoder {
           } else {
             Leaf(kAstInt32);
           }
-          len = 2;
           break;
         }
         case kExprTernary: {
@@ -480,17 +474,19 @@ class LR_WasmDecoder {
 
     switch (opcode) {
       case kStmtSetLocal: {
-        unsigned index = LocalIndexOperand(p->pc());
+        int unused = 0;
+        unsigned index = LocalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
         if (function_env_->GetLocalType(index) == val->type) {
-          ssa_env_->locals[index] = val->node;
+          if (builder_.graph) ssa_env_->locals[index] = val->node;
         } else {
           error(p->pc(), "Typecheck failed in SetLocal", val->pc);
         }
         break;
       }
       case kStmtSetGlobal: {
-        unsigned index = LocalIndexOperand(p->pc());
+        int unused = 0;
+        unsigned index = LocalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
         LocalType global =
             LocalTypeFor(function_env_->module->GetGlobalType(index));
@@ -646,7 +642,8 @@ class LR_WasmDecoder {
         break;
       }
       case kExprCallFunction: {
-        FunctionSig* sig = FunctionIndexOperand(p->pc());
+        int unused = 0;
+        FunctionSig* sig = FunctionIndexOperand(p->pc(), &unused);
         TypeCheckLast(p, sig->GetParam(p->index - 1));
         if (p->done()) {
           unsigned count = p->tree->count + 1;
@@ -661,7 +658,8 @@ class LR_WasmDecoder {
         break;
       }
       case kExprCallIndirect: {
-        FunctionSig* sig = FunctionTableIndexOperand(p->pc());
+        int unused = 0;
+        FunctionSig* sig = FunctionTableIndexOperand(p->pc(), &unused);
         if (p->index == 1) {
           TypeCheckLast(p, kAstInt32);
         } else {
@@ -855,7 +853,7 @@ class LR_WasmDecoder {
 
   SsaEnv* Split(SsaEnv* from) {
     SsaEnv* result = reinterpret_cast<SsaEnv*>(zone_->New(sizeof(SsaEnv)));
-    size_t size = sizeof(TFNode*) * function_env_->GetLocalCount();
+    size_t size = sizeof(TFNode*) * EnvironmentCount();
     result->locals =
         size > 0 ? reinterpret_cast<TFNode**>(zone_->New(size)) : nullptr;
     if (from) {
@@ -902,37 +900,57 @@ class LR_WasmDecoder {
   }
 
   int EnvironmentCount() {
-    return static_cast<int>(function_env_->GetLocalCount());
+    if (builder_.graph) return static_cast<int>(function_env_->GetLocalCount());
+    return 0;  // don't perform SSA renaming.
   }
 
-  unsigned LocalIndexOperand(const byte* pc) {
-    unsigned index = Operand<uint8_t>(pc);
+  uint32_t LocalIndexOperand(const byte* pc, int* length) {
+    uint32_t index = UnsignedLEB128Operand(pc, length);
     if (!function_env_->IsValidLocal(index)) {
       error(pc, "invalid local variable index");
     }
     return index;
   }
 
-  unsigned GlobalIndexOperand(const byte* pc) {
-    unsigned index = Operand<uint8_t>(pc);
+  uint32_t GlobalIndexOperand(const byte* pc, int* length) {
+    uint32_t index = UnsignedLEB128Operand(pc, length);
     if (!function_env_->module->IsValidGlobal(index)) {
       error(pc, "invalid global variable index");
     }
     return index;
   }
 
-  FunctionSig* FunctionIndexOperand(const byte* pc) {
-    unsigned index = Operand<uint8_t>(pc);
+  FunctionSig* FunctionIndexOperand(const byte* pc, int* length) {
+    uint32_t index = UnsignedLEB128Operand(pc, length);
     FunctionSig* sig = function_env_->module->GetFunctionSignature(index);
     if (!sig) error(pc, "invalid function index");
     return sig;
   }
 
-  FunctionSig* FunctionTableIndexOperand(const byte* pc) {
-    unsigned index = Operand<uint8_t>(pc);
+  FunctionSig* FunctionTableIndexOperand(const byte* pc, int* length) {
+    uint32_t index = UnsignedLEB128Operand(pc, length);
     FunctionSig* sig = function_env_->module->GetFunctionTableSignature(index);
     if (!sig) error(pc, "invalid function table index");
     return sig;
+  }
+
+  uint32_t UnsignedLEB128Operand(const byte* pc, int* length) {
+    uint32_t result = 0;
+    const byte* ptr = pc + 1;
+    const byte* end = pc + 6;  // maximum 5 bytes.
+    if (end > limit_) end = limit_;
+    int shift = 0;
+    byte b = 0;
+    while (ptr < end) {
+      b = *ptr++;
+      result = result | ((b & 0x7F) << shift);
+      if ((b & 0x80) == 0) break;
+      shift += 7;
+    }
+    if (ptr == end && (b & 0x80)) error(pc, "invalid LEB128 varint");
+    *length = ptr - pc;
+    if (*length == 1) error(pc, "expected LEB128 varint");
+    return result;
   }
 
   MemType MemAccessTypeOperand(const byte* pc) {

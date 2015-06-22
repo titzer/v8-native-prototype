@@ -25,7 +25,6 @@ class WasmJs {
  private:
   static void Verify(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
-
 }
 
 #endif

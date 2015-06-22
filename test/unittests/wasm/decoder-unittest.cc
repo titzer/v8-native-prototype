@@ -11,19 +11,19 @@ namespace internal {
 namespace wasm {
 
 static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
-                               kAstInt32};
+                                 kAstInt32};
 
 static LocalType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
-                                    kAstFloat32, kAstFloat32};
+                                      kAstFloat32, kAstFloat32};
 
 static LocalType kFloatTypes5[] = {kAstFloat32, kAstFloat32, kAstFloat32,
-                                 kAstFloat32, kAstFloat32};
+                                   kAstFloat32, kAstFloat32};
 
 static LocalType kIntDoubleTypes5[] = {kAstInt32, kAstFloat64, kAstFloat64,
-                                     kAstFloat64, kAstFloat64};
+                                       kAstFloat64, kAstFloat64};
 
 static LocalType kDoubleTypes5[] = {kAstFloat64, kAstFloat64, kAstFloat64,
-                                  kAstFloat64, kAstFloat64};
+                                    kAstFloat64, kAstFloat64};
 
 static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
@@ -285,6 +285,36 @@ TEST_F(DecoderTest, GetLocal1_fail_no_locals) {
 TEST_F(DecoderTest, GetLocal_off_end) {
   static const byte code[] = {kExprGetLocal};
   EXPECT_FAILURE(&env_i_i, code);
+}
+
+
+TEST_F(DecoderTest, GetLocal_varint) {
+  env_i_i.local_int32_count = 1000000000;
+  env_i_i.total_locals += 1000000000;
+
+  {
+    static const byte code[] = {kExprGetLocal, 0xFF, 0x01};
+    EXPECT_VERIFIES(&env_i_i, code);
+    EXPECT_FAILURE(&env_i_f, code);
+  }
+
+  {
+    static const byte code[] = {kExprGetLocal, 0xF0, 0x80, 0x01};
+    EXPECT_VERIFIES(&env_i_i, code);
+    EXPECT_FAILURE(&env_i_f, code);
+  }
+
+  {
+    static const byte code[] = {kExprGetLocal, 0xF2, 0x81, 0x82, 0x01};
+    EXPECT_VERIFIES(&env_i_i, code);
+    EXPECT_FAILURE(&env_i_f, code);
+  }
+
+  {
+    static const byte code[] = {kExprGetLocal, 0xF3, 0xA1, 0xB1, 0xC1, 0x01};
+    EXPECT_VERIFIES(&env_i_i, code);
+    EXPECT_FAILURE(&env_i_f, code);
+  }
 }
 
 
