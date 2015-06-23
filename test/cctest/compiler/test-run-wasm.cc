@@ -282,6 +282,16 @@ void TestFloat32BinopWithConvert(WasmOpcode opcode, int32_t expected, float a,
 }
 
 
+void TestFloat32UnopWithConvert(WasmOpcode opcode, int32_t expected, float a) {
+  WasmRunner<int32_t> r;
+  // return int(K op K)
+  BUILD(r, WASM_RETURN(
+               WASM_INT32_FROM_FLOAT32(WASM_UNOP(opcode, WASM_FLOAT32(a)))));
+  CHECK_EQ(expected, r.Call());
+  // TODO(titzer): test float parameters
+}
+
+
 void TestFloat64Binop(WasmOpcode opcode, int32_t expected, double a, double b) {
   WasmRunner<int32_t> r;
   // return K op K
@@ -302,6 +312,16 @@ void TestFloat64BinopWithConvert(WasmOpcode opcode, int32_t expected, double a,
 }
 
 
+void TestFloat64UnopWithConvert(WasmOpcode opcode, int32_t expected, double a) {
+  WasmRunner<int32_t> r;
+  // return int(K op K)
+  BUILD(r, WASM_RETURN(
+               WASM_INT32_FROM_FLOAT64(WASM_UNOP(opcode, WASM_FLOAT64(a)))));
+  CHECK_EQ(expected, r.Call());
+  // TODO(titzer): test float parameters
+}
+
+
 TEST(Run_WasmFloat32Binops) {
   TestFloat32Binop(kExprFloat32Eq, 1, 8.125, 8.125);
   TestFloat32Binop(kExprFloat32Lt, 1, -9.5, -9);
@@ -311,7 +331,12 @@ TEST(Run_WasmFloat32Binops) {
   TestFloat32BinopWithConvert(kExprFloat32Sub, 2, 44.5, 42.5);
   TestFloat32BinopWithConvert(kExprFloat32Mul, -66, -132.1, 0.5);
   TestFloat32BinopWithConvert(kExprFloat32Div, 11, 22.1, 2);
-  // TODO(titzer):  TestFloat32BinopWithConvert(kExprFloat32Rem, 3, 13.3, 10);
+}
+
+
+TEST(Run_WasmFloat32Unops) {
+  TestFloat32UnopWithConvert(kExprFloat32Abs, 8, 8.125);
+  TestFloat32UnopWithConvert(kExprFloat32Abs, 9, -9.125);
 }
 
 
@@ -324,7 +349,12 @@ TEST(Run_WasmFloat64Binops) {
   TestFloat64BinopWithConvert(kExprFloat64Sub, 200, 12200.1, 12000.1);
   TestFloat64BinopWithConvert(kExprFloat64Mul, -33, 134, -0.25);
   TestFloat64BinopWithConvert(kExprFloat64Div, -1111, -2222.3, 2);
-  // TODO(titzer):  TestFloat64BinopWithConvert(kExprFloat64Rem, 3, 13.3, 10);
+}
+
+
+TEST(Run_WasmFloat64Unops) {
+  TestFloat64UnopWithConvert(kExprFloat64Abs, 108, 108.125);
+  TestFloat64UnopWithConvert(kExprFloat64Abs, 209, -209.125);
 }
 
 
