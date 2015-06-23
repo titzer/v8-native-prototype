@@ -1,4 +1,4 @@
-// Copyright 2014 the V8 project authors. All rights reserved.
+// Copyright 2015 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -49,7 +49,7 @@ struct CommonSignatures {
   FunctionEnv env_i_iii;
   FunctionEnv env_v_v;
 
-  void init_env(FunctionEnv* env, FunctionSig* sig) {
+  static void init_env(FunctionEnv* env, FunctionSig* sig) {
     env->module = nullptr;
     env->sig = sig;
     env->local_int32_count = 0;
@@ -699,6 +699,39 @@ TEST(Run_Wasm_Infinite_Loop_not_taken) {
                         WASM_RETURN(WASM_INT8(45))));
   // Run the code, but don't go into the infinite loop.
   CHECK_EQ(45, r.Call(0));
+}
+
+
+static void TestBuildGraphForUnop(WasmOpcode opcode, FunctionSig* sig) {
+  WasmRunner<int32_t> r(kMachInt32);
+  CommonSignatures::init_env(r.function_env, sig);
+  BUILD(r, kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0);
+}
+
+
+static void TestBuildGraphForBinop(WasmOpcode opcode, FunctionSig* sig) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  CommonSignatures::init_env(r.function_env, sig);
+  BUILD(r, kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0,
+        kExprGetLocal, 1);
+}
+
+
+TEST(Build_Wasm_SimpleExprs) {
+// Test that the decoder can build a graph for all simple expressions.
+#define GRAPH_BUILD_TEST(name, opcode, sig)                 \
+  if (WasmOpcodes::IsSupported(kExpr##name)) {              \
+    FunctionSig* sig = WasmOpcodes::Signature(kExpr##name); \
+    if (sig->parameter_count() == 1) {                      \
+      TestBuildGraphForUnop(kExpr##name, sig);              \
+    } else {                                                \
+      TestBuildGraphForBinop(kExpr##name, sig);             \
+    }                                                       \
+  }
+
+  FOREACH_SIMPLE_EXPR_OPCODE(GRAPH_BUILD_TEST);
+
+#undef GRAPH_BUILD_TEST
 }
 
 #endif  // V8_TURBOFAN_TARGET

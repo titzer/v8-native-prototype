@@ -149,6 +149,18 @@ TFNode* TFBuilder::Int32Constant(int value) {
 }
 
 
+static const compiler::Operator* UnsupportedOpcode(WasmOpcode opcode) {
+  if (WasmOpcodes::IsSupported(opcode)) {
+    V8_Fatal(__FILE__, __LINE__,
+             "Unsupported opcode #%d:%s reported as supported", opcode,
+             WasmOpcodes::OpcodeName(opcode));
+  }
+  V8_Fatal(__FILE__, __LINE__, "Unsupported opcode #%d:%s", opcode,
+           WasmOpcodes::OpcodeName(opcode));
+  return nullptr;
+}
+
+
 TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
   if (!graph) return nullptr;
   const compiler::Operator* op;
@@ -251,8 +263,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       op = m->Float32LessThanOrEqual();
       break;
     default:
-      UNREACHABLE();
-      op = nullptr;
+      op = UnsupportedOpcode(opcode);
   }
   return graph->graph()->NewNode(op, left, right);
 }
@@ -305,8 +316,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       op = m->ChangeFloat32ToFloat64();
       break;
     default:
-      UNREACHABLE();
-      op = nullptr;
+      op = UnsupportedOpcode(opcode);
   }
   return graph->graph()->NewNode(op, input);
 }

@@ -114,6 +114,37 @@ FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
   return const_cast<FunctionSig*>(
       kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]]);
 }
+
+bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
+  switch (opcode) {
+    case kExprInt32Clz:
+    case kExprInt32Ctz:
+    case kExprInt32PopCnt:
+    case kExprFloat64Min:
+    case kExprFloat64Max:
+    case kExprFloat64Abs:
+    case kExprFloat64Neg:
+    case kExprFloat64CopySign:
+    case kExprFloat64Ceil:
+    case kExprFloat64Floor:
+    case kExprFloat64Trunc:
+    case kExprFloat64NearestInt:
+    case kExprFloat64Sqrt:
+    case kExprFloat32Min:
+    case kExprFloat32Max:
+    case kExprFloat32Abs:
+    case kExprFloat32Neg:
+    case kExprFloat32CopySign:
+    case kExprFloat32Ceil:
+    case kExprFloat32Floor:
+    case kExprFloat32Trunc:
+    case kExprFloat32NearestInt:
+    case kExprFloat32Sqrt:
+      return false;
+    default:
+      return true;
+  }
+}
 }
 }
 }

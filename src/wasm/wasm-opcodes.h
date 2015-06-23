@@ -162,9 +162,10 @@ enum WasmOpcode {
 #undef DECLARE_NAMED_ENUM
 };
 
-// A collection of wasm-related static methods.
+// A collection of opcode-related static methods.
 class WasmOpcodes {
  public:
+  static bool IsSupported(WasmOpcode opcode);
   static const char* OpcodeName(WasmOpcode opcode);
   static const char* TypeName(LocalType type);
   static const char* TypeName(MemType type);
