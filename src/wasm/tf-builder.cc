@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/compiler/js-graph.h"
 #include "src/compiler/common-operator.h"
+#include "src/compiler/js-graph.h"
 #include "src/compiler/machine-operator.h"
 
-#include "src/wasm/wasm-opcodes.h"
-
 #include "src/wasm/tf-builder.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {
@@ -72,7 +71,7 @@ TFNode* TFBuilder::Start(unsigned params) {
 TFNode* TFBuilder::Param(unsigned index, LocalType type) {
   if (!graph) return nullptr;
   compiler::Graph* g = graph->graph();
-  // TODO: use LocalType for parameters
+  // TODO(titzer): use LocalType for parameters
   return g->NewNode(graph->common()->Parameter(index), g->start());
 }
 
@@ -86,6 +85,7 @@ TFNode* TFBuilder::Loop(TFNode* entry) {
 unsigned TFBuilder::InputCount(TFNode* node) {
   return static_cast<unsigned>(node->InputCount());
 }
+
 
 bool TFBuilder::IsPhiWithMerge(TFNode* phi, TFNode* merge) {
   return phi && compiler::IrOpcode::IsPhiOpcode(phi->opcode()) &&

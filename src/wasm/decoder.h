@@ -5,9 +5,9 @@
 #ifndef V8_WEBASM_DECODER_H_
 #define V8_WEBASM_DECODER_H_
 
-#include "src/zone.h"
 #include "src/signature.h"
 #include "src/zone-containers.h"
+
 #include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
@@ -74,7 +74,7 @@ struct Tree;
 // Error codes for programmatic checking of the decoder's verification.
 enum ErrorCode {
   kSuccess,
-  kError,                 // TODO: remove me
+  kError,                 // TODO(titzer): remove me
   kOutOfMemory,           // decoder ran out of memory
   kEndOfCode,             // end of code reached prematurely
   kInvalidOpcode,         // found invalid opcode

@@ -93,12 +93,15 @@ DECLARE_SIG(d_d, 12, kAstFloat64, kAstFloat64);
 DECLARE_SIG(d_f, 13, kAstFloat64, kAstFloat32);
 DECLARE_SIG(d_i, 14, kAstFloat64, kAstInt32);
 
+
 static const FunctionSig* kSimpleExprSigs[16] = {
     nullptr,    &kSig_i_ii, &kSig_i_i,  &kSig_i_ff, &kSig_i_f,
     &kSig_i_dd, &kSig_i_d,  &kSig_f_ff, &kSig_f_f,  &kSig_f_d,
     &kSig_f_i,  &kSig_d_dd, &kSig_d_d,  &kSig_d_f,  &kSig_d_i};
 
+
 static byte kSimpleExprSigTable[256];
+
 
 // Initialize the signature table.
 static void InitSigTable() {
@@ -108,12 +111,14 @@ static void InitSigTable() {
 #undef SET_SIG_TABLE
 }
 
+
 FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
   // TODO(titzer): use LazyInstance to make this thread safe.
   if (kSimpleExprSigTable[kExprInt32Add] == 0) InitSigTable();
   return const_cast<FunctionSig*>(
       kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]]);
 }
+
 
 bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {

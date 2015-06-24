@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "test/unittests/test-utils.h"
+
 #include "src/wasm/decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
 
@@ -831,8 +832,9 @@ TEST_F(DecoderTest, AllSimpleExpressions) {
 #undef DECODE_TEST
 }
 
+
 //--------------------------------------------------------------------------
-// TODO: not a real test.
+// TODO(titzer): not a real test.
 //--------------------------------------------------------------------------
 void TestWasmDecodingSpeed();
 

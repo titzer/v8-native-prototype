@@ -7,6 +7,8 @@
 
 #include "src/zone.h"
 
+#include "src/wasm/wasm-opcodes.h"
+
 namespace v8 {
 namespace internal {
 

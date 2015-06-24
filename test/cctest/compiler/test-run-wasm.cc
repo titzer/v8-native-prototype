@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/compiler/js-graph.h"
 #include "src/compiler/graph-visualizer.h"
+#include "src/compiler/js-graph.h"
 
-#include "src/wasm/wasm-opcodes.h"
-#include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/decoder.h"
+#include "src/wasm/wasm-macro-gen.h"
+#include "src/wasm/wasm-opcodes.h"
 
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/graph-builder-tester.h"
@@ -205,6 +205,7 @@ TEST(Run_WasmInt32Add_P2) {
   }
 }
 
+
 TEST(Run_WasmFloat32Add) {
   WasmRunner<int32_t> r;
   // return int(11.5f + 44.5f)
@@ -375,7 +376,7 @@ TEST(Run_Wasm_VoidReturn) {
   WasmRunner<void> r;
   r.function_env = &r.sigs_.env_v_v;
   BUILD(r, WASM_RETURN0);
-  // TODO: code generator fixes:  r.Call();
+  // TODO(titzer): code generator fixes:  r.Call();
 }
 
 

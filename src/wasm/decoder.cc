@@ -1,11 +1,14 @@
+// Copyright 2015 the V8 project authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
-#include "src/v8.h"
 #include "src/signature.h"
+#include "src/v8.h"
 #include "src/zone-containers.h"
 
 #include "src/wasm/decoder.h"
-#include "src/wasm/wasm-opcodes.h"
 #include "src/wasm/tf-builder.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {
@@ -22,6 +25,7 @@ struct Tree {
   WasmOpcode opcode() const { return static_cast<WasmOpcode>(*pc); }
 };
 
+
 // A production represents an incomplete decoded tree in the LR decoder.
 struct Production {
   Tree* tree;  // the root of the syntax tree.
@@ -32,6 +36,7 @@ struct Production {
   bool done() const { return index >= tree->count; }
   Tree* last() const { return index > 0 ? tree->children[index - 1] : nullptr; }
 };
+
 
 // An SsaEnv environment carries the current local variable renaming
 // as well as the current effect and control dependency in the TF graph.
@@ -52,17 +57,20 @@ struct SsaEnv {
   }
 };
 
+
 // An entry in the stack of blocks during decoding.
 struct Block {
   SsaEnv* cont_env;
   SsaEnv* break_env;
 };
 
+
 // An entry in the stack of ifs during decoding.
 struct IfEnv {
   SsaEnv* true_env;
   SsaEnv* false_env;
 };
+
 
 // A LR-parser strategy for decoding Wasm code that uses an explicit
 // shift-reduce strategy with multiple internal stacks.
@@ -450,7 +458,7 @@ class LR_WasmDecoder {
   }
 
   void AddImplicitReturnAtEnd() {
-    // TODO
+    // TODO(titzer): add implicit return at end?
   }
 
   void Reduce(Production* p) {
@@ -990,7 +998,7 @@ class LR_WasmDecoder {
   void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
     limit_ = start_;  // terminates the decoding loop
     if (result_.error_msg == nullptr) {
-      result_.error_code = kError;  // TODO error code
+      result_.error_code = kError;  // TODO(titzer): error code
       result_.error_msg = msg;
       result_.error_pc = pc;
       result_.error_pt = pt;
@@ -1112,7 +1120,7 @@ std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code) {
     case kSuccess:
       os << "Success";
       break;
-    default:  // TODO: render error codes
+    default:  // TODO(titzer): render error codes
       os << "Error";
       break;
   }

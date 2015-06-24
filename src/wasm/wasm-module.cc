@@ -1,3 +1,6 @@
+// Copyright 2015 the V8 project authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 #include "src/v8.h"
 
@@ -72,7 +75,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   buffer->set_byte_length(Smi::FromInt(size));
   module->SetInternalField(kWasmHeapArrayBuffer, *buffer);
 
-  // TODO: allocate storage for the globals.
+  // TODO(titzer): allocate storage for the globals.
   module->SetInternalField(kWasmGlobalsArrayBuffer, Smi::FromInt(0));
 
   if (heap_export) {
@@ -111,7 +114,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
 
 
 Handle<Code> WasmModule::Compile(int index, const WasmFunction& function) {
-  return Handle<Code>::null();  // TODO
+  return Handle<Code>::null();  // TODO(titzer): compile
 }
 }
 }
