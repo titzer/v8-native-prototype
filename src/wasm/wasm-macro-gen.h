@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_WEBASM_MACRO_GEN_H_
-#define V8_WEBASM_MACRO_GEN_H_
+#ifndef V8_WASM_MACRO_GEN_H_
+#define V8_WASM_MACRO_GEN_H_
 
 #include "src/wasm/wasm-opcodes.h"
 
@@ -148,4 +148,4 @@
 #define WASM_FLOAT32_FROM_UINT32(x) kExprFloat32FromUInt32, x
 #define WASM_FLOAT32_FROM_FLOAT64(x) kExprFloat32FromFloat64, x
 
-#endif  // V8_WEBASM_MACRO_GEN_H_
+#endif  // V8_WASM_MACRO_GEN_H_

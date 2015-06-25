@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_WEBASM_OPCODES_H_
-#define V8_WEBASM_OPCODES_H_
+#ifndef V8_WASM_OPCODES_H_
+#define V8_WASM_OPCODES_H_
 
 #include "src/signature.h"
 
@@ -175,4 +175,4 @@ class WasmOpcodes {
 }
 }
 
-#endif  // V8_WEBASM_OPCODES_H_
+#endif  // V8_WASM_OPCODES_H_

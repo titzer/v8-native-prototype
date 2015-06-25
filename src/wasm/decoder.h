@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_WEBASM_DECODER_H_
-#define V8_WEBASM_DECODER_H_
+#ifndef V8_WASM_DECODER_H_
+#define V8_WASM_DECODER_H_
 
 #include "src/signature.h"
 #include "src/zone-containers.h"
@@ -111,4 +111,4 @@ Result BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
 }
 
 
-#endif  // V8_WEBASM_DECODER_H_
+#endif  // V8_WASM_DECODER_H_

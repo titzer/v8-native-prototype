@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_WEBASM_MODULE_H_
-#define V8_WEBASM_MODULE_H_
+#ifndef V8_WASM_MODULE_H_
+#define V8_WASM_MODULE_H_
 
 #include "wasm-opcodes.h"
 
@@ -79,4 +79,4 @@ WasmModule* DecodeWasmModule(Isolate* isolate, const byte* module_start,
 }
 }
 
-#endif  // V8_WEBASM_MODULE_H_
+#endif  // V8_WASM_MODULE_H_
