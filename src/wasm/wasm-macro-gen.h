@@ -13,10 +13,10 @@
 // Statements.
 //------------------------------------------------------------------------------
 #define WASM_SET_LOCAL(index, val) kStmtSetLocal, static_cast<byte>(index), val
-#define WASM_SET_GLOBAL(index, val) \
-  kStmtSetGlobal, static_cast<byte>(index), val
-#define WASM_SET_HEAP(type, index, val) \
-  kStmtSetHeap, static_cast<byte>(type), index, val
+#define WASM_STORE_GLOBAL(index, val) \
+  kStmtStoreGlobal, static_cast<byte>(index), val
+#define WASM_STORE_MEM(type, index, val) \
+  kStmtStoreMem, static_cast<byte>(type), index, val
 #define WASM_IF(cond, tstmt) kStmtIf, cond, tstmt
 #define WASM_IF_THEN(cond, tstmt, fstmt) kStmtIfThen, cond, tstmt, fstmt
 #define WASM_NOP kStmtNop
@@ -58,8 +58,8 @@
       static_cast<byte>(bit_cast<uint64_t>(val) >> 48),          \
       static_cast<byte>(bit_cast<uint64_t>(val) >> 56)
 #define WASM_GET_LOCAL(index) kExprGetLocal, static_cast<byte>(index)
-#define WASM_GET_GLOBAL(index) kExprGetGlobal, static_cast<byte>(index)
-#define WASM_GET_HEAP(type, index) kExprGetHeap, static_cast<byte>(type), index
+#define WASM_LOAD_GLOBAL(index) kExprLoadGlobal, static_cast<byte>(index)
+#define WASM_LOAD_MEM(type, index) kExprLoadMem, static_cast<byte>(type), index
 #define WASM_CALL_FUNCTION(index, ...) \
   kExprCallFunction, static_cast<byte>(index), __VA_ARGS__
 #define WASM_CALL_INDIRECT(index, func, ...) \

@@ -28,8 +28,8 @@ typedef Signature<LocalType> FunctionSig;
 // Interface the module environment during decoding, including information about
 // the global variables and the function tables.
 struct ModuleEnv {
-  uintptr_t heap_start;
-  uintptr_t heap_end;
+  uintptr_t mem_start;
+  uintptr_t mem_end;
 
   ZoneVector<FunctionSig*>* function_sigs;
   ZoneVector<FunctionSig*>* function_table_sigs;
@@ -86,7 +86,7 @@ enum ErrorCode {
   kInvalidLocalIndex,     // invalid local
   kInvalidGlobalIndex,    // invalid global
   kInvalidFunctionIndex,  // invalid function
-  kInvalidHeapType        // invalid heap type
+  kInvalidMemType         // invalid memory type
 };
 
 // The overall result of decoding.

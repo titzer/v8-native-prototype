@@ -374,38 +374,38 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
 }
 
 
-TFNode* TFBuilder::HeapBuffer() {
-  if (!heap_buffer) heap_buffer = graph->IntPtrConstant(heap_start);
-  return heap_buffer;
+TFNode* TFBuilder::MemBuffer() {
+  if (!mem_buffer) mem_buffer = graph->IntPtrConstant(mem_start);
+  return mem_buffer;
 }
 
 
-TFNode* TFBuilder::HeapSize() {
-  if (!heap_size) heap_size = graph->IntPtrConstant(heap_end - heap_start);
-  return heap_size;
+TFNode* TFBuilder::MemSize() {
+  if (!mem_size) mem_size = graph->IntPtrConstant(mem_end - mem_start);
+  return mem_size;
 }
 
 
-TFNode* TFBuilder::GetHeap(MemType type, TFNode* index) {
+TFNode* TFBuilder::LoadMem(MemType type, TFNode* index) {
   if (!graph) return nullptr;
   const compiler::Operator* op =
       graph->machine()->CheckedLoad(MachineTypeFor(type));
-  TFNode* heap_buffer = HeapBuffer();
-  TFNode* heap_size = HeapSize();
-  TFNode* node = graph->graph()->NewNode(op, heap_buffer, index, heap_size,
+  TFNode* mem_buffer = MemBuffer();
+  TFNode* mem_size = MemSize();
+  TFNode* node = graph->graph()->NewNode(op, mem_buffer, index, mem_size,
                                          *effect, *control);
   *effect = node;
   return node;
 }
 
 
-TFNode* TFBuilder::SetHeap(MemType type, TFNode* index, TFNode* val) {
+TFNode* TFBuilder::StoreMem(MemType type, TFNode* index, TFNode* val) {
   if (!graph) return nullptr;
   const compiler::Operator* op =
       graph->machine()->CheckedStore(MachineTypeFor(type));
-  TFNode* heap_buffer = HeapBuffer();
-  TFNode* heap_size = HeapSize();
-  TFNode* node = graph->graph()->NewNode(op, heap_buffer, index, heap_size, val,
+  TFNode* mem_buffer = MemBuffer();
+  TFNode* mem_size = MemSize();
+  TFNode* node = graph->graph()->NewNode(op, mem_buffer, index, mem_size, val,
                                          *effect, *control);
   *effect = node;
   return node;

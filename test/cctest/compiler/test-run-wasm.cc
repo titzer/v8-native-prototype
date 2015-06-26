@@ -470,16 +470,16 @@ TEST(Run_Wasm_WhileCountDown) {
 }
 
 
-TEST(Run_Wasm_LoadHeapInt32) {
+TEST(Run_Wasm_LoadMemInt32) {
   WasmRunner<int32_t> r(kMachInt32);
   ModuleEnv module;
   const int kSize = 5;
   int32_t buffer[kSize];
-  module.heap_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.heap_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
+  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
   r.function_env->module = &module;
 
-  BUILD(r, WASM_RETURN(WASM_GET_HEAP(kMemInt32, WASM_INT8(0))));
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt32, WASM_INT8(0))));
 
   buffer[0] = 999;
   CHECK_EQ(999, r.Call(0));
@@ -492,16 +492,16 @@ TEST(Run_Wasm_LoadHeapInt32) {
 }
 
 
-TEST(Run_Wasm_LoadHeapInt32_P) {
+TEST(Run_Wasm_LoadMemInt32_P) {
   WasmRunner<int32_t> r(kMachInt32);
   ModuleEnv module;
   const int kSize = 5;
   int32_t buffer[kSize] = {-99999999, -88888, -7777, 6666666, 565555};
-  module.heap_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.heap_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
+  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
   r.function_env->module = &module;
 
-  BUILD(r, WASM_RETURN(WASM_GET_HEAP(kMemInt32, WASM_GET_LOCAL(0))));
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt32, WASM_GET_LOCAL(0))));
 
   for (int i = 0; i < kSize; i++) {
     CHECK_EQ(buffer[i], r.Call(i * 4));
@@ -509,14 +509,14 @@ TEST(Run_Wasm_LoadHeapInt32_P) {
 }
 
 
-TEST(Run_Wasm_HeapInt32_Sum) {
+TEST(Run_Wasm_MemInt32_Sum) {
   WasmRunner<int32_t> r(kMachInt32);
   const byte kSum = r.AllocateLocal(kAstInt32);
   ModuleEnv module;
   const int kSize = 5;
   int32_t buffer[kSize] = {-99999999, -88888, -7777, 6666666, 565555};
-  module.heap_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.heap_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
+  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
   r.function_env->module = &module;
 
   BUILD(
@@ -527,7 +527,7 @@ TEST(Run_Wasm_HeapInt32_Sum) {
                  WASM_BLOCK(2, WASM_SET_LOCAL(
                                    kSum, WASM_INT32_ADD(
                                              WASM_GET_LOCAL(kSum),
-                                             WASM_GET_HEAP(kMemInt32,
+                                             WASM_LOAD_MEM(kMemInt32,
                                                            WASM_GET_LOCAL(0)))),
                             WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
                                                              WASM_INT8(4))))),
@@ -537,14 +537,14 @@ TEST(Run_Wasm_HeapInt32_Sum) {
 }
 
 
-TEST(Run_Wasm_HeapFloat32_Sum) {
+TEST(Run_Wasm_MemFloat32_Sum) {
   WasmRunner<int32_t> r(kMachInt32);
   const byte kSum = r.AllocateLocal(kAstFloat32);
   ModuleEnv module;
   const int kSize = 5;
   float buffer[kSize] = {-99.25, -888.25, -77.25, 66666.25, 5555.25};
-  module.heap_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.heap_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
+  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
   r.function_env->module = &module;
 
   BUILD(
@@ -555,11 +555,11 @@ TEST(Run_Wasm_HeapFloat32_Sum) {
                  WASM_BLOCK(2, WASM_SET_LOCAL(
                                    kSum, WASM_FLOAT32_ADD(
                                              WASM_GET_LOCAL(kSum),
-                                             WASM_GET_HEAP(kMemFloat32,
+                                             WASM_LOAD_MEM(kMemFloat32,
                                                            WASM_GET_LOCAL(0)))),
                             WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
                                                              WASM_INT8(4))))),
-          WASM_SET_HEAP(kMemFloat32, WASM_ZERO, WASM_GET_LOCAL(kSum)),
+          WASM_STORE_MEM(kMemFloat32, WASM_ZERO, WASM_GET_LOCAL(kSum)),
           WASM_RETURN(WASM_GET_LOCAL(0))));
 
   CHECK_EQ(0, r.Call(4 * (kSize - 1)));
@@ -574,29 +574,29 @@ void GenerateAndRunFold(WasmOpcode binop, T* buffer, size_t size,
   WasmRunner<int32_t> r(kMachInt32);
   const byte kAccum = r.AllocateLocal(astType);
   ModuleEnv module;
-  module.heap_start = reinterpret_cast<uintptr_t>(buffer);
-  module.heap_end = reinterpret_cast<uintptr_t>(buffer + size);
+  module.mem_start = reinterpret_cast<uintptr_t>(buffer);
+  module.mem_end = reinterpret_cast<uintptr_t>(buffer + size);
   r.function_env->module = &module;
 
   BUILD(r,
         WASM_BLOCK(
-            4, WASM_SET_LOCAL(kAccum, WASM_GET_HEAP(memType, WASM_ZERO)),
+            4, WASM_SET_LOCAL(kAccum, WASM_LOAD_MEM(memType, WASM_ZERO)),
             WASM_WHILE(
                 WASM_GET_LOCAL(0),
                 WASM_BLOCK(
                     2, WASM_SET_LOCAL(
                            kAccum, WASM_BINOP(binop, WASM_GET_LOCAL(kAccum),
-                                              WASM_GET_HEAP(
+                                              WASM_LOAD_MEM(
                                                   memType, WASM_GET_LOCAL(0)))),
                     WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
                                                      WASM_INT8(sizeof(T)))))),
-            WASM_SET_HEAP(memType, WASM_ZERO, WASM_GET_LOCAL(kAccum)),
+            WASM_STORE_MEM(memType, WASM_ZERO, WASM_GET_LOCAL(kAccum)),
             WASM_RETURN(WASM_GET_LOCAL(0))));
   r.Call(static_cast<int>(sizeof(T) * (size - 1)));
 }
 
 
-TEST(Run_Wasm_HeapFloat64_Mul) {
+TEST(Run_Wasm_MemFloat64_Mul) {
   const size_t kSize = 6;
   double buffer[kSize] = {1, 2, 2, 2, 2, 2};
   GenerateAndRunFold<double>(kExprFloat64Mul, buffer, kSize, kAstFloat64,

@@ -29,10 +29,10 @@ struct TFBuilder {
 
   Zone* zone;
   TFGraph* graph;
-  uintptr_t heap_start;
-  uintptr_t heap_end;
-  TFNode* heap_buffer;
-  TFNode* heap_size;
+  uintptr_t mem_start;
+  uintptr_t mem_end;
+  TFNode* mem_buffer;
+  TFNode* mem_size;
   TFNode** control;
   TFNode** effect;
   TFNode** cur_buffer;
@@ -42,10 +42,10 @@ struct TFBuilder {
   TFBuilder(Zone* z, TFGraph* g)
       : zone(z),
         graph(g),
-        heap_start(0),
-        heap_end(0),
-        heap_buffer(nullptr),
-        heap_size(nullptr),
+        mem_start(0),
+        mem_end(0),
+        mem_buffer(nullptr),
+        mem_size(nullptr),
         control(nullptr),
         effect(nullptr),
         cur_buffer(def_buffer),
@@ -95,14 +95,14 @@ struct TFBuilder {
   TFNode* Call(unsigned count, TFNode** vals) { return nullptr; }
 
   //-----------------------------------------------------------------------
-  // Operations that access the heap.
+  // Operations that access the mem.
   //-----------------------------------------------------------------------
-  TFNode* HeapBuffer();
-  TFNode* HeapSize();
-  TFNode* GetGlobal(unsigned index) { return nullptr; }
-  TFNode* SetGlobal(unsigned, TFNode* val) { return nullptr; }
-  TFNode* GetHeap(MemType type, TFNode* index);
-  TFNode* SetHeap(MemType type, TFNode* index, TFNode* val);
+  TFNode* MemBuffer();
+  TFNode* MemSize();
+  TFNode* LoadGlobal(unsigned index) { return nullptr; }
+  TFNode* StoreGlobal(unsigned, TFNode* val) { return nullptr; }
+  TFNode* LoadMem(MemType type, TFNode* index);
+  TFNode* StoreMem(MemType type, TFNode* index, TFNode* val);
 
   static void PrintDebugName(TFNode* node);
 };

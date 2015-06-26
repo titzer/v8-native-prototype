@@ -14,12 +14,12 @@ namespace wasm {
 static const int kWasmModuleInternalFieldCount = 4;
 static const int kWasmModuleFunctionTable = 0;
 static const int kWasmModuleCodeTable = 1;
-static const int kWasmHeapArrayBuffer = 2;
+static const int kWasmMemArrayBuffer = 2;
 static const int kWasmGlobalsArrayBuffer = 3;
 
 
 // Instantiates a wasm module as a JSObject.
-//  * allocates a backing store of {heap_size} bytes.
+//  * allocates a backing store of {mem_size} bytes.
 //  * installs a named property for that buffer if exported
 //  * installs named properties on the object for exported functions
 //  * compiles wasm code to machine code
@@ -34,22 +34,22 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   Handle<FixedArray> code_table =
       factory->NewFixedArray(static_cast<int>(functions->size()), TENURED);
 
-  // Allocate the raw memory for the heap.
-  if (heap_size_log2 > kMaxHeapSize) {
-    // Heap is bigger than maximum supported size.
+  // Allocate the raw memory for the mem.
+  if (mem_size_log2 > kMaxMemSize) {
+    // Memory is bigger than maximum supported size.
     return isolate->Throw<JSObject>(
-        factory->InternalizeUtf8String("Out of memory: wasm heap too large"));
+        factory->InternalizeUtf8String("Out of memory: wasm memory too large"));
   }
-  uint32_t size = 1 << heap_size_log2;
+  uint32_t size = 1 << mem_size_log2;
   void* backing_store = isolate->array_buffer_allocator()->Allocate(size);
   if (!backing_store) {
-    // Not enough space for backing store of heap
+    // Not enough space for backing store of mem
     return isolate->Throw<JSObject>(
-        factory->InternalizeUtf8String("Out of memory: wasm heap"));
+        factory->InternalizeUtf8String("Out of memory: wasm memory"));
   }
 
 #if DEBUG
-  // Double check the API allocator actually zero-initialized the heap.
+  // Double check the API allocator actually zero-initialized the memory.
   for (uint32_t i = 0; i < size; i++) {
     DCHECK_EQ(0, static_cast<byte*>(backing_store)[i]);
   }
@@ -73,14 +73,14 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   buffer->set_is_external(false);
   buffer->set_is_neuterable(false);
   buffer->set_byte_length(Smi::FromInt(size));
-  module->SetInternalField(kWasmHeapArrayBuffer, *buffer);
+  module->SetInternalField(kWasmMemArrayBuffer, *buffer);
 
   // TODO(titzer): allocate storage for the globals.
   module->SetInternalField(kWasmGlobalsArrayBuffer, Smi::FromInt(0));
 
-  if (heap_export) {
-    // Export the heap as a named property.
-    Handle<String> name = factory->InternalizeUtf8String("buffer");
+  if (mem_export) {
+    // Export the memory as a named property.
+    Handle<String> name = factory->InternalizeUtf8String("memory");
     JSObject::AddProperty(module, name, buffer, READ_ONLY);
   }
 

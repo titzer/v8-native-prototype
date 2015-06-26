@@ -177,8 +177,8 @@ class LR_WasmDecoder {
     ssa_env->control = start;
     ssa_env->effect = start;
     if (function_env_->module) {
-      builder_.heap_start = function_env_->module->heap_start;
-      builder_.heap_end = function_env_->module->heap_end;
+      builder_.mem_start = function_env_->module->mem_start;
+      builder_.mem_end = function_env_->module->mem_end;
     }
     SetEnv(ssa_env);
   }
@@ -261,13 +261,13 @@ class LR_WasmDecoder {
           Shift(kAstStmt, 1);
           break;
         }
-        case kStmtSetGlobal: {
+        case kStmtStoreGlobal: {
           GlobalIndexOperand(pc_, &len);  // Check valid global index.
           Shift(kAstStmt, 1);
           break;
         }
-        case kStmtSetHeap: {
-          MemAccessTypeOperand(pc_);  // Check valid heap type.
+        case kStmtStoreMem: {
+          MemAccessTypeOperand(pc_);  // Check valid memory type.
           Shift(kAstStmt, 2);
           len = 2;
           break;
@@ -391,14 +391,14 @@ class LR_WasmDecoder {
           Leaf(function_env_->GetLocalType(index), val);
           break;
         }
-        case kExprGetGlobal: {
+        case kExprLoadGlobal: {
           uint32_t index = GlobalIndexOperand(pc_, &len);
           LocalType type =
               LocalTypeFor(function_env_->module->GetGlobalType(index));
-          Leaf(type, builder_.GetGlobal(index));
+          Leaf(type, builder_.LoadGlobal(index));
           break;
         }
-        case kExprGetHeap: {
+        case kExprLoadMem: {
           LocalType type = LocalTypeFor(MemAccessTypeOperand(pc_));
           Shift(type, 1);
           len = 2;
@@ -492,20 +492,20 @@ class LR_WasmDecoder {
         }
         break;
       }
-      case kStmtSetGlobal: {
+      case kStmtStoreGlobal: {
         int unused = 0;
         unsigned index = LocalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
         LocalType global =
             LocalTypeFor(function_env_->module->GetGlobalType(index));
         if (global == val->type) {
-          p->tree->node = builder_.SetGlobal(index, val->node);
+          p->tree->node = builder_.StoreGlobal(index, val->node);
         } else {
-          error(p->pc(), "Typecheck failed in SetGlobal", val->pc);
+          error(p->pc(), "Typecheck failed in StoreGlobal", val->pc);
         }
         break;
       }
-      case kStmtSetHeap: {
+      case kStmtStoreMem: {
         if (p->index == 1) {
           TypeCheckLast(p, kAstInt32);
         } else if (p->index == 2) {
@@ -513,9 +513,9 @@ class LR_WasmDecoder {
           MemType type = MemAccessTypeOperand(p->pc());
           if (LocalTypeFor(type) == val->type) {
             Tree* ival = p->tree->children[0];
-            p->tree->node = builder_.SetHeap(type, ival->node, val->node);
+            p->tree->node = builder_.StoreMem(type, ival->node, val->node);
           } else {
-            error(p->pc(), "Typecheck failed in SetHeap", val->pc);
+            error(p->pc(), "Typecheck failed in StoreMem", val->pc);
           }
         }
         break;
@@ -643,10 +643,10 @@ class LR_WasmDecoder {
         }
         break;
       }
-      case kExprGetHeap: {
+      case kExprLoadMem: {
         TypeCheckLast(p, kAstInt32);
         MemType type = MemAccessTypeOperand(p->pc());
-        p->tree->node = builder_.GetHeap(type, p->last()->node);
+        p->tree->node = builder_.LoadMem(type, p->last()->node);
         break;
       }
       case kExprCallFunction: {
@@ -974,7 +974,7 @@ class LR_WasmDecoder {
       case kMemFloat64:
         return type;
       default:
-        error(pc, "invalid type for heap access");
+        error(pc, "invalid type for memory access");
         return kMemInt32;
     }
   }

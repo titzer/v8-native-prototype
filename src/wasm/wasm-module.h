@@ -34,7 +34,7 @@ struct WasmGlobal {
 
 // Static representation of a wasm data segment.
 struct WasmDataSegment {
-  uint32_t dest_addr;      // destination heap address of the data.
+  uint32_t dest_addr;      // destination memory address of the data.
   uint32_t source_offset;  // start offset in the module bytes.
   uint32_t source_size;    // end offset in the module bytes.
   bool init;               // true if loaded upon instantiation.
@@ -42,15 +42,15 @@ struct WasmDataSegment {
 
 // Static representation of a module.
 struct WasmModule {
-  static const uint8_t kMinHeapSize = 12;  // Minimum heap size = 4kb
-  static const uint8_t kMaxHeapSize = 30;  // Maximum heap size = 1gb
+  static const uint8_t kMinMemSize = 12;  // Minimum memory size = 4kb
+  static const uint8_t kMaxMemSize = 30;  // Maximum memory size = 1gb
 
   Isolate* shared_isolate;   // isolate for storing shared code.
   const byte* module_start;  // starting address for the module bytes.
   const byte* module_end;    // end address for the module bytes.
-  uint8_t heap_size_log2;    // size of the heap (log base 2).
-  bool heap_export;          // true if the heap is exported.
-  bool heap_external;        // true if the heap is external.
+  uint8_t mem_size_log2;     // size of the memory (log base 2).
+  bool mem_export;           // true if the memory is exported.
+  bool mem_external;         // true if the memory is external.
   std::vector<WasmFunction>* functions;         // functions in this module.
   std::vector<WasmGlobal>* globals;             // globals in this module.
   std::vector<WasmDataSegment>* data_segments;  // data segments in this module.

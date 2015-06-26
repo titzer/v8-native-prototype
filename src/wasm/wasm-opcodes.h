@@ -19,7 +19,7 @@ enum LocalType {
   kAstFloat64 = 3   // expression that produces a float64 value
 };
 
-// Types for heap accesses and globals.
+// Types for mem accesses and globals.
 enum MemType {
   kMemInt8 = 0,
   kMemUint8 = 1,
@@ -31,7 +31,7 @@ enum MemType {
   kMemFloat64 = 7
 };
 
-// Atomicity annotations for access to the heap and globals.
+// Atomicity annotations for access to the memory and globals.
 enum Atomicity {
   kNone = 0,        // non-atomic
   kSequential = 1,  // sequential consistency
@@ -45,8 +45,8 @@ typedef Signature<LocalType> FunctionSig;
 #define FOREACH_STMT_OPCODE(V) \
   V(Nop, 0x00, _)              \
   V(SetLocal, 0x01, _)         \
-  V(SetGlobal, 0x02, _)        \
-  V(SetHeap, 0x03, _)          \
+  V(StoreGlobal, 0x02, _)      \
+  V(StoreMem, 0x03, _)         \
   V(If, 0x04, _)               \
   V(IfThen, 0x05, _)           \
   V(Block, 0x06, _)            \
@@ -64,8 +64,8 @@ typedef Signature<LocalType> FunctionSig;
   V(Float64Const, 0x12, _)          \
   V(Float32Const, 0x13, _)          \
   V(GetLocal, 0x14, _)              \
-  V(GetGlobal, 0x15, _)             \
-  V(GetHeap, 0x16, _)               \
+  V(LoadGlobal, 0x15, _)            \
+  V(LoadMem, 0x16, _)               \
   V(CallFunction, 0x17, _)          \
   V(CallIndirect, 0x18, _)          \
   V(Ternary, 0x19, _)               \
