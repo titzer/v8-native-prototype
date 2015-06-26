@@ -15,11 +15,12 @@ namespace wasm {
 enum LocalType {
   kAstStmt = 0,     // a statement node
   kAstInt32 = 1,    // expression that produces an int32 value
-  kAstFloat32 = 2,  // expression that produces a float32 value
-  kAstFloat64 = 3   // expression that produces a float64 value
+  kAstInt64 = 2,    // expression that produces an int64 value
+  kAstFloat32 = 3,  // expression that produces a float32 value
+  kAstFloat64 = 4   // expression that produces a float64 value
 };
 
-// Types for mem accesses and globals.
+// Types for memory accesses and globals.
 enum MemType {
   kMemInt8 = 0,
   kMemUint8 = 1,
@@ -27,8 +28,10 @@ enum MemType {
   kMemUint16 = 3,
   kMemInt32 = 4,
   kMemUint32 = 5,
-  kMemFloat32 = 6,
-  kMemFloat64 = 7
+  kMemInt64 = 6,
+  kMemUint64 = 7,
+  kMemFloat32 = 8,
+  kMemFloat64 = 9
 };
 
 // Atomicity annotations for access to the memory and globals.

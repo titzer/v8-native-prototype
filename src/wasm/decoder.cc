@@ -970,6 +970,8 @@ class LR_WasmDecoder {
       case kMemUint16:
       case kMemInt32:
       case kMemUint32:
+      case kMemInt64:
+      case kMemUint64:
       case kMemFloat32:
       case kMemFloat64:
         return type;
@@ -988,6 +990,9 @@ class LR_WasmDecoder {
       case kMemInt32:
       case kMemUint32:
         return kAstInt32;
+      case kMemInt64:
+      case kMemUint64:
+        return kAstInt64;
       case kMemFloat32:
         return kAstFloat32;
       case kMemFloat64:

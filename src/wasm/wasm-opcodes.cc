@@ -37,6 +37,8 @@ const char* WasmOpcodes::TypeName(LocalType type) {
       return "<stmt>";
     case kAstInt32:
       return "int32";
+    case kAstInt64:
+      return "int64";
     case kAstFloat32:
       return "float32";
     case kAstFloat64:
@@ -61,6 +63,10 @@ const char* WasmOpcodes::TypeName(MemType type) {
       return "int32";
     case kMemUint32:
       return "uint32";
+    case kMemInt64:
+      return "int64";
+    case kMemUint64:
+      return "uint64";
     case kMemFloat32:
       return "float32";
     case kMemFloat64:

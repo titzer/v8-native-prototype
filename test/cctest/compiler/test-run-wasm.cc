@@ -53,8 +53,9 @@ struct CommonSignatures {
     env->module = nullptr;
     env->sig = sig;
     env->local_int32_count = 0;
-    env->local_float64_count = 0;
+    env->local_int64_count = 0;
     env->local_float32_count = 0;
+    env->local_float64_count = 0;
     env->total_locals = static_cast<unsigned>(sig->parameter_count());
   }
 };

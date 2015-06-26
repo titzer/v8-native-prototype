@@ -14,6 +14,9 @@ namespace wasm {
 static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                  kAstInt32};
 
+static LocalType kLongTypes5[] = {kAstInt64, kAstInt64, kAstInt64, kAstInt64,
+                                  kAstInt64};
+
 static LocalType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
                                       kAstFloat32, kAstFloat32};
 
@@ -54,9 +57,12 @@ class DecoderTest : public TestWithZone {
         sig_i_iii(1, 3, kIntTypes5),
         sig_i_f(1, 1, kIntFloatTypes5),
         sig_i_ff(1, 2, kIntFloatTypes5),
-        sig_f_ff(1, 2, kFloatTypes5),
         sig_i_d(1, 1, kIntDoubleTypes5),
         sig_i_dd(1, 2, kIntDoubleTypes5),
+        sig_l_v(1, 0, kLongTypes5),
+        sig_l_l(1, 1, kLongTypes5),
+        sig_l_ll(1, 2, kLongTypes5),
+        sig_f_ff(1, 2, kFloatTypes5),
         sig_d_dd(1, 2, kDoubleTypes5),
         sig_v_v(0, 0, kIntTypes5),
         sig_v_i(0, 1, kIntTypes5),
@@ -75,10 +81,14 @@ class DecoderTest : public TestWithZone {
 
   FunctionSig sig_i_f;
   FunctionSig sig_i_ff;
-  FunctionSig sig_f_ff;
-
   FunctionSig sig_i_d;
   FunctionSig sig_i_dd;
+
+  FunctionSig sig_l_v;
+  FunctionSig sig_l_l;
+  FunctionSig sig_l_ll;
+
+  FunctionSig sig_f_ff;
   FunctionSig sig_d_dd;
 
   FunctionSig sig_v_v;
@@ -95,8 +105,9 @@ class DecoderTest : public TestWithZone {
     env->module = nullptr;
     env->sig = sig;
     env->local_int32_count = 0;
-    env->local_float64_count = 0;
+    env->local_int64_count = 0;
     env->local_float32_count = 0;
+    env->local_float64_count = 0;
     env->total_locals = static_cast<unsigned>(sig->parameter_count());
   }
 
@@ -246,7 +257,10 @@ TEST_F(DecoderTest, GetLocal0_param) {
 
 
 TEST_F(DecoderTest, GetLocal0_local) {
-  EXPECT_VERIFIES(&env_i_i, kCodeGetLocal0);
+  FunctionEnv env;
+  init_env(&env, &sig_i_v);
+  env.AddLocals(kAstInt32, 1);
+  EXPECT_VERIFIES(&env, kCodeGetLocal0);
 }
 
 
@@ -670,6 +684,26 @@ TEST_F(DecoderTest, Ternary_type) {
     static const byte kCode[] = {kExprTernary, kExprInt8Const, 0,
                                  kExprInt8Const, 1, 0, kStmtBlock};
     EXPECT_FAILURE(&env_i_i, kCode);
+  }
+}
+
+
+TEST_F(DecoderTest, Int64Local_param) {
+  FunctionEnv env;
+  init_env(&env, &sig_l_l);
+  EXPECT_VERIFIES(&env, kCodeGetLocal0);
+}
+
+
+TEST_F(DecoderTest, Int64Locals) {
+  for (byte i = 1; i < 8; i++) {
+    FunctionEnv env;
+    init_env(&env, &sig_l_v);
+    env.AddLocals(kAstInt64, i);
+    for (byte j = 0; j < i; j++) {
+      byte code[] = {kExprGetLocal, j};
+      EXPECT_VERIFIES(&env, code);
+    }
   }
 }
 

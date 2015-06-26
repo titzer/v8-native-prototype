@@ -17,6 +17,8 @@ static compiler::MachineType MachineTypeFor(LocalType type) {
   switch (type) {
     case kAstInt32:
       return compiler::kMachInt32;
+    case kAstInt64:
+      return compiler::kMachInt64;
     case kAstFloat64:
       return compiler::kMachFloat64;
     case kAstFloat32:
@@ -36,12 +38,16 @@ static compiler::MachineType MachineTypeFor(MemType type) {
       return compiler::kMachInt16;
     case kMemInt32:
       return compiler::kMachInt32;
+    case kMemInt64:
+      return compiler::kMachInt64;
     case kMemUint8:
       return compiler::kMachUint8;
     case kMemUint16:
       return compiler::kMachUint16;
     case kMemUint32:
       return compiler::kMachUint32;
+    case kMemUint64:
+      return compiler::kMachUint64;
     case kMemFloat64:
       return compiler::kMachFloat64;
     case kMemFloat32:

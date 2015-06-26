@@ -51,6 +51,7 @@ struct FunctionEnv {
   ModuleEnv* module;             // module environment
   FunctionSig* sig;              // signature of this function
   unsigned local_int32_count;    // number of int32 locals
+  unsigned local_int64_count;    // number of int64 locals
   unsigned local_float32_count;  // number of float32 locals
   unsigned local_float64_count;  // number of float64 locals
   unsigned total_locals;         // sum of parameters and all locals
@@ -62,10 +63,35 @@ struct FunctionEnv {
     index -= sig->parameter_count();
     if (index < local_int32_count) return kAstInt32;
     index -= local_int32_count;
+    if (index < local_int64_count) return kAstInt64;
+    index -= local_int64_count;
     if (index < local_float32_count) return kAstFloat32;
     index -= local_float32_count;
     if (index < local_float64_count) return kAstFloat64;
     return kAstStmt;
+  }
+
+  void AddLocals(LocalType type, unsigned count) {
+    switch (type) {
+      case kAstInt32:
+        local_int32_count += count;
+        break;
+      case kAstInt64:
+        local_int64_count += count;
+        break;
+      case kAstFloat32:
+        local_float32_count += count;
+        break;
+      case kAstFloat64:
+        local_float64_count += count;
+        break;
+      default:
+        UNREACHABLE();
+    }
+    total_locals += count;
+    DCHECK(total_locals ==
+           (sig->parameter_count() + local_int32_count + local_int64_count +
+            local_float32_count + local_float64_count));
   }
 };
 
