@@ -33,7 +33,11 @@ static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
 static const byte kCodeSetLocal0[] = {kStmtSetLocal, 0, kExprInt8Const, 0};
 
-static const LocalType kLocalTypes[] = {kAstInt32, kAstFloat32, kAstFloat64};
+static const LocalType kLocalTypes[] = {kAstInt32, kAstInt64, kAstFloat32,
+                                        kAstFloat64};
+static const MemType kMemTypes[] = {
+    kMemInt8,   kMemUint8, kMemInt16,  kMemUint16,  kMemInt32,
+    kMemUint32, kMemInt64, kMemUint64, kMemFloat32, kMemFloat64};
 
 static const WasmOpcode kInt32BinopOpcodes[] = {
     kExprInt32Add,  kExprInt32Sub,  kExprInt32Mul,  kExprInt32SDiv,
@@ -866,6 +870,45 @@ TEST_F(DecoderTest, AllSimpleExpressions) {
 #undef DECODE_TEST
 }
 
+
+TEST_F(DecoderTest, AllLoadMemCombinations) {
+  for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
+    LocalType local_type = kLocalTypes[i];
+    for (size_t j = 0; j < arraysize(kMemTypes); j++) {
+      MemType mem_type = kMemTypes[j];
+      byte code[] = {kStmtReturn, kExprLoadMem, static_cast<byte>(mem_type),
+                     kExprInt8Const, 0};
+      FunctionEnv env;
+      FunctionSig sig(1, 0, &local_type);
+      init_env(&env, &sig);
+      if (local_type == WasmOpcodes::LocalTypeFor(mem_type)) {
+        EXPECT_VERIFIES(&env, code);
+      } else {
+        EXPECT_FAILURE(&env, code);
+      }
+    }
+  }
+}
+
+
+TEST_F(DecoderTest, AllStoreMemCombinations) {
+  for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
+    LocalType local_type = kLocalTypes[i];
+    for (size_t j = 0; j < arraysize(kMemTypes); j++) {
+      MemType mem_type = kMemTypes[j];
+      byte code[] = {kStmtStoreMem, static_cast<byte>(mem_type), kExprInt8Const,
+                     0, kExprGetLocal, 0};
+      FunctionEnv env;
+      FunctionSig sig(0, 1, &local_type);
+      init_env(&env, &sig);
+      if (local_type == WasmOpcodes::LocalTypeFor(mem_type)) {
+        EXPECT_VERIFIES(&env, code);
+      } else {
+        EXPECT_FAILURE(&env, code);
+      }
+    }
+  }
+}
 
 //--------------------------------------------------------------------------
 // TODO(titzer): not a real test.

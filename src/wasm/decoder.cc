@@ -393,13 +393,13 @@ class LR_WasmDecoder {
         }
         case kExprLoadGlobal: {
           uint32_t index = GlobalIndexOperand(pc_, &len);
-          LocalType type =
-              LocalTypeFor(function_env_->module->GetGlobalType(index));
+          LocalType type = WasmOpcodes::LocalTypeFor(
+              function_env_->module->GetGlobalType(index));
           Leaf(type, builder_.LoadGlobal(index));
           break;
         }
         case kExprLoadMem: {
-          LocalType type = LocalTypeFor(MemAccessTypeOperand(pc_));
+          LocalType type = WasmOpcodes::LocalTypeFor(MemAccessTypeOperand(pc_));
           Shift(type, 1);
           len = 2;
           break;
@@ -496,8 +496,8 @@ class LR_WasmDecoder {
         int unused = 0;
         unsigned index = LocalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
-        LocalType global =
-            LocalTypeFor(function_env_->module->GetGlobalType(index));
+        LocalType global = WasmOpcodes::LocalTypeFor(
+            function_env_->module->GetGlobalType(index));
         if (global == val->type) {
           p->tree->node = builder_.StoreGlobal(index, val->node);
         } else {
@@ -511,7 +511,7 @@ class LR_WasmDecoder {
         } else if (p->index == 2) {
           Tree* val = p->last();
           MemType type = MemAccessTypeOperand(p->pc());
-          if (LocalTypeFor(type) == val->type) {
+          if (WasmOpcodes::LocalTypeFor(type) == val->type) {
             Tree* ival = p->tree->children[0];
             p->tree->node = builder_.StoreMem(type, ival->node, val->node);
           } else {
@@ -978,25 +978,6 @@ class LR_WasmDecoder {
       default:
         error(pc, "invalid type for memory access");
         return kMemInt32;
-    }
-  }
-
-  LocalType LocalTypeFor(MemType type) {
-    switch (type) {
-      case kMemInt8:
-      case kMemUint8:
-      case kMemInt16:
-      case kMemUint16:
-      case kMemInt32:
-      case kMemUint32:
-        return kAstInt32;
-      case kMemInt64:
-      case kMemUint64:
-        return kAstInt64;
-      case kMemFloat32:
-        return kAstFloat32;
-      case kMemFloat64:
-        return kAstFloat64;
     }
   }
 
