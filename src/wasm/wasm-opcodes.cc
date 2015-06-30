@@ -77,34 +77,22 @@ const char* WasmOpcodes::TypeName(MemType type) {
 }
 
 
+#define DECLARE_SIG_ENUM(name, ...) kSigEnum_##name,
+
+enum WasmOpcodeSig { FOREACH_SIGNATURE(DECLARE_SIG_ENUM) };
+
 // TODO(titzer): not static-initializer safe. Wrap in LazyInstance.
-#define DECLARE_SIG(name, index, ...)               \
-  static const int kSigIndex_##name = index;        \
+#define DECLARE_SIG(name, ...)                      \
   static LocalType kTypes_##name[] = {__VA_ARGS__}; \
   static const FunctionSig kSig_##name(             \
-      1, static_cast<int>(arraysize(kTypes_##name)) - 1, kTypes_##name)
+      1, static_cast<int>(arraysize(kTypes_##name)) - 1, kTypes_##name);
 
-DECLARE_SIG(i_ii, 1, kAstInt32, kAstInt32, kAstInt32);
-DECLARE_SIG(i_i, 2, kAstInt32, kAstInt32);
-DECLARE_SIG(i_ff, 3, kAstInt32, kAstFloat32, kAstFloat32);
-DECLARE_SIG(i_f, 4, kAstInt32, kAstFloat32);
-DECLARE_SIG(i_dd, 5, kAstInt32, kAstFloat64, kAstFloat64);
-DECLARE_SIG(i_d, 6, kAstInt32, kAstFloat64);
-DECLARE_SIG(f_ff, 7, kAstFloat32, kAstFloat32, kAstFloat32);
-DECLARE_SIG(f_f, 8, kAstFloat32, kAstFloat32);
-DECLARE_SIG(f_d, 9, kAstFloat32, kAstFloat64);
-DECLARE_SIG(f_i, 10, kAstFloat32, kAstInt32);
-DECLARE_SIG(d_dd, 11, kAstFloat64, kAstFloat64, kAstFloat64);
-DECLARE_SIG(d_d, 12, kAstFloat64, kAstFloat64);
-DECLARE_SIG(d_f, 13, kAstFloat64, kAstFloat32);
-DECLARE_SIG(d_i, 14, kAstFloat64, kAstInt32);
+FOREACH_SIGNATURE(DECLARE_SIG)
 
+#define DECLARE_SIG_ENTRY(name, ...) &kSig_##name,
 
-static const FunctionSig* kSimpleExprSigs[16] = {
-    nullptr,    &kSig_i_ii, &kSig_i_i,  &kSig_i_ff, &kSig_i_f,
-    &kSig_i_dd, &kSig_i_d,  &kSig_f_ff, &kSig_f_f,  &kSig_f_d,
-    &kSig_f_i,  &kSig_d_dd, &kSig_d_d,  &kSig_d_f,  &kSig_d_i};
-
+static const FunctionSig* kSimpleExprSigs[] = {
+    nullptr, FOREACH_SIGNATURE(DECLARE_SIG_ENTRY)};
 
 static byte kSimpleExprSigTable[256];
 
@@ -112,7 +100,7 @@ static byte kSimpleExprSigTable[256];
 // Initialize the signature table.
 static void InitSigTable() {
 #define SET_SIG_TABLE(name, opcode, sig) \
-  kSimpleExprSigTable[opcode] = kSigIndex_##sig;
+  kSimpleExprSigTable[opcode] = static_cast<int>(kSigEnum_##sig) + 1;
   FOREACH_SIMPLE_EXPR_OPCODE(SET_SIG_TABLE);
 #undef SET_SIG_TABLE
 }
@@ -128,18 +116,43 @@ FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
 
 bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {
+    case kExprInt64LoadMemL:
+    case kExprInt32LoadMemH:
+    case kExprInt64LoadMemH:
+    case kExprFloat32LoadMemH:
+    case kExprFloat64LoadMemH:
+    case kExprInt64StoreMemL:
+    case kExprInt32StoreMemH:
+    case kExprInt64StoreMemH:
+    case kExprFloat32StoreMemH:
+    case kExprFloat64StoreMemH:
+
     case kExprInt32Clz:
     case kExprInt32Ctz:
     case kExprInt32PopCnt:
-    case kExprFloat64Min:
-    case kExprFloat64Max:
-    case kExprFloat64Neg:
-    case kExprFloat64CopySign:
-    case kExprFloat64Ceil:
-    case kExprFloat64Floor:
-    case kExprFloat64Trunc:
-    case kExprFloat64NearestInt:
-    case kExprFloat64Sqrt:
+
+    case kExprInt64Add:
+    case kExprInt64Sub:
+    case kExprInt64Mul:
+    case kExprInt64SDiv:
+    case kExprInt64UDiv:
+    case kExprInt64SRem:
+    case kExprInt64URem:
+    case kExprInt64And:
+    case kExprInt64Ior:
+    case kExprInt64Xor:
+    case kExprInt64Shl:
+    case kExprInt64Shr:
+    case kExprInt64Sar:
+    case kExprInt64Eq:
+    case kExprInt64Slt:
+    case kExprInt64Sle:
+    case kExprInt64Ult:
+    case kExprInt64Ule:
+    case kExprInt64Clz:
+    case kExprInt64Ctz:
+    case kExprInt64PopCnt:
+
     case kExprFloat32Min:
     case kExprFloat32Max:
     case kExprFloat32Neg:
@@ -149,6 +162,30 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprFloat32Trunc:
     case kExprFloat32NearestInt:
     case kExprFloat32Sqrt:
+
+    case kExprFloat64Min:
+    case kExprFloat64Max:
+    case kExprFloat64Neg:
+    case kExprFloat64CopySign:
+    case kExprFloat64Ceil:
+    case kExprFloat64Floor:
+    case kExprFloat64Trunc:
+    case kExprFloat64NearestInt:
+    case kExprFloat64Sqrt:
+
+    case kExprInt32ConvertInt64:
+    case kExprInt64SConvertFloat32:
+    case kExprInt64SConvertFloat64:
+    case kExprInt64UConvertFloat32:
+    case kExprInt64UConvertFloat64:
+    case kExprInt64SConvertInt32:
+    case kExprInt64UConvertInt32:
+    case kExprFloat32SConvertInt64:
+    case kExprFloat32UConvertInt64:
+    case kExprFloat32ReinterpretInt32:
+    case kExprFloat64SConvertInt64:
+    case kExprFloat64UConvertInt64:
+    case kExprFloat64ReinterpretInt64:
       return false;
     default:
       return true;

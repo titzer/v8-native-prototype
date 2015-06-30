@@ -210,7 +210,7 @@ TEST(Run_WasmInt32Add_P2) {
 TEST(Run_WasmFloat32Add) {
   WasmRunner<int32_t> r;
   // return int(11.5f + 44.5f)
-  BUILD(r, WASM_RETURN(WASM_INT32_FROM_FLOAT32(
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT32(
                WASM_FLOAT32_ADD(WASM_FLOAT32(11.5f), WASM_FLOAT32(44.5f)))));
   CHECK_EQ(56, r.Call());
 }
@@ -219,7 +219,7 @@ TEST(Run_WasmFloat32Add) {
 TEST(Run_WasmFloat64Add) {
   WasmRunner<int32_t> r;
   // return int(13.5d + 43.5d)
-  BUILD(r, WASM_RETURN(WASM_INT32_FROM_FLOAT64(
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT64(
                WASM_FLOAT64_ADD(WASM_FLOAT64(13.5), WASM_FLOAT64(43.5)))));
   CHECK_EQ(57, r.Call());
 }
@@ -277,7 +277,7 @@ void TestFloat32BinopWithConvert(WasmOpcode opcode, int32_t expected, float a,
                                  float b) {
   WasmRunner<int32_t> r;
   // return int(K op K)
-  BUILD(r, WASM_RETURN(WASM_INT32_FROM_FLOAT32(
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT32(
                WASM_BINOP(opcode, WASM_FLOAT32(a), WASM_FLOAT32(b)))));
   CHECK_EQ(expected, r.Call());
   // TODO(titzer): test float parameters
@@ -287,8 +287,8 @@ void TestFloat32BinopWithConvert(WasmOpcode opcode, int32_t expected, float a,
 void TestFloat32UnopWithConvert(WasmOpcode opcode, int32_t expected, float a) {
   WasmRunner<int32_t> r;
   // return int(K op K)
-  BUILD(r, WASM_RETURN(
-               WASM_INT32_FROM_FLOAT32(WASM_UNOP(opcode, WASM_FLOAT32(a)))));
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT32(
+               WASM_UNOP(opcode, WASM_FLOAT32(a)))));
   CHECK_EQ(expected, r.Call());
   // TODO(titzer): test float parameters
 }
@@ -307,7 +307,7 @@ void TestFloat64BinopWithConvert(WasmOpcode opcode, int32_t expected, double a,
                                  double b) {
   WasmRunner<int32_t> r;
   // return int(K op K)
-  BUILD(r, WASM_RETURN(WASM_INT32_FROM_FLOAT64(
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT64(
                WASM_BINOP(opcode, WASM_FLOAT64(a), WASM_FLOAT64(b)))));
   CHECK_EQ(expected, r.Call());
   // TODO(titzer): test double parameters
@@ -317,8 +317,8 @@ void TestFloat64BinopWithConvert(WasmOpcode opcode, int32_t expected, double a,
 void TestFloat64UnopWithConvert(WasmOpcode opcode, int32_t expected, double a) {
   WasmRunner<int32_t> r;
   // return int(K op K)
-  BUILD(r, WASM_RETURN(
-               WASM_INT32_FROM_FLOAT64(WASM_UNOP(opcode, WASM_FLOAT64(a)))));
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT64(
+               WASM_UNOP(opcode, WASM_FLOAT64(a)))));
   CHECK_EQ(expected, r.Call());
   // TODO(titzer): test float parameters
 }

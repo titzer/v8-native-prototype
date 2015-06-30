@@ -12,11 +12,6 @@
 //------------------------------------------------------------------------------
 // Statements.
 //------------------------------------------------------------------------------
-#define WASM_SET_LOCAL(index, val) kStmtSetLocal, static_cast<byte>(index), val
-#define WASM_STORE_GLOBAL(index, val) \
-  kStmtStoreGlobal, static_cast<byte>(index), val
-#define WASM_STORE_MEM(type, index, val) \
-  kStmtStoreMem, static_cast<byte>(type), index, val
 #define WASM_IF(cond, tstmt) kStmtIf, cond, tstmt
 #define WASM_IF_THEN(cond, tstmt, fstmt) kStmtIfThen, cond, tstmt, fstmt
 #define WASM_NOP kStmtNop
@@ -58,8 +53,16 @@
       static_cast<byte>(bit_cast<uint64_t>(val) >> 48),          \
       static_cast<byte>(bit_cast<uint64_t>(val) >> 56)
 #define WASM_GET_LOCAL(index) kExprGetLocal, static_cast<byte>(index)
+#define WASM_SET_LOCAL(index, val) kExprSetLocal, static_cast<byte>(index), val
 #define WASM_LOAD_GLOBAL(index) kExprLoadGlobal, static_cast<byte>(index)
-#define WASM_LOAD_MEM(type, index) kExprLoadMem, static_cast<byte>(type), index
+#define WASM_STORE_GLOBAL(index, val) \
+  kExprStoreGlobal, static_cast<byte>(index), val
+#define WASM_LOAD_MEM(type, index)                                 \
+  v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, false), \
+      v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(type), index
+#define WASM_STORE_MEM(type, index, val)                          \
+  v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, true), \
+      v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(type), index, val
 #define WASM_CALL_FUNCTION(index, ...) \
   kExprCallFunction, static_cast<byte>(index), __VA_ARGS__
 #define WASM_CALL_INDIRECT(index, func, ...) \
@@ -137,15 +140,15 @@
 //------------------------------------------------------------------------------
 // Type conversions.
 //------------------------------------------------------------------------------
-#define WASM_INT32_FROM_FLOAT32(x) kExprInt32FromFloat32, x
-#define WASM_INT32_FROM_FLOAT64(x) kExprInt32FromFloat64, x
-#define WASM_UINT32_FROM_FLOAT32(x) kExprUint32FromFloat32, x
-#define WASM_UINT32_FROM_FLOAT64(x) kExprUint32FromFloat64, x
-#define WASM_FLOAT64_FROM_SINT32(x) kExprFloat64FromSInt32, x
-#define WASM_FLOAT64_FROM_UINT32(x) kExprFloat64FromUInt32, x
-#define WASM_FLOAT64_FROM_FLOAT32(x) kExprFloat64FromFloat32, x
-#define WASM_FLOAT32_FROM_SINT32(x) kExprFloat32FromSInt32, x
-#define WASM_FLOAT32_FROM_UINT32(x) kExprFloat32FromUInt32, x
-#define WASM_FLOAT32_FROM_FLOAT64(x) kExprFloat32FromFloat64, x
+#define WASM_INT32_SCONVERT_FLOAT32(x) kExprInt32SConvertFloat32, x
+#define WASM_INT32_SCONVERT_FLOAT64(x) kExprInt32SConvertFloat64, x
+#define WASM_INT32_UCONVERT_FLOAT32(x) kExprInt32UConvertFloat32, x
+#define WASM_INT32_UCONVERT_FLOAT64(x) kExprInt32UConvertFloat64, x
+#define WASM_FLOAT64_SCONVERT_INT32(x) kExprFloat64SConvertInt32, x
+#define WASM_FLOAT64_UCONVERT_INT32(x) kExprFloat64UConvertInt32, x
+#define WASM_FLOAT64_CONVERT_FLOAT32(x) kExprFloat64ConvertFloat32, x
+#define WASM_FLOAT32_SCONVERT_INT32(x) kExprFloat32SConvertInt32, x
+#define WASM_FLOAT32_UCONVERT_INT32(x) kExprFloat32UConvertInt32, x
+#define WASM_FLOAT32_CONVERT_FLOAT64(x) kExprFloat32ConvertFloat64, x
 
 #endif  // V8_WASM_MACRO_GEN_H_

@@ -256,22 +256,6 @@ class LR_WasmDecoder {
         case kStmtNop:
           Leaf(kAstStmt);
           break;
-        case kStmtSetLocal: {
-          LocalIndexOperand(pc_, &len);  // Check valid local index.
-          Shift(kAstStmt, 1);
-          break;
-        }
-        case kStmtStoreGlobal: {
-          GlobalIndexOperand(pc_, &len);  // Check valid global index.
-          Shift(kAstStmt, 1);
-          break;
-        }
-        case kStmtStoreMem: {
-          MemAccessTypeOperand(pc_);  // Check valid memory type.
-          Shift(kAstStmt, 2);
-          len = 2;
-          break;
-        }
         case kStmtIf: {
           Shift(kAstStmt, 2);
           break;
@@ -386,9 +370,16 @@ class LR_WasmDecoder {
         }
         case kExprGetLocal: {
           uint32_t index = LocalIndexOperand(pc_, &len);
-          TFNode* val =
-              builder_.graph ? ssa_env_->locals[index] : builder_.Error();
+          TFNode* val = builder_.graph && function_env_->IsValidLocal(index)
+                            ? ssa_env_->locals[index]
+                            : builder_.Error();
           Leaf(function_env_->GetLocalType(index), val);
+          break;
+        }
+        case kExprSetLocal: {
+          unsigned index = LocalIndexOperand(pc_, &len);
+          LocalType type = function_env_->GetLocalType(index);
+          Shift(type, 1);
           break;
         }
         case kExprLoadGlobal: {
@@ -398,12 +389,55 @@ class LR_WasmDecoder {
           Leaf(type, builder_.LoadGlobal(index));
           break;
         }
-        case kExprLoadMem: {
-          LocalType type = WasmOpcodes::LocalTypeFor(MemAccessTypeOperand(pc_));
+        case kExprStoreGlobal: {
+          unsigned index = GlobalIndexOperand(pc_, &len);
+          LocalType type = WasmOpcodes::LocalTypeFor(
+              function_env_->module->GetGlobalType(index));
           Shift(type, 1);
+          break;
+        }
+        // TODO(titzer): factor common code from loads.
+        case kExprInt32LoadMemL: {
+          IntMemAccessTypeOperand(pc_, false);  // check width.
+          Shift(kAstInt32, 1);
           len = 2;
           break;
         }
+        case kExprInt64LoadMemL: {
+          IntMemAccessTypeOperand(pc_, true);  // check width.
+          Shift(kAstInt64, 1);
+          len = 2;
+          break;
+        }
+        case kExprFloat32LoadMemL:
+          Shift(kAstFloat32, 1);
+          len = 2;
+          break;
+        case kExprFloat64LoadMemL:
+          Shift(kAstFloat64, 1);
+          len = 2;
+          break;
+        // TODO(titzer): factor common code from stores.
+        case kExprInt32StoreMemL: {
+          IntMemAccessTypeOperand(pc_, false);  // check width.
+          Shift(kAstInt32, 2);
+          len = 2;
+          break;
+        }
+        case kExprInt64StoreMemL: {
+          IntMemAccessTypeOperand(pc_, true);  // check width.
+          Shift(kAstInt64, 2);
+          len = 2;
+          break;
+        }
+        case kExprFloat32StoreMemL:
+          Shift(kAstFloat32, 2);
+          len = 2;
+          break;
+        case kExprFloat64StoreMemL:
+          Shift(kAstFloat64, 2);
+          len = 2;
+          break;
         case kExprCallFunction: {
           FunctionSig* sig = FunctionIndexOperand(pc_, &len);
           if (sig) {
@@ -481,45 +515,6 @@ class LR_WasmDecoder {
     }
 
     switch (opcode) {
-      case kStmtSetLocal: {
-        int unused = 0;
-        unsigned index = LocalIndexOperand(p->pc(), &unused);
-        Tree* val = p->last();
-        if (function_env_->GetLocalType(index) == val->type) {
-          if (builder_.graph) ssa_env_->locals[index] = val->node;
-        } else {
-          error(p->pc(), "Typecheck failed in SetLocal", val->pc);
-        }
-        break;
-      }
-      case kStmtStoreGlobal: {
-        int unused = 0;
-        unsigned index = LocalIndexOperand(p->pc(), &unused);
-        Tree* val = p->last();
-        LocalType global = WasmOpcodes::LocalTypeFor(
-            function_env_->module->GetGlobalType(index));
-        if (global == val->type) {
-          p->tree->node = builder_.StoreGlobal(index, val->node);
-        } else {
-          error(p->pc(), "Typecheck failed in StoreGlobal", val->pc);
-        }
-        break;
-      }
-      case kStmtStoreMem: {
-        if (p->index == 1) {
-          TypeCheckLast(p, kAstInt32);
-        } else if (p->index == 2) {
-          Tree* val = p->last();
-          MemType type = MemAccessTypeOperand(p->pc());
-          if (WasmOpcodes::LocalTypeFor(type) == val->type) {
-            Tree* ival = p->tree->children[0];
-            p->tree->node = builder_.StoreMem(type, ival->node, val->node);
-          } else {
-            error(p->pc(), "Typecheck failed in StoreMem", val->pc);
-          }
-        }
-        break;
-      }
       case kStmtSwitch:  // fallthru
       case kStmtSwitchNf: {
         TFNode* key = p->tree->children[0]->node;
@@ -535,7 +530,7 @@ class LR_WasmDecoder {
           SetEnv(env->true_env);
         } else {
           // Just finished a case.
-          TypeCheckLast(p, kAstStmt);
+          //          TypeCheckLast(p, kAstStmt);
           SsaEnv* fallthru = ssa_env_;
           IfEnv* env = &ifs_.back();
           if (!p->done()) {
@@ -570,7 +565,7 @@ class LR_WasmDecoder {
       }
       case kStmtBlock:
       case kStmtLoop: {
-        TypeCheckLast(p, kAstStmt);
+        //        TypeCheckLast(p, kAstStmt);
         if (p->done()) {
           Block* last = &blocks_.back();
           if (!ssa_env_->end()) {
@@ -593,7 +588,7 @@ class LR_WasmDecoder {
           SetEnv(env->true_env);
         } else if (p->index == 2) {
           // True block done. Merge true and false environments.
-          TypeCheckLast(p, kAstStmt);
+          //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
           env->false_env->state = SsaEnv::kReached;
           if (!ssa_env_->end()) Goto(ssa_env_, env->false_env);
@@ -613,12 +608,12 @@ class LR_WasmDecoder {
           SetEnv(env->true_env);
         } else if (p->index == 2) {
           // True block done. Switch to environment for false branch.
-          TypeCheckLast(p, kAstStmt);
+          //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
           SetEnv(env->false_env);
         } else if (p->index == 3) {
           // False block done. Switch to environment for merge.
-          TypeCheckLast(p, kAstStmt);
+          //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
           if (ssa_env_->end()) {
             SetEnv(env->true_env);
@@ -643,10 +638,98 @@ class LR_WasmDecoder {
         }
         break;
       }
-      case kExprLoadMem: {
+      case kExprSetLocal: {
+        int unused = 0;
+        unsigned index = LocalIndexOperand(p->pc(), &unused);
+        Tree* val = p->last();
+        if (function_env_->GetLocalType(index) == val->type) {
+          if (builder_.graph) ssa_env_->locals[index] = val->node;
+          p->tree->node = val->node;
+        } else {
+          error(p->pc(), "Typecheck failed in SetLocal", val->pc);
+        }
+        break;
+      }
+      case kExprStoreGlobal: {
+        int unused = 0;
+        unsigned index = LocalIndexOperand(p->pc(), &unused);
+        Tree* val = p->last();
+        LocalType global = WasmOpcodes::LocalTypeFor(
+            function_env_->module->GetGlobalType(index));
+        if (global == val->type) {
+          builder_.StoreGlobal(index, val->node);
+          p->tree->node = val->node;
+        } else {
+          error(p->pc(), "Typecheck failed in StoreGlobal", val->pc);
+        }
+        break;
+      }
+      // TODO(titzer): factor common code from loads.
+      case kExprInt32LoadMemL: {
         TypeCheckLast(p, kAstInt32);
-        MemType type = MemAccessTypeOperand(p->pc());
+        MemType type = IntMemAccessTypeOperand(p->pc(), false);
         p->tree->node = builder_.LoadMem(type, p->last()->node);
+        break;
+      }
+      case kExprInt64LoadMemL: {
+        TypeCheckLast(p, kAstInt32);
+        MemType type = IntMemAccessTypeOperand(p->pc(), true);
+        p->tree->node = builder_.LoadMem(type, p->last()->node);
+        break;
+      }
+      case kExprFloat32LoadMemL: {
+        TypeCheckLast(p, kAstInt32);
+        p->tree->node = builder_.LoadMem(kMemFloat32, p->last()->node);
+        break;
+      }
+      case kExprFloat64LoadMemL: {
+        TypeCheckLast(p, kAstInt32);
+        p->tree->node = builder_.LoadMem(kMemFloat64, p->last()->node);
+        break;
+      }
+      // TODO(titzer): factor common code from stores.
+      case kExprInt32StoreMemL: {
+        TypeCheckLast(p, kAstInt32);
+        if (p->index == 2) {
+          Tree* val = p->last();
+          MemType type = IntMemAccessTypeOperand(p->pc(), false);
+          Tree* ival = p->tree->children[0];
+          p->tree->node = builder_.StoreMem(type, ival->node, val->node);
+        }
+        break;
+      }
+      case kExprInt64StoreMemL: {
+        if (p->index == 1) {
+          TypeCheckLast(p, kAstInt32);
+        } else if (p->index == 2) {
+          TypeCheckLast(p, kAstInt64);
+          Tree* val = p->last();
+          MemType type = IntMemAccessTypeOperand(p->pc(), true);
+          Tree* ival = p->tree->children[0];
+          p->tree->node = builder_.StoreMem(type, ival->node, val->node);
+        }
+        break;
+      }
+      case kExprFloat32StoreMemL: {
+        if (p->index == 1) {
+          TypeCheckLast(p, kAstInt32);
+        } else if (p->index == 2) {
+          TypeCheckLast(p, kAstFloat32);
+          Tree* val = p->last();
+          Tree* ival = p->tree->children[0];
+          p->tree->node = builder_.StoreMem(kMemFloat32, ival->node, val->node);
+        }
+        break;
+      }
+      case kExprFloat64StoreMemL: {
+        if (p->index == 1) {
+          TypeCheckLast(p, kAstInt32);
+        } else if (p->index == 2) {
+          TypeCheckLast(p, kAstFloat64);
+          Tree* val = p->last();
+          Tree* ival = p->tree->children[0];
+          p->tree->node = builder_.StoreMem(kMemFloat64, ival->node, val->node);
+        }
         break;
       }
       case kExprCallFunction: {
@@ -961,22 +1044,26 @@ class LR_WasmDecoder {
     return result;
   }
 
-  MemType MemAccessTypeOperand(const byte* pc) {
-    MemType type = static_cast<MemType>(Operand<uint8_t>(pc));
-    switch (type) {
-      case kMemInt8:
-      case kMemUint8:
-      case kMemInt16:
-      case kMemUint16:
-      case kMemInt32:
-      case kMemUint32:
-      case kMemInt64:
-      case kMemUint64:
-      case kMemFloat32:
-      case kMemFloat64:
-        return type;
+  MemType IntMemAccessTypeOperand(const byte* pc, bool is64) {
+    byte operand = Operand<uint8_t>(pc);
+    bool signext = MemoryAccess::SignExtendField::decode(operand);
+    if (operand &
+        ~(MemoryAccess::SignExtendField::kMask |
+          MemoryAccess::IntWidthField::kMask)) {
+      error(pc, "unrecognized bits in memory access operand");
+      return kMemInt32;
+    }
+    switch (MemoryAccess::IntWidthField::decode(operand)) {
+      case MemoryAccess::kInt8:
+        return signext ? kMemInt8 : kMemUint8;
+      case MemoryAccess::kInt16:
+        return signext ? kMemInt16 : kMemUint16;
+      case MemoryAccess::kInt32:
+        return signext ? kMemInt32 : kMemUint32;
+      case MemoryAccess::kInt64:
+        if (is64) return signext ? kMemInt64 : kMemUint64;
       default:
-        error(pc, "invalid type for memory access");
+        error(pc, "invalid width for int memory access");
         return kMemInt32;
     }
   }
@@ -1038,7 +1125,7 @@ Result BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
 
 
 void TestWasmDecodingSpeed() {
-  byte code[] = {kStmtSetLocal, 0, kExprInt32Add, kExprGetLocal, 0,
+  byte code[] = {kExprSetLocal, 0, kExprInt32Add, kExprGetLocal, 0,
                  kExprInt8Const, 5};
 
   Zone zone;

@@ -289,42 +289,42 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprFloat32Abs:
       op = m->Float32Abs();
       break;
-    case kExprInt32FromFloat64:
+    case kExprInt32SConvertFloat64:
       op = m->ChangeFloat64ToInt32();
       break;
-    case kExprUint32FromFloat64:
+    case kExprInt32UConvertFloat64:
       op = m->ChangeFloat64ToUint32();
       break;
-    case kExprFloat32FromFloat64:
+    case kExprFloat32ConvertFloat64:
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprFloat64FromSInt32:
+    case kExprFloat64SConvertInt32:
       op = m->ChangeInt32ToFloat64();
       break;
-    case kExprFloat64FromUInt32:
+    case kExprFloat64UConvertInt32:
       op = m->ChangeUint32ToFloat64();
       break;
-    case kExprFloat32FromSInt32:
+    case kExprFloat32SConvertInt32:
       op = m->ChangeInt32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprFloat32FromUInt32:
+    case kExprFloat32UConvertInt32:
       op = m->ChangeUint32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprInt32FromFloat32:
+    case kExprInt32SConvertFloat32:
       op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->ChangeFloat64ToInt32();
       break;
-    case kExprUint32FromFloat32:
+    case kExprInt32UConvertFloat32:
       op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->ChangeFloat64ToUint32();
       break;
-    case kExprFloat64FromFloat32:
+    case kExprFloat64ConvertFloat32:
       op = m->ChangeFloat32ToFloat64();
       break;
     default:
