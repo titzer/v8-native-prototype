@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string.h>
+#include <stdlib.h>
+
 #include "src/compiler/graph-visualizer.h"
 #include "src/compiler/js-graph.h"
 
@@ -471,53 +474,69 @@ TEST(Run_Wasm_WhileCountDown) {
 }
 
 
+// A helper for allocating small module environments on the stack.
+template <typename ElemType, size_t kSize>
+class TestModule : public ModuleEnv {
+ public:
+  TestModule() : size(kSize) {
+    STATIC_ASSERT(kSize * sizeof(ElemType) <= 1024);
+    mem_start = reinterpret_cast<uintptr_t>(data);
+    mem_end = reinterpret_cast<uintptr_t>(data + kSize);
+    zero();
+  }
+  size_t size;
+  ElemType data[kSize];
+  // Zero-initialize the memory.
+  void zero() { memset(data, 0, mem_end - mem_start); }
+  // Pseudo-randomly intialize the memory.
+  void randomize(unsigned seed = 88) {
+    byte* raw = reinterpret_cast<byte*>(mem_start);
+    byte* end = reinterpret_cast<byte*>(mem_end);
+    while (raw < end) {
+      *raw = static_cast<byte>(rand_r(&seed));
+      raw++;
+    }
+  }
+};
+
+
 TEST(Run_Wasm_LoadMemInt32) {
   WasmRunner<int32_t> r(kMachInt32);
-  ModuleEnv module;
-  const int kSize = 5;
-  int32_t buffer[kSize];
-  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  TestModule<int32_t, 8> module;
+  module.randomize(1111);
   r.function_env->module = &module;
 
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt32, WASM_INT8(0))));
 
-  buffer[0] = 999;
-  CHECK_EQ(999, r.Call(0));
+  module.data[0] = 99999999;
+  CHECK_EQ(99999999, r.Call(0));
 
-  buffer[0] = 888;
-  CHECK_EQ(888, r.Call(0));
+  module.data[0] = 88888888;
+  CHECK_EQ(88888888, r.Call(0));
 
-  buffer[0] = 777;
-  CHECK_EQ(777, r.Call(0));
+  module.data[0] = 77777777;
+  CHECK_EQ(77777777, r.Call(0));
 }
 
 
 TEST(Run_Wasm_LoadMemInt32_P) {
   WasmRunner<int32_t> r(kMachInt32);
-  ModuleEnv module;
-  const int kSize = 5;
-  int32_t buffer[kSize] = {-99999999, -88888, -7777, 6666666, 565555};
-  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  TestModule<int32_t, 8> module;
+  module.randomize(2222);
   r.function_env->module = &module;
 
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt32, WASM_GET_LOCAL(0))));
 
-  for (int i = 0; i < kSize; i++) {
-    CHECK_EQ(buffer[i], r.Call(i * 4));
+  for (int i = 0; i < module.size; i++) {
+    CHECK_EQ(module.data[i], r.Call(i * 4));
   }
 }
 
 
 TEST(Run_Wasm_MemInt32_Sum) {
-  WasmRunner<int32_t> r(kMachInt32);
+  WasmRunner<uint32_t> r(kMachInt32);
   const byte kSum = r.AllocateLocal(kAstInt32);
-  ModuleEnv module;
-  const int kSize = 5;
-  int32_t buffer[kSize] = {-99999999, -88888, -7777, 6666666, 565555};
-  module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
-  module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
+  TestModule<uint32_t, 20> module;
   r.function_env->module = &module;
 
   BUILD(
@@ -534,7 +553,16 @@ TEST(Run_Wasm_MemInt32_Sum) {
                                                              WASM_INT8(4))))),
           WASM_RETURN(WASM_GET_LOCAL(1))));
 
-  CHECK_EQ(7135556, r.Call(4 * (kSize - 1)));
+  // Run 4 trials.
+  for (int i = 0; i < 3; i++) {
+    module.randomize(i * 33);
+    uint32_t expected = 0;
+    for (size_t j = module.size - 1; j > 0; j--) {
+      expected += module.data[j];
+    }
+    uint32_t result = r.Call(static_cast<int>(4 * (module.size - 1)));
+    CHECK_EQ(expected, result);
+  }
 }
 
 
@@ -750,7 +778,7 @@ static void TestBuildGraphForBinop(WasmOpcode opcode, FunctionSig* sig) {
 
 
 TEST(Build_Wasm_SimpleExprs) {
-// Test that the decoder can build a graph for all simple expressions.
+// Test that the decoder can build a graph for all supported simple expressions.
 #define GRAPH_BUILD_TEST(name, opcode, sig)                 \
   if (WasmOpcodes::IsSupported(kExpr##name)) {              \
     FunctionSig* sig = WasmOpcodes::Signature(kExpr##name); \
@@ -765,5 +793,65 @@ TEST(Build_Wasm_SimpleExprs) {
 
 #undef GRAPH_BUILD_TEST
 }
+
+
+TEST(Run_Wasm_Int32LoadInt8_signext) {
+  TestModule<int8_t, 16> module;
+  module.randomize();
+  module.data[0] = -1;
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt8, WASM_GET_LOCAL(0))));
+
+  for (size_t i = 0; i < module.size; i++) {
+    CHECK_EQ(module.data[i], r.Call(static_cast<int>(i)));
+  }
+}
+
+
+TEST(Run_Wasm_Int32LoadInt8_zeroext) {
+  TestModule<uint8_t, 16> module;
+  module.randomize(77);
+  module.data[0] = 255;
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemUint8, WASM_GET_LOCAL(0))));
+
+  for (size_t i = 0; i < module.size; i++) {
+    CHECK_EQ(module.data[i], r.Call(static_cast<int>(i)));
+  }
+}
+
+
+TEST(Run_Wasm_Int32LoadInt16_signext) {
+  TestModule<uint8_t, 16> module;
+  module.randomize(888);
+  module.data[1] = 200;
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt16, WASM_GET_LOCAL(0))));
+
+  for (size_t i = 0; i < module.size; i += 2) {
+    int32_t expected =
+        module.data[i] | (static_cast<int8_t>(module.data[i + 1]) << 8);
+    CHECK_EQ(expected, r.Call(static_cast<int>(i)));
+  }
+}
+
+
+TEST(Run_Wasm_Int32LoadInt16_zeroext) {
+  TestModule<uint8_t, 16> module;
+  module.randomize(9999);
+  module.data[1] = 204;
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemUint16, WASM_GET_LOCAL(0))));
+
+  for (size_t i = 0; i < module.size; i += 2) {
+    int32_t expected = module.data[i] | (module.data[i + 1] << 8);
+    CHECK_EQ(expected, r.Call(static_cast<int>(i)));
+  }
+}
+
 
 #endif  // V8_TURBOFAN_TARGET
