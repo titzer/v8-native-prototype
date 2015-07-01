@@ -226,18 +226,63 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt32Ule:
       op = m->Uint32LessThanOrEqual();
       break;
-    case kExprFloat64Add:
-      op = m->Float64Add();
+#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+    // Opcodes only supported on 64-bit platforms.
+    // TODO(titzer): query the machine operator builder here instead of #ifdef.
+    case kExprInt64Add:
+      op = m->Int64Add();
       break;
-    case kExprFloat64Sub:
-      op = m->Float64Sub();
+    case kExprInt64Sub:
+      op = m->Int64Sub();
       break;
-    case kExprFloat64Mul:
-      op = m->Float64Mul();
+    case kExprInt64Mul:
+      op = m->Int64Mul();
       break;
-    case kExprFloat64Div:
-      op = m->Float64Div();
+    case kExprInt64SDiv:
+      op = m->Int64Div();
+      return graph->graph()->NewNode(op, left, right, *control);
+    case kExprInt64UDiv:
+      op = m->Uint64Div();
+      return graph->graph()->NewNode(op, left, right, *control);
+    case kExprInt64SRem:
+      op = m->Int64Mod();
+      return graph->graph()->NewNode(op, left, right, *control);
+    case kExprInt64URem:
+      op = m->Uint64Mod();
+      return graph->graph()->NewNode(op, left, right, *control);
+    case kExprInt64And:
+      op = m->Word64And();
       break;
+    case kExprInt64Ior:
+      op = m->Word64Or();
+      break;
+    case kExprInt64Xor:
+      op = m->Word64Xor();
+      break;
+    case kExprInt64Shl:
+      op = m->Word64Shl();
+      break;
+    case kExprInt64Shr:
+      op = m->Word64Shr();
+      break;
+    case kExprInt64Sar:
+      op = m->Word64Sar();
+      break;
+    case kExprInt64Eq:
+      op = m->Word64Equal();
+      break;
+    case kExprInt64Slt:
+      op = m->Int64LessThan();
+      break;
+    case kExprInt64Sle:
+      op = m->Int64LessThanOrEqual();
+      break;
+    case kExprInt64Ult:
+      op = m->Uint64LessThan();
+      break;
+// TODO(titzer): kExprInt64Ule
+#endif
+
     case kExprFloat32Add:
       op = m->Float32Add();
       break;
@@ -250,15 +295,6 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprFloat32Div:
       op = m->Float32Div();
       break;
-    case kExprFloat64Eq:
-      op = m->Float64Equal();
-      break;
-    case kExprFloat64Lt:
-      op = m->Float64LessThan();
-      break;
-    case kExprFloat64Le:
-      op = m->Float64LessThanOrEqual();
-      break;
     case kExprFloat32Eq:
       op = m->Float32Equal();
       break;
@@ -267,6 +303,27 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprFloat32Le:
       op = m->Float32LessThanOrEqual();
+      break;
+    case kExprFloat64Add:
+      op = m->Float64Add();
+      break;
+    case kExprFloat64Sub:
+      op = m->Float64Sub();
+      break;
+    case kExprFloat64Mul:
+      op = m->Float64Mul();
+      break;
+    case kExprFloat64Div:
+      op = m->Float64Div();
+      break;
+    case kExprFloat64Eq:
+      op = m->Float64Equal();
+      break;
+    case kExprFloat64Lt:
+      op = m->Float64LessThan();
+      break;
+    case kExprFloat64Le:
+      op = m->Float64LessThanOrEqual();
       break;
     default:
       op = UnsupportedOpcode(opcode);
@@ -327,6 +384,24 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprFloat64ConvertFloat32:
       op = m->ChangeFloat32ToFloat64();
       break;
+#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+    // Opcodes only supported on 64-bit platforms.
+    // TODO(titzer): query the machine operator builder here instead of #ifdef.
+    case kExprInt32ConvertInt64:
+      op = m->TruncateInt64ToInt32();
+      break;
+    case kExprInt64SConvertInt32:
+      op = m->ChangeInt32ToInt64();
+      break;
+    case kExprInt64UConvertInt32:
+      op = m->ChangeInt32ToInt64();
+      // TODO(titzer): should have a ChangeUint32ToInt64 operator.
+      input = graph->graph()->NewNode(op, input);
+      op = m->Word64And();
+      return graph->graph()->NewNode(op, input,
+                                     graph->Int64Constant(0xFFFFFFFF));
+      break;
+#endif
     default:
       op = UnsupportedOpcode(opcode);
   }

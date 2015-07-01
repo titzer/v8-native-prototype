@@ -38,6 +38,15 @@
 #define WASM_INT32(val)                                                 \
   kExprInt32Const, static_cast<byte>(val), static_cast<byte>(val >> 8), \
       static_cast<byte>(val >> 16), static_cast<byte>(val >> 24)
+#define WASM_INT64(val)                                           \
+  kExprInt64Const, static_cast<byte>(static_cast<uint64_t>(val)), \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 8),         \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 16),        \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 24),        \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 32),        \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 40),        \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 48),        \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 56)
 #define WASM_FLOAT32(val)                                       \
   kExprFloat32Const, static_cast<byte>(bit_cast<int32_t>(val)), \
       static_cast<byte>(bit_cast<uint32_t>(val) >> 8),          \

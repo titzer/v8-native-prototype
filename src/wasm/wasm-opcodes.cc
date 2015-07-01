@@ -116,6 +116,8 @@ FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
 
 bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {
+#if V8_TARGET_ARCH_32_BIT && !V8_TARGET_ARCH_X64
+    // Opcodes not supported on 32-bit platforms.
     case kExprInt64LoadMemL:
     case kExprInt32LoadMemH:
     case kExprInt64LoadMemH:
@@ -127,13 +129,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprFloat32StoreMemH:
     case kExprFloat64StoreMemH:
 
-    case kExprInt32Clz:
-    case kExprInt32Ctz:
-    case kExprInt32PopCnt:
-
-    case kExprInt64Add:
-    case kExprInt64Sub:
-    case kExprInt64Mul:
     case kExprInt64SDiv:
     case kExprInt64UDiv:
     case kExprInt64SRem:
@@ -148,10 +143,21 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprInt64Slt:
     case kExprInt64Sle:
     case kExprInt64Ult:
-    case kExprInt64Ule:
+    // TODO: kExprInt64Ule
+
+    case kExprInt32ConvertInt64:
+    case kExprInt64SConvertInt32:
+    case kExprInt64UConvertInt32:
+#endif
+
+    case kExprInt32Clz:
+    case kExprInt32Ctz:
+    case kExprInt32PopCnt:
+
     case kExprInt64Clz:
     case kExprInt64Ctz:
     case kExprInt64PopCnt:
+    case kExprInt64Ule:
 
     case kExprFloat32Min:
     case kExprFloat32Max:
@@ -173,13 +179,10 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprFloat64NearestInt:
     case kExprFloat64Sqrt:
 
-    case kExprInt32ConvertInt64:
     case kExprInt64SConvertFloat32:
     case kExprInt64SConvertFloat64:
     case kExprInt64UConvertFloat32:
     case kExprInt64UConvertFloat64:
-    case kExprInt64SConvertInt32:
-    case kExprInt64UConvertInt32:
     case kExprFloat32SConvertInt64:
     case kExprFloat32UConvertInt64:
     case kExprFloat32ReinterpretInt32:

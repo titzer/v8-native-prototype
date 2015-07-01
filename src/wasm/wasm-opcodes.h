@@ -76,16 +76,17 @@ typedef Signature<LocalType> FunctionSig;
 #define FOREACH_MISC_EXPR_OPCODE(V) \
   V(Int8Const, 0x10, _)             \
   V(Int32Const, 0x11, _)            \
-  V(Float64Const, 0x12, _)          \
-  V(Float32Const, 0x13, _)          \
-  V(GetLocal, 0x14, _)              \
-  V(SetLocal, 0x15, _)              \
-  V(LoadGlobal, 0x16, _)            \
-  V(StoreGlobal, 0x17, _)           \
-  V(CallFunction, 0x18, _)          \
-  V(CallIndirect, 0x19, _)          \
-  V(Ternary, 0x1a, _)               \
-  V(Comma, 0x1b, _)
+  V(Int64Const, 0x12, _)            \
+  V(Float64Const, 0x13, _)          \
+  V(Float32Const, 0x14, _)          \
+  V(GetLocal, 0x15, _)              \
+  V(SetLocal, 0x16, _)              \
+  V(LoadGlobal, 0x17, _)            \
+  V(StoreGlobal, 0x18, _)           \
+  V(CallFunction, 0x19, _)          \
+  V(CallIndirect, 0x1a, _)          \
+  V(Ternary, 0x1b, _)               \
+  V(Comma, 0x1c, _)
 
 // Load memory expressions.
 #define FOREACH_LOAD_MEM_EXPR_OPCODE(V) \
