@@ -226,6 +226,17 @@ TEST_F(DecoderTest, Int32Const) {
 }
 
 
+TEST_F(DecoderTest, Int64Const) {
+  byte code[] = {kExprInt64Const, 0, 0, 0, 0, 0, 0, 0, 0};
+  int64_t* ptr = reinterpret_cast<int64_t*>(code + 1);
+  const int kInc = 4498211;
+  for (int32_t i = kMinInt; i < kMaxInt - kInc; i = i + kInc) {
+    *ptr = (static_cast<int64_t>(i) << 32) | i;
+    EXPECT_VERIFIES(&env_i_i, code);
+  }
+}
+
+
 TEST_F(DecoderTest, Float32Const) {
   byte code[] = {kExprFloat32Const, 0, 0, 0, 0};
   float* ptr = reinterpret_cast<float*>(code + 1);

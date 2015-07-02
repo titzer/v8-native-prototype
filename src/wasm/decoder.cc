@@ -94,7 +94,7 @@ class LR_WasmDecoder {
     result_.tree = nullptr;
     result_.pc = pc;
     result_.error_pc = nullptr;
-    result_.error_msg = nullptr;
+    result_.error_msg.Reset(nullptr);
     result_.error_pt = nullptr;
 
     start_ = pc;
@@ -105,11 +105,11 @@ class LR_WasmDecoder {
     InitSsaEnv();
     DecodeFunctionBody();
 
-    if (result_.error_msg == nullptr && !ssa_env_->end()) {
+    if (result_.error_code == kSuccess && !ssa_env_->end()) {
       AddImplicitReturnAtEnd();
     }
 
-    if (result_.error_msg == nullptr) {
+    if (result_.error_code == kSuccess) {
       if (trees_.size() == 0) {
         error(start_, "no trees created");
       } else if (trees_.size() > 1) {
@@ -354,6 +354,12 @@ class LR_WasmDecoder {
           int32_t value = Operand<int32_t>(pc_);
           Leaf(kAstInt32, builder_.Int32Constant(value));
           len = 5;
+          break;
+        }
+        case kExprInt64Const: {
+          int64_t value = Operand<int64_t>(pc_);
+          Leaf(kAstInt64, builder_.Int64Constant(value));
+          len = 9;
           break;
         }
         case kExprFloat32Const: {
@@ -1070,9 +1076,11 @@ class LR_WasmDecoder {
 
   void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
     limit_ = start_;  // terminates the decoding loop
-    if (result_.error_msg == nullptr) {
+    if (result_.error_code == kSuccess) {
       result_.error_code = kError;  // TODO(titzer): error code
-      result_.error_msg = msg;
+      char* result = reinterpret_cast<char*>(malloc(strlen(msg)));
+      strcpy(result, msg);
+      result_.error_msg.Reset(result);
       result_.error_pc = pc;
       result_.error_pt = pt;
 #if DEBUG
@@ -1175,8 +1183,8 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree) {
 
 std::ostream& operator<<(std::ostream& os, const Result& result) {
   os << "Result = ";
-  if (result.error_msg != nullptr) {
-    os << result.error_msg << " @+"
+  if (result.error_msg.get() != nullptr) {
+    os << result.error_msg.get() << " @+"
        << static_cast<ptrdiff_t>(result.error_pc - result.pc);
   } else if (result.tree != nullptr) {
     os << *result.tree;

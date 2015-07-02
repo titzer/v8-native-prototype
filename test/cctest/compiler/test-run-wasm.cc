@@ -18,6 +18,12 @@
 
 #if V8_TURBOFAN_TARGET
 
+#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+#define WASM_64 1
+#else
+#define WASM_64 0
+#endif
+
 using namespace v8::base;
 using namespace v8::internal;
 using namespace v8::internal::compiler;
@@ -26,6 +32,8 @@ using namespace v8::internal::wasm;
 // Helpers for many common signatures that involve int32 types.
 static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
                                  kAstInt32};
+static LocalType kLongTypes5[] = {kAstInt64, kAstInt64, kAstInt64, kAstInt64,
+                                  kAstInt64};
 
 struct CommonSignatures {
   CommonSignatures()
@@ -33,12 +41,14 @@ struct CommonSignatures {
         sig_i_i(1, 1, kIntTypes5),
         sig_i_ii(1, 2, kIntTypes5),
         sig_i_iii(1, 3, kIntTypes5),
-        sig_v_v(0, 0, nullptr) {
+        sig_v_v(0, 0, nullptr),
+        sig_l_ll(1, 2, kLongTypes5) {
     init_env(&env_i_v, &sig_i_v);
     init_env(&env_i_i, &sig_i_i);
     init_env(&env_i_ii, &sig_i_ii);
     init_env(&env_i_iii, &sig_i_iii);
     init_env(&env_v_v, &sig_v_v);
+    init_env(&env_l_ll, &sig_l_ll);
   }
 
   FunctionSig sig_i_v;
@@ -46,11 +56,13 @@ struct CommonSignatures {
   FunctionSig sig_i_ii;
   FunctionSig sig_i_iii;
   FunctionSig sig_v_v;
+  FunctionSig sig_l_ll;
   FunctionEnv env_i_v;
   FunctionEnv env_i_i;
   FunctionEnv env_i_ii;
   FunctionEnv env_i_iii;
   FunctionEnv env_v_v;
+  FunctionEnv env_l_ll;
 
   static void init_env(FunctionEnv* env, FunctionSig* sig) {
     env->module = nullptr;
@@ -90,12 +102,12 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
 
   void Build(const byte* start, const byte* end) {
     Result result = BuildTFGraph(&jsgraph, function_env, start, end);
-    if (result.error_msg != nullptr) {
+    if (result.error_code != kSuccess) {
       ptrdiff_t pc = result.error_pc - result.pc;
       ptrdiff_t pt = result.error_pt - result.pc;
       std::ostringstream str;
       str << "Verification failed: " << result.error_code << " pc = +" << pc
-          << ", pt = +" << pt << ", msg = " << result.error_msg;
+          << ", pt = +" << pt << ", msg = " << result.error_msg.get();
       FATAL(str.str().c_str());
     }
     if (FLAG_trace_turbo_graph) {
@@ -162,6 +174,32 @@ TEST(Run_WasmInt32Const_many) {
     CHECK_EQ(kExpectedValue, r.Call());
   }
 }
+
+
+#if WASM_64
+TEST(Run_WasmInt64Const) {
+  WasmRunner<int64_t> r;
+  const int64_t kExpectedValue = 0x1122334455667788LL;
+  // return(kExpectedValue)
+  r.function_env = &r.sigs_.env_l_ll;
+  BUILD(r, WASM_RETURN(WASM_INT64(kExpectedValue)));
+  CHECK_EQ(kExpectedValue, r.Call());
+}
+
+
+TEST(Run_WasmInt64Const_many) {
+  int cntr = 0;
+  FOR_INT32_INPUTS(i) {
+    WasmRunner<int64_t> r;
+    r.function_env = &r.sigs_.env_l_ll;
+    const int64_t kExpectedValue = (static_cast<int64_t>(*i) << 32) | cntr;
+    // return(kExpectedValue)
+    BUILD(r, WASM_RETURN(WASM_INT64(kExpectedValue)));
+    CHECK_EQ(kExpectedValue, r.Call());
+    cntr++;
+  }
+}
+#endif
 
 
 TEST(Run_WasmInt32Param0) {
@@ -265,6 +303,53 @@ TEST(Run_WasmInt32Binops) {
   TestInt32Binop(kExprInt32Ult, 1, 0, -6);
   TestInt32Binop(kExprInt32Ule, 1, 98978, 0xF0000000);
 }
+
+
+#if WASM_64
+void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b) {
+  if (!WasmOpcodes::IsSupported(opcode)) return;
+  {
+    WasmRunner<int64_t> r;
+    r.function_env = &r.sigs_.env_l_ll;
+    // return K op K
+    BUILD(r, WASM_RETURN(WASM_BINOP(opcode, WASM_INT64(a), WASM_INT64(b))));
+    CHECK_EQ(expected, r.Call());
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+    r.function_env = &r.sigs_.env_l_ll;
+    // return a op b
+    BUILD(r, WASM_RETURN(
+                 WASM_BINOP(opcode, WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+    CHECK_EQ(expected, r.Call(a, b));
+  }
+}
+
+
+TEST(Run_WasmInt64Binops) {
+  // TODO: real 64-bit numbers
+  TestInt64Binop(kExprInt64Add, 8888888888888LL, 3333333333333LL,
+                 5555555555555LL);
+  TestInt64Binop(kExprInt64Sub, -111111111111LL, 777777777777LL,
+                 888888888888LL);
+  TestInt64Binop(kExprInt64Mul, 65130756, 88734, 734);
+  TestInt64Binop(kExprInt64SDiv, -66, -4777344, 72384);
+  TestInt64Binop(kExprInt64UDiv, 805306368, 0xF0000000, 5);
+  TestInt64Binop(kExprInt64SRem, -3, -3003, 1000);
+  TestInt64Binop(kExprInt64URem, 4, 4004, 1000);
+  TestInt64Binop(kExprInt64And, 0xEE, 0xFFEE, 0xFF0000FF);
+  TestInt64Binop(kExprInt64Ior, 0xF0FF00FF, 0xF0F000EE, 0x000F0011);
+  TestInt64Binop(kExprInt64Xor, 0xABCDEF01, 0xABCDEFFF, 0xFE);
+  TestInt64Binop(kExprInt64Shl, 0xA0000000, 0xA, 28);
+  TestInt64Binop(kExprInt64Shr, 0x0700001000123456LL, 0x7000010001234567LL, 4);
+  TestInt64Binop(kExprInt64Sar, 0xFF00000000000000LL, 0x8000000000000000LL, 7);
+  TestInt64Binop(kExprInt64Eq, 1, -99, -99);
+  TestInt64Binop(kExprInt64Slt, 1, -4, 4);
+  TestInt64Binop(kExprInt64Sle, 0, -2, -3);
+  TestInt64Binop(kExprInt64Ult, 1, 0, -6);
+  TestInt64Binop(kExprInt64Ule, 1, 98978, 0xF0000000);
+}
+#endif
 
 
 void TestFloat32Binop(WasmOpcode opcode, int32_t expected, float a, float b) {

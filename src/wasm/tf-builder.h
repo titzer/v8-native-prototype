@@ -71,7 +71,8 @@ struct TFBuilder {
   TFNode* Merge(unsigned count, TFNode** controls);
   TFNode* Phi(LocalType type, unsigned count, TFNode** vals, TFNode* control);
   TFNode* EffectPhi(unsigned count, TFNode** effects, TFNode* control);
-  TFNode* Int32Constant(int value);
+  TFNode* Int32Constant(int32_t value);
+  TFNode* Int64Constant(int64_t value);
   TFNode* Float32Constant(float value);
   TFNode* Float64Constant(double value);
   TFNode* Binop(WasmOpcode opcode, TFNode* left, TFNode* right);

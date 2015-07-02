@@ -129,6 +129,9 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprFloat32StoreMemH:
     case kExprFloat64StoreMemH:
 
+    case kExprInt64Add:
+    case kExprInt64Sub:
+    case kExprInt64Mul:
     case kExprInt64SDiv:
     case kExprInt64UDiv:
     case kExprInt64SRem:

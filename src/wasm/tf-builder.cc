@@ -150,8 +150,13 @@ TFNode* TFBuilder::EffectPhi(unsigned count, TFNode** effects,
 }
 
 
-TFNode* TFBuilder::Int32Constant(int value) {
+TFNode* TFBuilder::Int32Constant(int32_t value) {
   return graph ? graph->Int32Constant(value) : nullptr;
+}
+
+
+TFNode* TFBuilder::Int64Constant(int64_t value) {
+  return graph ? graph->Int64Constant(value) : nullptr;
 }
 
 
@@ -240,16 +245,20 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprInt64SDiv:
       op = m->Int64Div();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(
+          op, left, right);  // TODO(titzer): should take control
     case kExprInt64UDiv:
       op = m->Uint64Div();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(
+          op, left, right);  // TODO(titzer): should take control
     case kExprInt64SRem:
       op = m->Int64Mod();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(
+          op, left, right);  // TODO(titzer): should take control
     case kExprInt64URem:
       op = m->Uint64Mod();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(
+          op, left, right);  // TODO(titzer): should take control
     case kExprInt64And:
       op = m->Word64And();
       break;
