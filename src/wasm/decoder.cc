@@ -142,7 +142,7 @@ class LR_WasmDecoder {
   void InitSsaEnv() {
     FunctionSig* sig = function_env_->sig;
     int param_count = static_cast<int>(sig->parameter_count());
-    TFNode* start = builder_.Start(param_count);
+    TFNode* start = builder_.Start(param_count + 1);
     SsaEnv* ssa_env = Split(nullptr);
     int pos = 0;
     if (builder_.graph) {

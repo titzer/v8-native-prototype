@@ -173,6 +173,7 @@ static const compiler::Operator* UnsupportedOpcode(WasmOpcode opcode) {
 
 
 TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
+  // TODO(titzer): insert manual divide-by-zero checks.
   if (!graph) return nullptr;
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
@@ -231,7 +232,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt32Ule:
       op = m->Uint32LessThanOrEqual();
       break;
-#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+#if V8_TURBOFAN_BACKEND_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
     case kExprInt64Add:
@@ -245,20 +246,16 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprInt64SDiv:
       op = m->Int64Div();
-      return graph->graph()->NewNode(
-          op, left, right);  // TODO(titzer): should take control
+      return graph->graph()->NewNode(op, left, right, *control);
     case kExprInt64UDiv:
       op = m->Uint64Div();
-      return graph->graph()->NewNode(
-          op, left, right);  // TODO(titzer): should take control
+      return graph->graph()->NewNode(op, left, right, *control);
     case kExprInt64SRem:
       op = m->Int64Mod();
-      return graph->graph()->NewNode(
-          op, left, right);  // TODO(titzer): should take control
+      return graph->graph()->NewNode(op, left, right, *control);
     case kExprInt64URem:
       op = m->Uint64Mod();
-      return graph->graph()->NewNode(
-          op, left, right);  // TODO(titzer): should take control
+      return graph->graph()->NewNode(op, left, right, *control);
     case kExprInt64And:
       op = m->Word64And();
       break;
@@ -289,7 +286,9 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt64Ult:
       op = m->Uint64LessThan();
       break;
-// TODO(titzer): kExprInt64Ule
+    case kExprInt64Ule:
+      op = m->Uint64LessThanOrEqual();
+      break;
 #endif
 
     case kExprFloat32Add:
@@ -393,7 +392,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprFloat64ConvertFloat32:
       op = m->ChangeFloat32ToFloat64();
       break;
-#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+#if V8_TURBOFAN_BACKEND_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
     case kExprInt32ConvertInt64:
@@ -403,12 +402,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       op = m->ChangeInt32ToInt64();
       break;
     case kExprInt64UConvertInt32:
-      op = m->ChangeInt32ToInt64();
-      // TODO(titzer): should have a ChangeUint32ToInt64 operator.
-      input = graph->graph()->NewNode(op, input);
-      op = m->Word64And();
-      return graph->graph()->NewNode(op, input,
-                                     graph->Int64Constant(0xFFFFFFFF));
+      op = m->ChangeUint32ToUint64();
       break;
 #endif
     default:

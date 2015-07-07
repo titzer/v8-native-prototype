@@ -116,7 +116,7 @@ FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
 
 bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {
-#if V8_TARGET_ARCH_32_BIT && !V8_TARGET_ARCH_X64
+#if !V8_TURBOFAN_BACKEND_64
     // Opcodes not supported on 32-bit platforms.
     case kExprInt64LoadMemL:
     case kExprInt32LoadMemH:
@@ -146,7 +146,7 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprInt64Slt:
     case kExprInt64Sle:
     case kExprInt64Ult:
-    // TODO: kExprInt64Ule
+    case kExprInt64Ule:
 
     case kExprInt32ConvertInt64:
     case kExprInt64SConvertInt32:
@@ -160,7 +160,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprInt64Clz:
     case kExprInt64Ctz:
     case kExprInt64PopCnt:
-    case kExprInt64Ule:
 
     case kExprFloat32Min:
     case kExprFloat32Max:

@@ -20,7 +20,7 @@ namespace v8 {
 // Exposes a WASM API to JavaScript through the V8 API.
 class WasmJs {
  public:
-  static void Install(Isolate* isolate, Handle<ObjectTemplate> global_template);
+  static void Install(Isolate* isolate, Local<ObjectTemplate> global_template);
 
  private:
   static void Verify(const v8::FunctionCallbackInfo<v8::Value>& args);

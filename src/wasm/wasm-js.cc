@@ -6,9 +6,9 @@
 
 namespace v8 {
 
-void WasmJs::Install(Isolate* isolate, Handle<ObjectTemplate> global_template) {
+void WasmJs::Install(Isolate* isolate, Local<ObjectTemplate> global_template) {
   // Bind the WASM object.
-  Handle<ObjectTemplate> wasm_template = ObjectTemplate::New(isolate);
+  Local<ObjectTemplate> wasm_template = ObjectTemplate::New(isolate);
   wasm_template->Set(
       String::NewFromUtf8(isolate, "verify", NewStringType::kNormal)
           .ToLocalChecked(),
