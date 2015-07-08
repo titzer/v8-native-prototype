@@ -232,6 +232,22 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt32Ule:
       op = m->Uint32LessThanOrEqual();
       break;
+    case kExprInt32Sgt:
+      op = m->Int32LessThan();
+      std::swap(left, right);
+      break;
+    case kExprInt32Sge:
+      op = m->Int32LessThanOrEqual();
+      std::swap(left, right);
+      break;
+    case kExprInt32Ugt:
+      op = m->Uint32LessThan();
+      std::swap(left, right);
+      break;
+    case kExprInt32Uge:
+      op = m->Uint32LessThanOrEqual();
+      std::swap(left, right);
+      break;
 #if V8_TURBOFAN_BACKEND_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
@@ -289,6 +305,22 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt64Ule:
       op = m->Uint64LessThanOrEqual();
       break;
+    case kExprInt64Sgt:
+      op = m->Int64LessThan();
+      std::swap(left, right);
+      break;
+    case kExprInt64Sge:
+      op = m->Int64LessThanOrEqual();
+      std::swap(left, right);
+      break;
+    case kExprInt64Ugt:
+      op = m->Uint64LessThan();
+      std::swap(left, right);
+      break;
+    case kExprInt64Uge:
+      op = m->Uint64LessThanOrEqual();
+      std::swap(left, right);
+      break;
 #endif
 
     case kExprFloat32Add:
@@ -308,6 +340,14 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprFloat32Lt:
       op = m->Float32LessThan();
+      break;
+    case kExprFloat32Ge:
+      op = m->Float32LessThanOrEqual();
+      std::swap(left, right);
+      break;
+    case kExprFloat32Gt:
+      op = m->Float32LessThan();
+      std::swap(left, right);
       break;
     case kExprFloat32Le:
       op = m->Float32LessThanOrEqual();
@@ -332,6 +372,14 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprFloat64Le:
       op = m->Float64LessThanOrEqual();
+      break;
+    case kExprFloat64Gt:
+      op = m->Float64LessThan();
+      std::swap(left, right);
+      break;
+    case kExprFloat64Ge:
+      op = m->Float64LessThanOrEqual();
+      std::swap(left, right);
       break;
     default:
       op = UnsupportedOpcode(opcode);

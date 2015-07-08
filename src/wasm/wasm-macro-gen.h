@@ -121,6 +121,10 @@
 #define WASM_INT32_SLE(x, y) kExprInt32Sle, x, y
 #define WASM_INT32_ULT(x, y) kExprInt32Ult, x, y
 #define WASM_INT32_ULE(x, y) kExprInt32Ule, x, y
+#define WASM_INT32_SGT(x, y) kExprInt32Sgt, x, y
+#define WASM_INT32_SGE(x, y) kExprInt32Sge, x, y
+#define WASM_INT32_UGT(x, y) kExprInt32Ugt, x, y
+#define WASM_INT32_UGE(x, y) kExprInt32Uge, x, y
 #define WASM_INT32_CLZ(x) kExprInt32Clz, x
 #define WASM_INT32_CTZ(x) kExprInt32Ctz, x
 #define WASM_INT32_POPCNT(x) kExprInt32PopCnt, x
@@ -146,6 +150,10 @@
 #define WASM_INT64_SLE(x, y) kExprInt64Sle, x, y
 #define WASM_INT64_ULT(x, y) kExprInt64Ult, x, y
 #define WASM_INT64_ULE(x, y) kExprInt64Ule, x, y
+#define WASM_INT64_SGT(x, y) kExprInt64Sgt, x, y
+#define WASM_INT64_SGE(x, y) kExprInt64Sge, x, y
+#define WASM_INT64_UGT(x, y) kExprInt64Ugt, x, y
+#define WASM_INT64_UGE(x, y) kExprInt64Uge, x, y
 #define WASM_INT64_CLZ(x) kExprInt64Clz, x
 #define WASM_INT64_CTZ(x) kExprInt64Ctz, x
 #define WASM_INT64_POPCNT(x) kExprInt64PopCnt, x
@@ -170,6 +178,8 @@
 #define WASM_FLOAT32_EQ(x, y) kExprFloat32Eq, x, y
 #define WASM_FLOAT32_LT(x, y) kExprFloat32Lt, x, y
 #define WASM_FLOAT32_LE(x, y) kExprFloat32Le, x, y
+#define WASM_FLOAT32_GT(x, y) kExprFloat32Gt, x, y
+#define WASM_FLOAT32_GE(x, y) kExprFloat32Ge, x, y
 
 
 //------------------------------------------------------------------------------
@@ -192,6 +202,8 @@
 #define WASM_FLOAT64_EQ(x, y) kExprFloat64Eq, x, y
 #define WASM_FLOAT64_LT(x, y) kExprFloat64Lt, x, y
 #define WASM_FLOAT64_LE(x, y) kExprFloat64Le, x, y
+#define WASM_FLOAT64_GT(x, y) kExprFloat64Gt, x, y
+#define WASM_FLOAT64_GE(x, y) kExprFloat64Ge, x, y
 
 
 //------------------------------------------------------------------------------
