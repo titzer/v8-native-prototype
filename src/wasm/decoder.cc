@@ -240,7 +240,7 @@ class LR_WasmDecoder {
       FunctionSig* sig = WasmOpcodes::Signature(opcode);
       if (sig) {
         // A simple expression with a fixed signature.
-        Shift(sig->GetReturn(), sig->parameter_count());
+        Shift(sig->GetReturn(), static_cast<unsigned>(sig->parameter_count()));
         pc_ += len;
         if (pc_ >= limit_) {
           // End of code reached or exceeded.
@@ -1045,7 +1045,8 @@ class LR_WasmDecoder {
       shift += 7;
     }
     if (ptr == end && (b & 0x80)) error(pc, "invalid LEB128 varint");
-    *length = ptr - pc;
+    DCHECK_LE(ptr - pc, 6);
+    *length = static_cast<int>(ptr - pc);
     if (*length == 1) error(pc, "expected LEB128 varint");
     return result;
   }
