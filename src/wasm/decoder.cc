@@ -1079,7 +1079,7 @@ class LR_WasmDecoder {
     limit_ = start_;  // terminates the decoding loop
     if (result_.error_code == kSuccess) {
       result_.error_code = kError;  // TODO(titzer): error code
-      char* result = reinterpret_cast<char*>(malloc(strlen(msg)));
+      char* result = new char[strlen(msg) + 1];
       strcpy(result, msg);
       result_.error_msg.Reset(result);
       result_.error_pc = pc;
