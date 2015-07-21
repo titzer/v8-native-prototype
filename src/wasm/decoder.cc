@@ -177,10 +177,7 @@ class LR_WasmDecoder {
     }
     ssa_env->control = start;
     ssa_env->effect = start;
-    if (function_env_->module) {
-      builder_.mem_start = function_env_->module->mem_start;
-      builder_.mem_end = function_env_->module->mem_end;
-    }
+    builder_.module = function_env_->module;
     SetEnv(ssa_env);
   }
 
@@ -748,12 +745,11 @@ class LR_WasmDecoder {
           uint32_t count = p->tree->count + 1;
           TFNode** buffer = builder_.Buffer(count);
           uint32_t index = FunctionIndexOperand(p->pc(), &unused);
-          buffer[0] =
-              builder_.Constant(function_env_->module->FunctionCode(index));
+          buffer[0] = nullptr;  // reserved for code object.
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i - 1]->node;
           }
-          p->tree->node = builder_.Call(sig, buffer);
+          p->tree->node = builder_.CallDirect(index, buffer);
         }
         break;
       }
@@ -768,13 +764,12 @@ class LR_WasmDecoder {
         if (p->done()) {
           uint32_t count = p->tree->count;
           TFNode** buffer = builder_.Buffer(count);
-          uint32_t index = Operand<uint8_t>(p->pc());
-          buffer[0] =
-              builder_.FunctionTableLookup(index, p->tree->children[0]->node);
+          uint32_t index = Operand<uint8_t>(p->pc());  // TODO
+          buffer[0] = nullptr;  // reserved for computed target.
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i]->node;
           }
-          p->tree->node = builder_.Call(sig, buffer);
+          p->tree->node = builder_.CallIndirect(index, buffer);
         }
         break;
       }
@@ -784,8 +779,6 @@ class LR_WasmDecoder {
         Tree* right = p->tree->children[2];
         if (p->index == 1) {
           TypeCheckLast(p, kAstInt32);
-          // TODO(titzer): technically SSA renaming shouldn't be necessary,
-          // just different control and effect dependencies.
           ifs_.push_back({Split(ssa_env_), Split(ssa_env_)});
           IfEnv* env = &ifs_.back();
           builder_.Branch(p->last()->node, &env->true_env->control,

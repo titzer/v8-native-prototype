@@ -9,6 +9,11 @@
 
 namespace v8 {
 namespace internal {
+
+namespace compiler {
+class CallDescriptor;
+}
+
 namespace wasm {
 
 // Static representation of a wasm function.
@@ -24,6 +29,8 @@ struct WasmFunction {
   bool exported;                 // true if this function is exported.
   bool external;  // true if this function is externally supplied.
 };
+
+struct ModuleEnv;  // forward declaration of decoder interface.
 
 // Static representation of a wasm global variable.
 struct WasmGlobal {
@@ -70,8 +77,6 @@ struct WasmModule {
 
   // Creates a new instantiation of the module in the given isolate.
   MaybeHandle<JSObject> Instantiate(Isolate* isolate);
-
-  Handle<Code> Compile(int func_index, const WasmFunction& function);
 };
 
 
@@ -82,7 +87,7 @@ struct ModuleEnv {
   uintptr_t mem_end;
 
   WasmModule* module;
-  ZoneVector<Handle<Code>>* function_code;
+  std::vector<Handle<Code>>* function_code;
 
   bool IsValidGlobal(uint32_t index) {
     return module && index < module->globals->size();
@@ -98,11 +103,14 @@ struct ModuleEnv {
     DCHECK(IsValidFunction(index));
     return module->functions->at(index).sig;
   }
+
   FunctionSig* GetFunctionTableSignature(uint32_t index) { return nullptr; }
-  Handle<Code> FunctionCode(uint32_t index) {
-    DCHECK(IsValidFunction(index));
-    return function_code ? function_code->at(index) : Handle<Code>::null();
-  }
+
+  Handle<Code> GetFunctionCode(uint32_t index);
+
+  const compiler::CallDescriptor* GetWasmCallDescriptor(Zone* zone,
+                                                        FunctionSig* sig);
+  const compiler::CallDescriptor* GetCallDescriptor(Zone* zone, uint32_t index);
 };
 
 

@@ -22,6 +22,8 @@ namespace wasm {
 typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
 
+struct ModuleEnv;
+
 // Abstracts details of building TurboFan graph nodes, making the decoder
 // independent of the exact IR details.
 struct TFBuilder {
@@ -29,8 +31,7 @@ struct TFBuilder {
 
   Zone* zone;
   TFGraph* graph;
-  uintptr_t mem_start;
-  uintptr_t mem_end;
+  ModuleEnv* module;
   TFNode* mem_buffer;
   TFNode* mem_size;
   TFNode** control;
@@ -42,8 +43,7 @@ struct TFBuilder {
   TFBuilder(Zone* z, TFGraph* g)
       : zone(z),
         graph(g),
-        mem_start(0),
-        mem_end(0),
+        module(nullptr),
         mem_buffer(nullptr),
         mem_size(nullptr),
         control(nullptr),
@@ -93,7 +93,8 @@ struct TFBuilder {
     return nullptr;
   }
 
-  TFNode* Call(FunctionSig* sig, TFNode** args);
+  TFNode* CallDirect(uint32_t index, TFNode** args);
+  TFNode* CallIndirect(uint32_t table_index, TFNode** args);
 
   //-----------------------------------------------------------------------
   // Operations that access the mem.

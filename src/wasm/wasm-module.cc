@@ -5,6 +5,13 @@
 #include "src/v8.h"
 
 #include "src/wasm/wasm-module.h"
+#include "src/wasm/decoder.h"
+
+#include "src/compiler/common-operator.h"
+#include "src/compiler/machine-operator.h"
+#include "src/compiler/pipeline.h"
+#include "src/compiler/js-graph.h"
+#include "src/wasm/tf-builder.h"
 
 namespace v8 {
 namespace internal {
@@ -17,6 +24,60 @@ static const int kWasmModuleCodeTable = 1;
 static const int kWasmMemArrayBuffer = 2;
 static const int kWasmGlobalsArrayBuffer = 3;
 
+namespace {
+// Helper function to allocate a placeholder code object that will be the
+// target of direct calls until the function is compiled.
+Handle<Code> CreatePlaceholderCode(Isolate* isolate, uint32_t index) {
+  return Handle<Code>::null();  // TODO
+}
+
+// Helper function to compile a single function.
+Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
+                             const WasmFunction& function) {
+  // Initialize the function environment for decoding.
+  FunctionEnv env;
+  env.module = module_env;
+  env.sig = function.sig;
+  env.local_int32_count = function.local_int32_count;
+  env.local_int64_count = function.local_int64_count;
+  env.local_float32_count = function.local_float32_count;
+  env.local_float64_count = function.local_float64_count;
+
+  env.total_locals =                                      // --
+      env.local_int32_count + env.local_int64_count +     // --
+      env.local_float32_count + env.local_float64_count;  // --
+
+  // Create a TF graph during decoding.
+  Zone zone;
+  compiler::Graph graph(&zone);
+  compiler::CommonOperatorBuilder common(&zone);
+  compiler::MachineOperatorBuilder machine(&zone);
+  compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, &machine);
+  Result result = BuildTFGraph(
+      &jsgraph, &env,                                                 // --
+      module_env->module->module_start + function.code_start_offset,  // --
+      module_env->module->module_start + function.code_end_offset);   // --
+
+  if (result.error_code != kSuccess) {
+    // TODO(titzer): render an appropriate error message and throw.
+    return Handle<Code>::null();
+  }
+
+  // Run the compiler pipeline to generate machine code.
+  compiler::CallDescriptor* descriptor = const_cast<compiler::CallDescriptor*>(
+      module_env->GetWasmCallDescriptor(&zone, function.sig));
+  return compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor,
+                                                    &graph);
+}
+
+// Patch the direct calls in a function to other functions.
+void PatchDirectCalls(ModuleEnv* module_env, const WasmFunction& function,
+                      Handle<Code> code) {
+  if (function.external) return;
+  // TODO
+}
+}
+
 
 // Instantiates a wasm module as a JSObject.
 //  * allocates a backing store of {mem_size} bytes.
@@ -24,6 +85,8 @@ static const int kWasmGlobalsArrayBuffer = 3;
 //  * installs named properties on the object for exported functions
 //  * compiles wasm code to machine code
 MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
+  this->shared_isolate = isolate;  // TODO: have a real shared isolate.
+
   Factory* factory = isolate->factory();
   Handle<Map> map = factory->NewMap(
       JS_OBJECT_TYPE,
@@ -84,8 +147,16 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
     JSObject::AddProperty(module, name, buffer, READ_ONLY);
   }
 
-  // Process functions in the module.
+  // Compile all functions in the module.
   int index = 0;
+  ModuleEnv module_env;
+  module_env.module = this;
+  module_env.mem_start = reinterpret_cast<uintptr_t>(backing_store);
+  module_env.mem_end = reinterpret_cast<uintptr_t>(backing_store) + size;
+  std::vector<Handle<Code>> function_code(functions->size());
+  module_env.function_code = &function_code;
+
+  // First pass: compile each function.
   for (const WasmFunction& func : *functions) {
     // Compile each function and initialize the code table.
     Handle<String> name =
@@ -96,15 +167,24 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
       JSObject::AddProperty(module, name, undefined, DONT_DELETE);
     } else {
       // Compile the function and install it in the code table.
-      Handle<Code> code = Compile(index, func);
-      code_table->set(index, *code);
+      Handle<Code> code = CompileFunction(isolate, &module_env, func);
+      if (!code.is_null()) {
+        function_code[index] = code;
+        code_table->set(index, *code);
+      }
     }
     if (func.exported) {
       // Export functions are installed as read-only properties on the module.
       Handle<JSFunction> function = factory->NewFunction(name);
       JSObject::AddProperty(module, name, function, READ_ONLY);
+      // TODO: create adapter code object for exported functions.
     }
     index++;
+  }
+
+  // Second pass: patch all direct call sites.
+  for (index = 0; index < functions->size(); index++) {
+    PatchDirectCalls(&module_env, functions->at(index), function_code[index]);
   }
 
   module->SetInternalField(kWasmModuleFunctionTable, Smi::FromInt(0));
@@ -113,8 +193,30 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
 }
 
 
-Handle<Code> WasmModule::Compile(int index, const WasmFunction& function) {
-  return Handle<Code>::null();  // TODO(titzer): compile
+Handle<Code> ModuleEnv::GetFunctionCode(uint32_t index) {
+  DCHECK(IsValidFunction(index));
+  Handle<Code> result = Handle<Code>::null();
+  if (function_code) {
+    result = function_code->at(index);
+    if (result.is_null()) {
+      // Allocate placeholder code that will be patched later.
+      result = CreatePlaceholderCode(module->shared_isolate, index);
+      function_code->at(index) = result;
+    }
+  }
+  return result;
+}
+
+
+const compiler::CallDescriptor* ModuleEnv::GetWasmCallDescriptor(
+    Zone* zone, FunctionSig* sig) {
+  return nullptr;  // TODO
+}
+
+
+const compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
+                                                             uint32_t index) {
+  return nullptr;  // TODO
 }
 }
 }

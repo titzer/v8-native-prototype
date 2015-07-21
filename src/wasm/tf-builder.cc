@@ -8,6 +8,7 @@
 
 #include "src/wasm/tf-builder.h"
 #include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/wasm-module.h"
 
 namespace v8 {
 namespace internal {
@@ -511,15 +512,11 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
 }
 
 
-static const compiler::CallDescriptor* GetWasmCallDescriptor(Zone* zone,
-                                                             FunctionSig* sig) {
-  return nullptr;
-}
-
-
-TFNode* TFBuilder::Call(FunctionSig* sig, TFNode** args) {
+TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
+  DCHECK_NULL(args[0]);
   if (!graph) return nullptr;
 
+  FunctionSig* sig = module->GetFunctionSignature(index);
   const size_t params = sig->parameter_count();
   const size_t extra = 2;  // effect and control inputs.
   const size_t count = params + extra;
@@ -527,16 +524,20 @@ TFNode* TFBuilder::Call(FunctionSig* sig, TFNode** args) {
   if (args != cur_buffer || cur_bufsize < count) {
     // Reallocate the buffer to make space for extra inputs.
     TFNode** nargs = Buffer(count);
-    memcpy(nargs, args, params);
+    memcpy(nargs + 1, args + 1, params * sizeof(TFNode**));
     args = nargs;
   }
 
+  // Add code object as constant.
+  // TODO: handle JS, external calls with framestate.
+  args[0] = Constant(module->GetFunctionCode(index));
   // Add effect and control inputs.
   args[params + 1] = *effect;
   args[params + 2] = *control;
 
   const compiler::Operator* op =
-      graph->common()->Call(GetWasmCallDescriptor(zone, sig));
+      graph->common()->Call(module->GetCallDescriptor(zone, index));
+  // TODO: handle JS, external calls with framestate.
   TFNode* call = graph->graph()->NewNode(op, params, args);
 
   *effect = call;
@@ -544,14 +545,22 @@ TFNode* TFBuilder::Call(FunctionSig* sig, TFNode** args) {
 }
 
 
+TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
+  DCHECK_NULL(args[0]);
+  UNIMPLEMENTED();
+  return nullptr;
+}
+
+
 TFNode* TFBuilder::MemBuffer() {
-  if (!mem_buffer) mem_buffer = graph->IntPtrConstant(mem_start);
+  if (!mem_buffer) mem_buffer = graph->IntPtrConstant(module->mem_start);
   return mem_buffer;
 }
 
 
 TFNode* TFBuilder::MemSize() {
-  if (!mem_size) mem_size = graph->IntPtrConstant(mem_end - mem_start);
+  if (!mem_size)
+    mem_size = graph->IntPtrConstant(module->mem_end - module->mem_start);
   return mem_size;
 }
 
