@@ -11,6 +11,7 @@
 #include "src/wasm/decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/wasm-module.h"
 
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/graph-builder-tester.h"
@@ -569,14 +570,17 @@ TEST(Run_Wasm_WhileCountDown) {
 }
 
 
+namespace {
 // A helper for allocating small module environments on the stack.
 template <typename ElemType, size_t kSize>
-class TestModule : public ModuleEnv {
+class TestModuleEnv : public ModuleEnv {
  public:
-  TestModule() : size(kSize) {
+  TestModuleEnv() : size(kSize) {
     STATIC_ASSERT(kSize * sizeof(ElemType) <= 1024);
     mem_start = reinterpret_cast<uintptr_t>(data);
     mem_end = reinterpret_cast<uintptr_t>(data + kSize);
+    module = nullptr;
+    function_code = nullptr;
     zero();
   }
   size_t size;
@@ -593,11 +597,12 @@ class TestModule : public ModuleEnv {
     }
   }
 };
+}
 
 
 TEST(Run_Wasm_LoadMemInt32) {
   WasmRunner<int32_t> r(kMachInt32);
-  TestModule<int32_t, 8> module;
+  TestModuleEnv<int32_t, 8> module;
   module.randomize(1111);
   r.function_env->module = &module;
 
@@ -616,7 +621,7 @@ TEST(Run_Wasm_LoadMemInt32) {
 
 TEST(Run_Wasm_LoadMemInt32_P) {
   WasmRunner<int32_t> r(kMachInt32);
-  TestModule<int32_t, 8> module;
+  TestModuleEnv<int32_t, 8> module;
   module.randomize(2222);
   r.function_env->module = &module;
 
@@ -631,7 +636,7 @@ TEST(Run_Wasm_LoadMemInt32_P) {
 TEST(Run_Wasm_MemInt32_Sum) {
   WasmRunner<uint32_t> r(kMachInt32);
   const byte kSum = r.AllocateLocal(kAstInt32);
-  TestModule<uint32_t, 20> module;
+  TestModuleEnv<uint32_t, 20> module;
   r.function_env->module = &module;
 
   BUILD(
@@ -891,7 +896,7 @@ TEST(Build_Wasm_SimpleExprs) {
 
 
 TEST(Run_Wasm_Int32LoadInt8_signext) {
-  TestModule<int8_t, 16> module;
+  TestModuleEnv<int8_t, 16> module;
   module.randomize();
   module.data[0] = -1;
   WasmRunner<int32_t> r(kMachInt32);
@@ -905,7 +910,7 @@ TEST(Run_Wasm_Int32LoadInt8_signext) {
 
 
 TEST(Run_Wasm_Int32LoadInt8_zeroext) {
-  TestModule<uint8_t, 16> module;
+  TestModuleEnv<uint8_t, 16> module;
   module.randomize(77);
   module.data[0] = 255;
   WasmRunner<int32_t> r(kMachInt32);
@@ -919,7 +924,7 @@ TEST(Run_Wasm_Int32LoadInt8_zeroext) {
 
 
 TEST(Run_Wasm_Int32LoadInt16_signext) {
-  TestModule<uint8_t, 16> module;
+  TestModuleEnv<uint8_t, 16> module;
   module.randomize(888);
   module.data[1] = 200;
   WasmRunner<int32_t> r(kMachInt32);
@@ -935,7 +940,7 @@ TEST(Run_Wasm_Int32LoadInt16_signext) {
 
 
 TEST(Run_Wasm_Int32LoadInt16_zeroext) {
-  TestModule<uint8_t, 16> module;
+  TestModuleEnv<uint8_t, 16> module;
   module.randomize(9999);
   module.data[1] = 204;
   WasmRunner<int32_t> r(kMachInt32);

@@ -4,8 +4,11 @@
 
 #include "test/unittests/test-utils.h"
 
+#include "src/v8.h"
+
 #include "src/wasm/decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
+#include "src/wasm/wasm-module.h"
 
 namespace v8 {
 namespace internal {
@@ -922,6 +925,98 @@ TEST_F(DecoderTest, AllStoreMemCombinations) {
     }
   }
 }
+
+
+namespace {
+// A helper for tests that require a module environment for functions.
+class TestModuleEnv : public ModuleEnv {
+ public:
+  TestModuleEnv() {
+    mem_start = 0;
+    mem_end = 0;
+    module = &mod;
+    function_code = nullptr;
+    mod.functions = &functions;
+  }
+  void AddFunction(FunctionSig* sig) {
+    functions.push_back({sig, 0, 0, 0, 0, 0, 0, 0, false, false});
+  }
+
+ private:
+  WasmModule mod;
+  std::vector<WasmFunction> functions;
+};
+}
+
+#define EXPECT_FAILURE_CODE(env, ...)                  \
+  do {                                                 \
+    static byte code[] = {__VA_ARGS__};                \
+    Verify(kError, env, code, code + arraysize(code)); \
+  } while (false)
+
+
+TEST_F(DecoderTest, SimpleCalls) {
+  TestModuleEnv module_env;
+  env_i_i.module = &module_env;
+
+  module_env.AddFunction(&sig_i_v);
+  module_env.AddFunction(&sig_i_i);
+  module_env.AddFunction(&sig_i_ii);
+
+  VERIFY(WASM_CALL_FUNCTION(0));
+  VERIFY(WASM_CALL_FUNCTION(1, WASM_INT8(27)));
+  VERIFY(WASM_CALL_FUNCTION(2, WASM_INT8(37), WASM_INT8(77)));
+}
+
+
+TEST_F(DecoderTest, CallsWithMismatchedSigs1) {
+  FunctionEnv* env = &env_i_i;
+  TestModuleEnv module_env;
+  env->module = &module_env;
+
+  module_env.AddFunction(&sig_i_v);
+  module_env.AddFunction(&sig_i_i);
+  module_env.AddFunction(&sig_i_ii);
+
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(0, WASM_INT8(17)));
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(1, WASM_INT8(27), WASM_INT8(9)));
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(2, WASM_INT8(37)));
+}
+
+
+TEST_F(DecoderTest, CallsWithMismatchedSigs2) {
+  FunctionEnv* env = &env_i_i;
+  TestModuleEnv module_env;
+  env->module = &module_env;
+
+  module_env.AddFunction(&sig_i_i);
+
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(0, WASM_INT64(17)));
+  EXPECT_FAILURE_CODE(
+      env, WASM_CALL_FUNCTION(0, WASM_FLOAT32(static_cast<float>(17.1))));
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(0, WASM_FLOAT64(17.1)));
+}
+
+
+TEST_F(DecoderTest, CallsWithMismatchedSigs3) {
+  FunctionEnv* env = &env_i_i;
+  TestModuleEnv module_env;
+  env->module = &module_env;
+
+  module_env.AddFunction(&sig_i_f);
+
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(0, WASM_INT8(17)));
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(0, WASM_INT64(27)));
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(0, WASM_FLOAT64(37.2)));
+
+  module_env.AddFunction(&sig_i_d);
+
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(1, WASM_INT8(16)));
+  EXPECT_FAILURE_CODE(env, WASM_CALL_FUNCTION(1, WASM_INT64(16)));
+  EXPECT_FAILURE_CODE(
+      env, WASM_CALL_FUNCTION(1, WASM_FLOAT32(static_cast<float>(17.6))));
+}
+
 
 //--------------------------------------------------------------------------
 // TODO(titzer): not a real test.

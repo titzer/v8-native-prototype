@@ -24,43 +24,24 @@ namespace wasm {
 
 typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
-
 typedef Signature<LocalType> FunctionSig;
 
-// Interface the module environment during decoding, including information about
-// the global variables and the function tables.
-struct ModuleEnv {
-  uintptr_t mem_start;
-  uintptr_t mem_end;
-
-  ZoneVector<FunctionSig*>* function_sigs;
-  ZoneVector<FunctionSig*>* function_table_sigs;
-  ZoneVector<MemType>* global_types;
-
-  bool IsValidGlobal(unsigned index) { return index < global_types->size(); }
-  MemType GetGlobalType(unsigned index) { return global_types->at(index); }
-  FunctionSig* GetFunctionSignature(unsigned index) {
-    return function_sigs->at(index);
-  }
-  FunctionSig* GetFunctionTableSignature(unsigned index) {
-    return function_table_sigs->at(index);
-  }
-};
+struct ModuleEnv;  // forward declaration of module interface.
 
 // Interface the function environment during decoding, include the signature
 // and number of locals.
 struct FunctionEnv {
   ModuleEnv* module;             // module environment
   FunctionSig* sig;              // signature of this function
-  unsigned local_int32_count;    // number of int32 locals
-  unsigned local_int64_count;    // number of int64 locals
-  unsigned local_float32_count;  // number of float32 locals
-  unsigned local_float64_count;  // number of float64 locals
-  unsigned total_locals;         // sum of parameters and all locals
+  uint32_t local_int32_count;    // number of int32 locals
+  uint32_t local_int64_count;    // number of int64 locals
+  uint32_t local_float32_count;  // number of float32 locals
+  uint32_t local_float64_count;  // number of float64 locals
+  uint32_t total_locals;         // sum of parameters and all locals
 
-  bool IsValidLocal(unsigned index) { return index < total_locals; }
-  unsigned GetLocalCount() { return total_locals; }
-  LocalType GetLocalType(unsigned index) {
+  bool IsValidLocal(uint32_t index) { return index < total_locals; }
+  uint32_t GetLocalCount() { return total_locals; }
+  LocalType GetLocalType(uint32_t index) {
     if (index < sig->parameter_count()) return sig->GetParam(index);
     index -= sig->parameter_count();
     if (index < local_int32_count) return kAstInt32;
@@ -73,7 +54,7 @@ struct FunctionEnv {
     return kAstStmt;
   }
 
-  void AddLocals(LocalType type, unsigned count) {
+  void AddLocals(LocalType type, uint32_t count) {
     switch (type) {
       case kAstInt32:
         local_int32_count += count;

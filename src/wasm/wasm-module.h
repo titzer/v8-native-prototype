@@ -18,6 +18,7 @@ struct WasmFunction {
   uint32_t code_start_offset;    // offset in the module bytes of code start.
   uint32_t code_end_offset;      // offset in the module bytes of code end.
   uint16_t local_int32_count;    // number of int32 local variables.
+  uint16_t local_int64_count;    // number of int64 local variables.
   uint16_t local_float32_count;  // number of float32 local variables.
   uint16_t local_float64_count;  // number of float64 local variables.
   bool exported;                 // true if this function is exported.
@@ -72,6 +73,38 @@ struct WasmModule {
 
   Handle<Code> Compile(int func_index, const WasmFunction& function);
 };
+
+
+// Interface the module environment during decoding, including information about
+// the global variables and the function tables.
+struct ModuleEnv {
+  uintptr_t mem_start;
+  uintptr_t mem_end;
+
+  WasmModule* module;
+  ZoneVector<Handle<Code>>* function_code;
+
+  bool IsValidGlobal(uint32_t index) {
+    return module && index < module->globals->size();
+  }
+  bool IsValidFunction(uint32_t index) {
+    return module && index < module->functions->size();
+  }
+  MemType GetGlobalType(uint32_t index) {
+    DCHECK(IsValidGlobal(index));
+    return module->globals->at(index).type;
+  }
+  FunctionSig* GetFunctionSignature(uint32_t index) {
+    DCHECK(IsValidFunction(index));
+    return module->functions->at(index).sig;
+  }
+  FunctionSig* GetFunctionTableSignature(uint32_t index) { return nullptr; }
+  Handle<Code> FunctionCode(uint32_t index) {
+    DCHECK(IsValidFunction(index));
+    return function_code ? function_code->at(index) : Handle<Code>::null();
+  }
+};
+
 
 WasmModule* DecodeWasmModule(Isolate* isolate, const byte* module_start,
                              const byte* module_end);

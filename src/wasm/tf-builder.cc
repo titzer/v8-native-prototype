@@ -470,6 +470,11 @@ TFNode* TFBuilder::Float64Constant(double value) {
 }
 
 
+TFNode* TFBuilder::Constant(Handle<Object> value) {
+  return graph ? graph->Constant(value) : nullptr;
+}
+
+
 void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
   if (!graph) return;
   DCHECK_NOT_NULL(*control);
@@ -503,6 +508,39 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   } else {
     g->SetEnd(g->NewNode(graph->common()->End(1), ret));
   }
+}
+
+
+static const compiler::CallDescriptor* GetWasmCallDescriptor(Zone* zone,
+                                                             FunctionSig* sig) {
+  return nullptr;
+}
+
+
+TFNode* TFBuilder::Call(FunctionSig* sig, TFNode** args) {
+  if (!graph) return nullptr;
+
+  const size_t params = sig->parameter_count();
+  const size_t extra = 2;  // effect and control inputs.
+  const size_t count = params + extra;
+
+  if (args != cur_buffer || cur_bufsize < count) {
+    // Reallocate the buffer to make space for extra inputs.
+    TFNode** nargs = Buffer(count);
+    memcpy(nargs, args, params);
+    args = nargs;
+  }
+
+  // Add effect and control inputs.
+  args[params + 1] = *effect;
+  args[params + 2] = *control;
+
+  const compiler::Operator* op =
+      graph->common()->Call(GetWasmCallDescriptor(zone, sig));
+  TFNode* call = graph->graph()->NewNode(op, params, args);
+
+  *effect = call;
+  return call;
 }
 
 

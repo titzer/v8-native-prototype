@@ -9,6 +9,7 @@
 #include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
 #include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/wasm-module.h"
 
 namespace v8 {
 namespace internal {
@@ -153,21 +154,21 @@ class LR_WasmDecoder {
       // Initialize int32 locals.
       if (function_env_->local_int32_count > 0) {
         TFNode* zero = builder_.Int32Constant(0);
-        for (unsigned i = 0; i < function_env_->local_int32_count; i++) {
+        for (uint32_t i = 0; i < function_env_->local_int32_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
       // Initialize float32 locals.
       if (function_env_->local_float32_count > 0) {
         TFNode* zero = builder_.Float32Constant(0);
-        for (unsigned i = 0; i < function_env_->local_float32_count; i++) {
+        for (uint32_t i = 0; i < function_env_->local_float32_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
       // Initialize float64 locals.
       if (function_env_->local_float64_count > 0) {
         TFNode* zero = builder_.Float64Constant(0);
-        for (unsigned i = 0; i < function_env_->local_float64_count; i++) {
+        for (uint32_t i = 0; i < function_env_->local_float64_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
@@ -194,7 +195,7 @@ class LR_WasmDecoder {
     Reduce(tree);
   }
 
-  void Shift(LocalType type, unsigned count) {
+  void Shift(LocalType type, uint32_t count) {
     if (count == 0) return Leaf(type);
     size_t size = sizeof(Tree) + (count - 1) * sizeof(Tree*);
     Tree* tree = reinterpret_cast<Tree*>(zone_->New(size));
@@ -202,7 +203,7 @@ class LR_WasmDecoder {
     tree->count = count;
     tree->pc = pc_;
     tree->node = nullptr;
-    for (unsigned i = 0; i < count; i++) tree->children[i] = nullptr;
+    for (uint32_t i = 0; i < count; i++) tree->children[i] = nullptr;
     stack_.push_back({tree, 0});
   }
 
@@ -240,7 +241,7 @@ class LR_WasmDecoder {
       FunctionSig* sig = WasmOpcodes::Signature(opcode);
       if (sig) {
         // A simple expression with a fixed signature.
-        Shift(sig->GetReturn(), static_cast<unsigned>(sig->parameter_count()));
+        Shift(sig->GetReturn(), static_cast<uint32_t>(sig->parameter_count()));
         pc_ += len;
         if (pc_ >= limit_) {
           // End of code reached or exceeded.
@@ -305,7 +306,7 @@ class LR_WasmDecoder {
           break;
         }
         case kStmtContinue: {
-          unsigned depth = Operand<uint8_t>(pc_);
+          uint32_t depth = Operand<uint8_t>(pc_);
           if (depth < blocks_.size()) {
             Block* block = &blocks_[blocks_.size() - depth - 1];
             if (block->cont_env) {
@@ -322,7 +323,7 @@ class LR_WasmDecoder {
           break;
         }
         case kStmtBreak: {
-          unsigned depth = Operand<uint8_t>(pc_);
+          uint32_t depth = Operand<uint8_t>(pc_);
           if (depth < blocks_.size()) {
             Block* block = &blocks_[blocks_.size() - depth - 1];
             Goto(ssa_env_, block->break_env);
@@ -383,7 +384,7 @@ class LR_WasmDecoder {
           break;
         }
         case kExprSetLocal: {
-          unsigned index = LocalIndexOperand(pc_, &len);
+          uint32_t index = LocalIndexOperand(pc_, &len);
           LocalType type = function_env_->GetLocalType(index);
           Shift(type, 1);
           break;
@@ -396,7 +397,7 @@ class LR_WasmDecoder {
           break;
         }
         case kExprStoreGlobal: {
-          unsigned index = GlobalIndexOperand(pc_, &len);
+          uint32_t index = GlobalIndexOperand(pc_, &len);
           LocalType type = WasmOpcodes::LocalTypeFor(
               function_env_->module->GetGlobalType(index));
           Shift(type, 1);
@@ -445,7 +446,7 @@ class LR_WasmDecoder {
           len = 2;
           break;
         case kExprCallFunction: {
-          FunctionSig* sig = FunctionIndexOperand(pc_, &len);
+          FunctionSig* sig = FunctionSigOperand(pc_, &len);
           if (sig) {
             LocalType type = kAstInt32;
             if (sig->return_count() == 1) {
@@ -646,7 +647,7 @@ class LR_WasmDecoder {
       }
       case kExprSetLocal: {
         int unused = 0;
-        unsigned index = LocalIndexOperand(p->pc(), &unused);
+        uint32_t index = LocalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
         if (function_env_->GetLocalType(index) == val->type) {
           if (builder_.graph) ssa_env_->locals[index] = val->node;
@@ -658,7 +659,7 @@ class LR_WasmDecoder {
       }
       case kExprStoreGlobal: {
         int unused = 0;
-        unsigned index = LocalIndexOperand(p->pc(), &unused);
+        uint32_t index = LocalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
         LocalType global = WasmOpcodes::LocalTypeFor(
             function_env_->module->GetGlobalType(index));
@@ -740,17 +741,19 @@ class LR_WasmDecoder {
       }
       case kExprCallFunction: {
         int unused = 0;
-        FunctionSig* sig = FunctionIndexOperand(p->pc(), &unused);
+        FunctionSig* sig = FunctionSigOperand(p->pc(), &unused);
+        if (!sig) break;
         TypeCheckLast(p, sig->GetParam(p->index - 1));
         if (p->done()) {
-          unsigned count = p->tree->count + 1;
+          uint32_t count = p->tree->count + 1;
           TFNode** buffer = builder_.Buffer(count);
-          unsigned index = Operand<uint8_t>(p->pc());
-          buffer[0] = builder_.FunctionConstant(index);
+          uint32_t index = FunctionIndexOperand(p->pc(), &unused);
+          buffer[0] =
+              builder_.Constant(function_env_->module->FunctionCode(index));
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i - 1]->node;
           }
-          p->tree->node = builder_.Call(count, buffer);
+          p->tree->node = builder_.Call(sig, buffer);
         }
         break;
       }
@@ -763,15 +766,15 @@ class LR_WasmDecoder {
           TypeCheckLast(p, sig->GetParam(p->index));
         }
         if (p->done()) {
-          unsigned count = p->tree->count;
+          uint32_t count = p->tree->count;
           TFNode** buffer = builder_.Buffer(count);
-          unsigned index = Operand<uint8_t>(p->pc());
+          uint32_t index = Operand<uint8_t>(p->pc());
           buffer[0] =
               builder_.FunctionTableLookup(index, p->tree->children[0]->node);
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i]->node;
           }
-          p->tree->node = builder_.Call(count, buffer);
+          p->tree->node = builder_.Call(sig, buffer);
         }
         break;
       }
@@ -900,7 +903,7 @@ class LR_WasmDecoder {
         if (builder_.IsPhiWithMerge(to->effect, merge)) {
           builder_.AppendToPhi(merge, to->effect, from->effect);
         } else if (to->effect != from->effect) {
-          unsigned count = builder_.InputCount(merge);
+          uint32_t count = builder_.InputCount(merge);
           TFNode** effects = builder_.Buffer(count);
           for (int j = 0; j < count - 1; j++) effects[j] = to->effect;
           effects[count - 1] = from->effect;
@@ -913,7 +916,7 @@ class LR_WasmDecoder {
           if (builder_.IsPhiWithMerge(tnode, merge)) {
             builder_.AppendToPhi(merge, tnode, fnode);
           } else if (tnode != fnode) {
-            unsigned count = builder_.InputCount(merge);
+            uint32_t count = builder_.InputCount(merge);
             TFNode** vals = builder_.Buffer(count);
             for (int j = 0; j < count - 1; j++) vals[j] = tnode;
             vals[count - 1] = fnode;
@@ -1017,7 +1020,16 @@ class LR_WasmDecoder {
     return index;
   }
 
-  FunctionSig* FunctionIndexOperand(const byte* pc, int* length) {
+  uint32_t FunctionIndexOperand(const byte* pc, int* length) {
+    uint32_t index = UnsignedLEB128Operand(pc, length);
+    if (!function_env_->module->IsValidFunction(index)) {
+      error(pc, "invalid function index");
+      return 0;
+    }
+    return index;
+  }
+
+  FunctionSig* FunctionSigOperand(const byte* pc, int* length) {
     uint32_t index = UnsignedLEB128Operand(pc, length);
     FunctionSig* sig = function_env_->module->GetFunctionSignature(index);
     if (!sig) error(pc, "invalid function index");
