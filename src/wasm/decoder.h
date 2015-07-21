@@ -7,7 +7,8 @@
 
 #include "src/signature.h"
 #include "src/zone-containers.h"
-#include "src/smart-pointers.h"
+
+#include "src/base/smart-pointers.h"
 
 #include "src/wasm/wasm-opcodes.h"
 
@@ -123,7 +124,7 @@ struct Result {
   const byte* pc;
   const byte* error_pc;
   const byte* error_pt;
-  SmartArrayPointer<char> error_msg;
+  base::SmartArrayPointer<char> error_msg;
 };
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree);

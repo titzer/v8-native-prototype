@@ -1,8 +1,8 @@
 diff --git a/src/d8.cc b/src/d8.cc
-index c46df53..11bdf3d 100644
+index a56d029..b6b7e71 100644
 --- a/src/d8.cc
 +++ b/src/d8.cc
-@@ -49,6 +49,8 @@
+@@ -51,6 +51,8 @@
  #include "src/v8.h"
  #endif  // !V8_SHARED
  
@@ -11,13 +11,13 @@ index c46df53..11bdf3d 100644
  #ifdef V8_USE_EXTERNAL_STARTUP_DATA
  #include "src/startup-data-util.h"
  #endif  // V8_USE_EXTERNAL_STARTUP_DATA
-@@ -986,6 +988,9 @@ Handle<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
-                               RealmSharedGet, RealmSharedSet);
-   global_template->Set(String::NewFromUtf8(isolate, "Realm"), realm_template);
+@@ -1285,6 +1287,9 @@ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+           .ToLocalChecked(),
+       os_templ);
  
 +  // Install WASM API.
 +  WasmJs::Install(isolate, global_template);
 +
- #ifndef V8_SHARED
-   Handle<ObjectTemplate> performance_template = ObjectTemplate::New(isolate);
-   performance_template->Set(String::NewFromUtf8(isolate, "now"),
+   return global_template;
+ }
+ 
