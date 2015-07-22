@@ -288,6 +288,25 @@ class WasmOpcodes {
   static const char* TypeName(MemType type);
   static FunctionSig* Signature(WasmOpcode opcode);
 
+  static size_t MemSize(MemType type) {
+    switch (type) {
+      case kMemInt8:
+      case kMemUint8:
+        return 1;
+      case kMemInt16:
+      case kMemUint16:
+        return 2;
+      case kMemInt32:
+      case kMemUint32:
+      case kMemFloat32:
+        return 4;
+      case kMemInt64:
+      case kMemUint64:
+      case kMemFloat64:
+        return 8;
+    }
+  }
+
   static LocalType LocalTypeFor(MemType type) {
     switch (type) {
       case kMemInt8:

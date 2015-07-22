@@ -80,11 +80,12 @@ struct WasmModule {
 };
 
 
-// Interface the module environment during decoding, including information about
-// the global variables and the function tables.
+// Interface provided to the decoder/graph builder which contains only
+// minimal information about the globals, functions, and function tables.
 struct ModuleEnv {
-  uintptr_t mem_start;
-  uintptr_t mem_end;
+  uintptr_t globals_area;  // address of the globals area.
+  uintptr_t mem_start;     // address of the start of linear memory.
+  uintptr_t mem_end;       // address of the end of linear memory.
 
   WasmModule* module;
   std::vector<Handle<Code>>* function_code;
@@ -104,7 +105,9 @@ struct ModuleEnv {
     return module->functions->at(index).sig;
   }
 
-  FunctionSig* GetFunctionTableSignature(uint32_t index) { return nullptr; }
+  FunctionSig* GetFunctionTableSignature(uint32_t index) {
+    return nullptr;  // TODO(titzer): implement function tables
+  }
 
   Handle<Code> GetFunctionCode(uint32_t index);
 

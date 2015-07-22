@@ -76,6 +76,30 @@ void PatchDirectCalls(ModuleEnv* module_env, const WasmFunction& function,
   if (function.external) return;
   // TODO
 }
+
+
+Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate, int size,
+                                     byte** backing_store) {
+  void* memory = isolate->array_buffer_allocator()->Allocate(size);
+  if (!memory) return Handle<JSArrayBuffer>::null();
+  *backing_store = reinterpret_cast<byte*>(memory);
+
+#if DEBUG
+  // Double check the API allocator actually zero-initialized the memory.
+  for (uint32_t i = 0; i < size; i++) {
+    DCHECK_EQ(0, (*backing_store)[i]);
+  }
+#endif
+
+  Handle<JSArrayBuffer> buffer = isolate->factory()->NewJSArrayBuffer();
+  isolate->heap()->RegisterNewArrayBuffer(isolate->heap()->InNewSpace(*buffer),
+                                          memory, size);
+  buffer->set_backing_store(memory);
+  buffer->set_is_external(false);
+  buffer->set_is_neuterable(false);
+  buffer->set_byte_length(Smi::FromInt(size));
+  return buffer;
+}
 }
 
 
@@ -88,82 +112,96 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   this->shared_isolate = isolate;  // TODO: have a real shared isolate.
 
   Factory* factory = isolate->factory();
+  // Memory is bigger than maximum supported size.
+  if (mem_size_log2 > kMaxMemSize) {
+    return isolate->Throw<JSObject>(
+        factory->InternalizeUtf8String("Out of memory: wasm memory too large"));
+  }
+
   Handle<Map> map = factory->NewMap(
       JS_OBJECT_TYPE,
       JSObject::kHeaderSize + kWasmModuleInternalFieldCount * kPointerSize);
 
+  //-------------------------------------------------------------------------
   // Allocate the module object.
+  //-------------------------------------------------------------------------
   Handle<JSObject> module = factory->NewJSObjectFromMap(map, TENURED);
   Handle<FixedArray> code_table =
       factory->NewFixedArray(static_cast<int>(functions->size()), TENURED);
 
-  // Allocate the raw memory for the mem.
-  if (mem_size_log2 > kMaxMemSize) {
-    // Memory is bigger than maximum supported size.
-    return isolate->Throw<JSObject>(
-        factory->InternalizeUtf8String("Out of memory: wasm memory too large"));
-  }
-  uint32_t size = 1 << mem_size_log2;
-  void* backing_store = isolate->array_buffer_allocator()->Allocate(size);
-  if (!backing_store) {
+  //-------------------------------------------------------------------------
+  // Allocate the linear memory.
+  //-------------------------------------------------------------------------
+  uint32_t mem_size = 1 << mem_size_log2;
+  byte* mem_addr = nullptr;
+  Handle<JSArrayBuffer> mem_buffer =
+      NewArrayBuffer(isolate, mem_size, &mem_addr);
+  if (!mem_addr) {
     // Not enough space for backing store of mem
     return isolate->Throw<JSObject>(
         factory->InternalizeUtf8String("Out of memory: wasm memory"));
   }
 
-#if DEBUG
-  // Double check the API allocator actually zero-initialized the memory.
-  for (uint32_t i = 0; i < size; i++) {
-    DCHECK_EQ(0, static_cast<byte*>(backing_store)[i]);
-  }
-#endif
-
   // Load initialized data segments.
   for (const WasmDataSegment& segment : *data_segments) {
     if (!segment.init) continue;
-    CHECK_LT(segment.dest_addr, size);
-    CHECK_LT(segment.source_size, size);
-    CHECK_LT(segment.dest_addr + segment.source_size, size);
-    byte* addr = reinterpret_cast<byte*>(backing_store) + segment.dest_addr;
+    CHECK_LT(segment.dest_addr, mem_size);
+    CHECK_LT(segment.source_size, mem_size);
+    CHECK_LT(segment.dest_addr + segment.source_size, mem_size);
+    byte* addr = mem_addr + segment.dest_addr;
     memcpy(addr, module_start + segment.source_offset, segment.source_size);
   }
 
-  // Create the JSArrayBuffer backed by the raw memory.
-  Handle<JSArrayBuffer> buffer = factory->NewJSArrayBuffer();
-  isolate->heap()->RegisterNewArrayBuffer(isolate->heap()->InNewSpace(*buffer),
-                                          backing_store, size);
-  buffer->set_backing_store(backing_store);
-  buffer->set_is_external(false);
-  buffer->set_is_neuterable(false);
-  buffer->set_byte_length(Smi::FromInt(size));
-  module->SetInternalField(kWasmMemArrayBuffer, *buffer);
-
-  // TODO(titzer): allocate storage for the globals.
-  module->SetInternalField(kWasmGlobalsArrayBuffer, Smi::FromInt(0));
+  module->SetInternalField(kWasmMemArrayBuffer, *mem_buffer);
 
   if (mem_export) {
     // Export the memory as a named property.
     Handle<String> name = factory->InternalizeUtf8String("memory");
-    JSObject::AddProperty(module, name, buffer, READ_ONLY);
+    JSObject::AddProperty(module, name, mem_buffer, READ_ONLY);
   }
 
+  //-------------------------------------------------------------------------
+  // Allocate the globals area if necessary.
+  //-------------------------------------------------------------------------
+  uint32_t globals_size = 0;
+  for (const WasmGlobal& global : *globals) {  // maximum of all globals.
+    uint32_t end = global.offset + WasmOpcodes::MemSize(global.type);
+    if (end > globals_size) globals_size = end;
+  }
+  byte* globals_addr = nullptr;
+  if (globals_size > 0) {
+    Handle<JSArrayBuffer> globals_buffer =
+        NewArrayBuffer(isolate, mem_size, &globals_addr);
+    if (!globals_addr) {
+      // Not enough space for backing store of globals.
+      return isolate->Throw<JSObject>(
+          factory->InternalizeUtf8String("Out of memory: wasm globals"));
+    }
+
+    module->SetInternalField(kWasmGlobalsArrayBuffer, *globals_buffer);
+  } else {
+    module->SetInternalField(kWasmGlobalsArrayBuffer, Smi::FromInt(0));
+  }
+
+  //-------------------------------------------------------------------------
   // Compile all functions in the module.
+  //-------------------------------------------------------------------------
   int index = 0;
   ModuleEnv module_env;
   module_env.module = this;
-  module_env.mem_start = reinterpret_cast<uintptr_t>(backing_store);
-  module_env.mem_end = reinterpret_cast<uintptr_t>(backing_store) + size;
+  module_env.mem_start = reinterpret_cast<uintptr_t>(mem_addr);
+  module_env.mem_end = reinterpret_cast<uintptr_t>(mem_addr) + mem_size;
+  module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr);
   std::vector<Handle<Code>> function_code(functions->size());
   module_env.function_code = &function_code;
 
-  // First pass: compile each function.
+  // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
-    // Compile each function and initialize the code table.
     Handle<String> name =
         factory->InternalizeUtf8String(GetName(func.name_offset));
     if (func.external) {
       // External functions are read-write properties on this object.
-      Handle<Object> undefined = isolate->factory()->undefined_value();
+      Handle<Object> undefined = factory->undefined_value();
       JSObject::AddProperty(module, name, undefined, DONT_DELETE);
     } else {
       // Compile the function and install it in the code table.

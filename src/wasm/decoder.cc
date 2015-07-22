@@ -656,7 +656,7 @@ class LR_WasmDecoder {
       }
       case kExprStoreGlobal: {
         int unused = 0;
-        uint32_t index = LocalIndexOperand(p->pc(), &unused);
+        uint32_t index = GlobalIndexOperand(p->pc(), &unused);
         Tree* val = p->last();
         LocalType global = WasmOpcodes::LocalTypeFor(
             function_env_->module->GetGlobalType(index));

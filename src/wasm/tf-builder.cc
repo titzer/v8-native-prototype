@@ -565,6 +565,33 @@ TFNode* TFBuilder::MemSize() {
 }
 
 
+TFNode* TFBuilder::LoadGlobal(uint32_t index) {
+  if (!graph) return nullptr;
+  MemType mem_type = module->GetGlobalType(index);
+  TFNode* addr = graph->IntPtrConstant(
+      module->globals_area + module->module->globals->at(index).offset);
+  const compiler::Operator* op =
+      graph->machine()->Load(MachineTypeFor(mem_type));
+  TFNode* node = graph->graph()->NewNode(op, addr, *effect, *control);
+  *effect = node;
+  return node;
+}
+
+
+TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
+  if (!graph) return nullptr;
+  MemType mem_type = module->GetGlobalType(index);
+  TFNode* addr = graph->IntPtrConstant(
+      module->globals_area + module->module->globals->at(index).offset);
+  const compiler::Operator* op =
+      graph->machine()->Store(compiler::StoreRepresentation(
+          MachineTypeFor(mem_type), compiler::kNoWriteBarrier));
+  TFNode* node = graph->graph()->NewNode(op, addr, val, *effect, *control);
+  *effect = node;
+  return node;
+}
+
+
 TFNode* TFBuilder::LoadMem(MemType type, TFNode* index) {
   if (!graph) return nullptr;
   const compiler::Operator* op =

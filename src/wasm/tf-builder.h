@@ -101,8 +101,8 @@ struct TFBuilder {
   //-----------------------------------------------------------------------
   TFNode* MemBuffer();
   TFNode* MemSize();
-  TFNode* LoadGlobal(unsigned index) { return nullptr; }
-  TFNode* StoreGlobal(unsigned, TFNode* val) { return nullptr; }
+  TFNode* LoadGlobal(uint32_t index);
+  TFNode* StoreGlobal(uint32_t index, TFNode* val);
   TFNode* LoadMem(MemType type, TFNode* index);
   TFNode* StoreMem(MemType type, TFNode* index, TFNode* val);
 
