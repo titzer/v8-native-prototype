@@ -51,7 +51,7 @@ struct TFBuilder {
         cur_buffer(def_buffer),
         cur_bufsize(kDefaultBufferSize) {}
 
-  TFNode** Buffer(unsigned count) {
+  TFNode** Buffer(size_t count) {
     if (count > cur_bufsize) {
       size_t new_size = count + cur_bufsize + 5;
       cur_buffer =

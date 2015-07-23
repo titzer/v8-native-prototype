@@ -571,30 +571,104 @@ TEST(Run_Wasm_WhileCountDown) {
 
 
 namespace {
-// A helper for allocating small module environments on the stack.
-template <typename ElemType, size_t kSize>
-class TestModuleEnv : public ModuleEnv {
+const int kMaxGlobalsSize = 128;
+
+// A helper for module environments that adds the ability to allocate memory
+// and global variables.
+class TestingModule : public ModuleEnv {
  public:
-  TestModuleEnv() : size(kSize) {
-    STATIC_ASSERT(kSize * sizeof(ElemType) <= 1024);
-    mem_start = reinterpret_cast<uintptr_t>(data);
-    mem_end = reinterpret_cast<uintptr_t>(data + kSize);
+  TestingModule() : mem_size(0), global_offset(0) {
+    globals_area = 0;
+    mem_start = 0;
+    mem_end = 0;
     module = nullptr;
     function_code = nullptr;
-    zero();
   }
-  size_t size;
-  ElemType data[kSize];
+
+  ~TestingModule() {
+    if (mem_start) {
+      free(raw_mem_start<byte>());
+    }
+    if (module) {
+      delete module->globals;
+      free(reinterpret_cast<byte*>(globals_area));
+      free(module);
+    }
+  }
+
+  byte* AddMemory(size_t size) {
+    CHECK_EQ(0, mem_start);
+    CHECK_EQ(0, mem_size);
+    mem_start = reinterpret_cast<uintptr_t>(malloc(size));
+    CHECK(mem_start);
+    memset(raw_mem_start<byte>(), 0, size);
+    mem_end = mem_start + size;
+    mem_size = size;
+    return raw_mem_start<byte>();
+  }
+
+  template <typename T>
+  T* AddMemoryElems(size_t count) {
+    AddMemory(count * sizeof(T));
+    return raw_mem_start<T>();
+  }
+
+  template <typename T>
+  T* AddGlobal(MemType mem_type) {
+    WasmGlobal* global = AddGlobal(mem_type);
+    return reinterpret_cast<T*>(globals_area + global->offset);
+  }
+
+
+  template <typename T>
+  T* raw_mem_start() {
+    DCHECK(mem_start);
+    return reinterpret_cast<T*>(mem_start);
+  }
+
+  template <typename T>
+  T* raw_mem_end() {
+    DCHECK(mem_start);
+    return reinterpret_cast<T*>(mem_end);
+  }
+
+  template <typename T>
+  T raw_mem_at(int i) {
+    DCHECK(mem_start);
+    return reinterpret_cast<T*>(mem_start)[i];
+  }
+
   // Zero-initialize the memory.
-  void zero() { memset(data, 0, mem_end - mem_start); }
+  void ZeroMemory() { memset(raw_mem_start<byte>(), 0, mem_size); }
+
   // Pseudo-randomly intialize the memory.
-  void randomize(unsigned seed = 88) {
-    byte* raw = reinterpret_cast<byte*>(mem_start);
-    byte* end = reinterpret_cast<byte*>(mem_end);
+  void RandomizeMemory(unsigned seed = 88) {
+    byte* raw = raw_mem_start<byte>();
+    byte* end = raw_mem_end<byte>();
     while (raw < end) {
       *raw = static_cast<byte>(rand_r(&seed));
       raw++;
     }
+  }
+
+ private:
+  size_t mem_size;
+  unsigned global_offset;
+
+  WasmGlobal* AddGlobal(MemType mem_type) {
+    if (module == nullptr) {
+      globals_area = reinterpret_cast<uintptr_t>(malloc(kMaxGlobalsSize));
+      module = reinterpret_cast<WasmModule*>(malloc(sizeof(WasmModule)));
+      module->functions = nullptr;
+      module->data_segments = nullptr;
+      module->globals = new std::vector<WasmGlobal>();
+    }
+    byte size = WasmOpcodes::MemSize(mem_type);
+    global_offset = (global_offset + size - 1) & ~(size - 1);  // align
+    module->globals->push_back({0, mem_type, global_offset, false});
+    global_offset += size;
+    CHECK_LT(global_offset, kMaxGlobalsSize);  // limit number of globals.
+    return &module->globals->back();
   }
 };
 }
@@ -602,41 +676,46 @@ class TestModuleEnv : public ModuleEnv {
 
 TEST(Run_Wasm_LoadMemInt32) {
   WasmRunner<int32_t> r(kMachInt32);
-  TestModuleEnv<int32_t, 8> module;
-  module.randomize(1111);
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(8);
+  module.RandomizeMemory(1111);
   r.function_env->module = &module;
 
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt32, WASM_INT8(0))));
 
-  module.data[0] = 99999999;
+  memory[0] = 99999999;
   CHECK_EQ(99999999, r.Call(0));
 
-  module.data[0] = 88888888;
+  memory[0] = 88888888;
   CHECK_EQ(88888888, r.Call(0));
 
-  module.data[0] = 77777777;
+  memory[0] = 77777777;
   CHECK_EQ(77777777, r.Call(0));
 }
 
 
 TEST(Run_Wasm_LoadMemInt32_P) {
+  const int kNumElems = 8;
   WasmRunner<int32_t> r(kMachInt32);
-  TestModuleEnv<int32_t, 8> module;
-  module.randomize(2222);
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(kNumElems);
+  module.RandomizeMemory(2222);
   r.function_env->module = &module;
 
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt32, WASM_GET_LOCAL(0))));
 
-  for (int i = 0; i < module.size; i++) {
-    CHECK_EQ(module.data[i], r.Call(i * 4));
+  for (int i = 0; i < kNumElems; i++) {
+    CHECK_EQ(memory[i], r.Call(i * 4));
   }
 }
 
 
 TEST(Run_Wasm_MemInt32_Sum) {
   WasmRunner<uint32_t> r(kMachInt32);
+  const int kNumElems = 20;
   const byte kSum = r.AllocateLocal(kAstInt32);
-  TestModuleEnv<uint32_t, 20> module;
+  TestingModule module;
+  uint32_t* memory = module.AddMemoryElems<uint32_t>(kNumElems);
   r.function_env->module = &module;
 
   BUILD(
@@ -655,12 +734,12 @@ TEST(Run_Wasm_MemInt32_Sum) {
 
   // Run 4 trials.
   for (int i = 0; i < 3; i++) {
-    module.randomize(i * 33);
+    module.RandomizeMemory(i * 33);
     uint32_t expected = 0;
-    for (size_t j = module.size - 1; j > 0; j--) {
-      expected += module.data[j];
+    for (size_t j = kNumElems - 1; j > 0; j--) {
+      expected += memory[j];
     }
-    uint32_t result = r.Call(static_cast<int>(4 * (module.size - 1)));
+    uint32_t result = r.Call(static_cast<int>(4 * (kNumElems - 1)));
     CHECK_EQ(expected, result);
   }
 }
@@ -896,62 +975,232 @@ TEST(Build_Wasm_SimpleExprs) {
 
 
 TEST(Run_Wasm_Int32LoadInt8_signext) {
-  TestModuleEnv<int8_t, 16> module;
-  module.randomize();
-  module.data[0] = -1;
+  TestingModule module;
+  const int kNumElems = 16;
+  int8_t* memory = module.AddMemoryElems<int8_t>(kNumElems);
+  module.RandomizeMemory();
+  memory[0] = -1;
   WasmRunner<int32_t> r(kMachInt32);
   r.function_env->module = &module;
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt8, WASM_GET_LOCAL(0))));
 
-  for (size_t i = 0; i < module.size; i++) {
-    CHECK_EQ(module.data[i], r.Call(static_cast<int>(i)));
+  for (size_t i = 0; i < kNumElems; i++) {
+    CHECK_EQ(memory[i], r.Call(static_cast<int>(i)));
   }
 }
 
 
 TEST(Run_Wasm_Int32LoadInt8_zeroext) {
-  TestModuleEnv<uint8_t, 16> module;
-  module.randomize(77);
-  module.data[0] = 255;
+  TestingModule module;
+  const int kNumElems = 16;
+  byte* memory = module.AddMemory(kNumElems);
+  module.RandomizeMemory(77);
+  memory[0] = 255;
   WasmRunner<int32_t> r(kMachInt32);
   r.function_env->module = &module;
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemUint8, WASM_GET_LOCAL(0))));
 
-  for (size_t i = 0; i < module.size; i++) {
-    CHECK_EQ(module.data[i], r.Call(static_cast<int>(i)));
+  for (size_t i = 0; i < kNumElems; i++) {
+    CHECK_EQ(memory[i], r.Call(static_cast<int>(i)));
   }
 }
 
 
 TEST(Run_Wasm_Int32LoadInt16_signext) {
-  TestModuleEnv<uint8_t, 16> module;
-  module.randomize(888);
-  module.data[1] = 200;
+  TestingModule module;
+  const int kNumBytes = 16;
+  byte* memory = module.AddMemory(kNumBytes);
+  module.RandomizeMemory(888);
+  memory[1] = 200;
   WasmRunner<int32_t> r(kMachInt32);
   r.function_env->module = &module;
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt16, WASM_GET_LOCAL(0))));
 
-  for (size_t i = 0; i < module.size; i += 2) {
-    int32_t expected =
-        module.data[i] | (static_cast<int8_t>(module.data[i + 1]) << 8);
+  for (size_t i = 0; i < kNumBytes; i += 2) {
+    int32_t expected = memory[i] | (static_cast<int8_t>(memory[i + 1]) << 8);
     CHECK_EQ(expected, r.Call(static_cast<int>(i)));
   }
 }
 
 
 TEST(Run_Wasm_Int32LoadInt16_zeroext) {
-  TestModuleEnv<uint8_t, 16> module;
-  module.randomize(9999);
-  module.data[1] = 204;
+  TestingModule module;
+  const int kNumBytes = 16;
+  byte* memory = module.AddMemory(kNumBytes);
+  module.RandomizeMemory(9999);
+  memory[1] = 204;
   WasmRunner<int32_t> r(kMachInt32);
   r.function_env->module = &module;
   BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemUint16, WASM_GET_LOCAL(0))));
 
-  for (size_t i = 0; i < module.size; i += 2) {
-    int32_t expected = module.data[i] | (module.data[i + 1] << 8);
+  for (size_t i = 0; i < kNumBytes; i += 2) {
+    int32_t expected = memory[i] | (memory[i + 1] << 8);
     CHECK_EQ(expected, r.Call(static_cast<int>(i)));
   }
 }
 
+
+TEST(Run_WasmInt32Global) {
+  TestingModule module;
+  int32_t* global = module.AddGlobal<int32_t>(kMemInt32);
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  // global = global + p0
+  BUILD(r, WASM_RETURN(WASM_STORE_GLOBAL(
+               0, WASM_INT32_ADD(WASM_LOAD_GLOBAL(0), WASM_GET_LOCAL(0)))));
+
+  *global = 116;
+  for (int i = 9; i < 444444; i += 111111) {
+    int32_t expected = *global + i;
+    r.Call(i);
+    CHECK_EQ(expected, *global);
+  }
+}
+
+
+TEST(Run_WasmInt32Globals_DontAlias) {
+  const int kNumGlobals = 3;
+  TestingModule module;
+  int32_t* globals[] = {module.AddGlobal<int32_t>(kMemInt32),
+                        module.AddGlobal<int32_t>(kMemInt32),
+                        module.AddGlobal<int32_t>(kMemInt32)};
+
+  for (int g = 0; g < kNumGlobals; g++) {
+    // global = global + p0
+    WasmRunner<int32_t> r(kMachInt32);
+    r.function_env->module = &module;
+    BUILD(r, WASM_RETURN(WASM_STORE_GLOBAL(
+                 g, WASM_INT32_ADD(WASM_LOAD_GLOBAL(g), WASM_GET_LOCAL(0)))));
+
+    // Check that reading/writing global number {g} doesn't alter the others.
+    *globals[g] = 116 * g;
+    int32_t before[kNumGlobals];
+    for (int i = 9; i < 444444; i += 111113) {
+      int32_t sum = *globals[g] + i;
+      for (int j = 0; j < kNumGlobals; j++) before[j] = *globals[j];
+      r.Call(i);
+      for (int j = 0; j < kNumGlobals; j++) {
+        int32_t expected = j == g ? sum : before[j];
+        CHECK_EQ(expected, *globals[j]);
+      }
+    }
+  }
+}
+
+
+#if WASM_64
+TEST(Run_WasmInt64Global) {
+  TestingModule module;
+  int64_t* global = module.AddGlobal<int64_t>(kMemInt64);
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  // global = global + p0
+  BUILD(r, WASM_BLOCK(
+               2, WASM_STORE_GLOBAL(0, WASM_INT64_ADD(WASM_LOAD_GLOBAL(0),
+                                                      WASM_INT64_SCONVERT_INT32(
+                                                          WASM_GET_LOCAL(0)))),
+               WASM_RETURN(WASM_ZERO)));
+
+  *global = 0xFFFFFFFFFFFFFFFFLL;
+  for (int i = 9; i < 444444; i += 111111) {
+    int64_t expected = *global + i;
+    r.Call(i);
+    CHECK_EQ(expected, *global);
+  }
+}
+#endif
+
+
+TEST(Run_WasmFloat32Global) {
+  TestingModule module;
+  float* global = module.AddGlobal<float>(kMemFloat32);
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  // global = global + p0
+  BUILD(r, WASM_BLOCK(2, WASM_STORE_GLOBAL(
+                             0, WASM_FLOAT32_ADD(WASM_LOAD_GLOBAL(0),
+                                                 WASM_FLOAT32_SCONVERT_INT32(
+                                                     WASM_GET_LOCAL(0)))),
+                      WASM_RETURN(WASM_ZERO)));
+
+  *global = 1.25;
+  for (int i = 9; i < 4444; i += 1111) {
+    volatile float expected = *global + i;
+    r.Call(i);
+    CHECK_EQ(expected, *global);
+  }
+}
+
+
+TEST(Run_WasmFloat64Global) {
+  TestingModule module;
+  double* global = module.AddGlobal<double>(kMemFloat64);
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+  // global = global + p0
+  BUILD(r, WASM_BLOCK(2, WASM_STORE_GLOBAL(
+                             0, WASM_FLOAT64_ADD(WASM_LOAD_GLOBAL(0),
+                                                 WASM_FLOAT64_SCONVERT_INT32(
+                                                     WASM_GET_LOCAL(0)))),
+                      WASM_RETURN(WASM_ZERO)));
+
+  *global = 1.25;
+  for (int i = 9; i < 4444; i += 1111) {
+    volatile double expected = *global + i;
+    r.Call(i);
+    CHECK_EQ(expected, *global);
+  }
+}
+
+
+TEST(Run_WasmMixedGlobals) {
+  TestingModule module;
+  int32_t* unused = module.AddGlobal<int32_t>(kMemInt32);
+  byte* memory = module.AddMemory(32);
+
+  int8_t* var_int8 = module.AddGlobal<int8_t>(kMemInt8);
+  uint8_t* var_uint8 = module.AddGlobal<uint8_t>(kMemUint8);
+  int16_t* var_int16 = module.AddGlobal<int16_t>(kMemInt16);
+  uint16_t* var_uint16 = module.AddGlobal<uint16_t>(kMemUint16);
+  int32_t* var_int32 = module.AddGlobal<int32_t>(kMemInt32);
+  uint32_t* var_uint32 = module.AddGlobal<uint32_t>(kMemUint32);
+  float* var_float = module.AddGlobal<float>(kMemFloat32);
+  double* var_double = module.AddGlobal<double>(kMemFloat64);
+
+  WasmRunner<int32_t> r(kMachInt32);
+  r.function_env->module = &module;
+
+  BUILD(r,
+        WASM_BLOCK(9, WASM_STORE_GLOBAL(1, WASM_LOAD_MEM(kMemInt8, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(2, WASM_LOAD_MEM(kMemUint8, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(3, WASM_LOAD_MEM(kMemInt16, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(4, WASM_LOAD_MEM(kMemUint16, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(5, WASM_LOAD_MEM(kMemInt32, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(6, WASM_LOAD_MEM(kMemUint32, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(7, WASM_LOAD_MEM(kMemFloat32, WASM_ZERO)),
+                   WASM_STORE_GLOBAL(8, WASM_LOAD_MEM(kMemFloat64, WASM_ZERO)),
+                   WASM_RETURN(WASM_ZERO)));
+
+  memory[0] = 0xaa;
+  memory[1] = 0xcc;
+  memory[2] = 0x55;
+  memory[3] = 0xee;
+  memory[4] = 0x33;
+  memory[5] = 0x22;
+  memory[6] = 0x11;
+  memory[7] = 0x99;
+  r.Call(1);
+
+  CHECK(static_cast<int8_t>(0xaa) == *var_int8);
+  CHECK(static_cast<uint8_t>(0xaa) == *var_uint8);
+  CHECK(static_cast<int16_t>(0xccaa) == *var_int16);
+  CHECK(static_cast<uint16_t>(0xccaa) == *var_uint16);
+  CHECK(static_cast<int32_t>(0xee55ccaa) == *var_int32);
+  CHECK(static_cast<uint32_t>(0xee55ccaa) == *var_uint32);
+  CHECK(bit_cast<float>(0xee55ccaa) == *var_float);
+  CHECK(bit_cast<double>(0x99112233ee55ccaaULL) == *var_double);
+
+  USE(unused);
+}
 
 #endif  // V8_TURBOFAN_TARGET

@@ -288,7 +288,7 @@ class WasmOpcodes {
   static const char* TypeName(MemType type);
   static FunctionSig* Signature(WasmOpcode opcode);
 
-  static size_t MemSize(MemType type) {
+  static byte MemSize(MemType type) {
     switch (type) {
       case kMemInt8:
       case kMemUint8:

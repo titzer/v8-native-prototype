@@ -538,7 +538,7 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   const compiler::Operator* op =
       graph->common()->Call(module->GetCallDescriptor(zone, index));
   // TODO: handle JS, external calls with framestate.
-  TFNode* call = graph->graph()->NewNode(op, params, args);
+  TFNode* call = graph->graph()->NewNode(op, static_cast<int>(params), args);
 
   *effect = call;
   return call;
@@ -572,7 +572,8 @@ TFNode* TFBuilder::LoadGlobal(uint32_t index) {
       module->globals_area + module->module->globals->at(index).offset);
   const compiler::Operator* op =
       graph->machine()->Load(MachineTypeFor(mem_type));
-  TFNode* node = graph->graph()->NewNode(op, addr, *effect, *control);
+  TFNode* node = graph->graph()->NewNode(op, addr, graph->ZeroConstant(),
+                                         *effect, *control);
   *effect = node;
   return node;
 }
@@ -586,7 +587,8 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   const compiler::Operator* op =
       graph->machine()->Store(compiler::StoreRepresentation(
           MachineTypeFor(mem_type), compiler::kNoWriteBarrier));
-  TFNode* node = graph->graph()->NewNode(op, addr, val, *effect, *control);
+  TFNode* node = graph->graph()->NewNode(op, addr, graph->ZeroConstant(), val,
+                                         *effect, *control);
   *effect = node;
   return node;
 }
