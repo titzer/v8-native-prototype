@@ -85,15 +85,16 @@ class LR_WasmDecoder {
         blocks_(zone),
         ifs_(zone) {}
 
-  Result Decode(FunctionEnv* function_env, const byte* pc, const byte* end) {
+  TreeResult Decode(FunctionEnv* function_env, const byte* pc,
+                    const byte* end) {
     CHECK(end >= pc);
     trees_.clear();
     stack_.clear();
     blocks_.clear();
     ifs_.clear();
     result_.error_code = kSuccess;
-    result_.tree = nullptr;
-    result_.pc = pc;
+    result_.val = nullptr;
+    result_.start = pc;
     result_.error_pc = nullptr;
     result_.error_msg.Reset(nullptr);
     result_.error_pt = nullptr;
@@ -106,17 +107,17 @@ class LR_WasmDecoder {
     InitSsaEnv();
     DecodeFunctionBody();
 
-    if (result_.error_code == kSuccess && !ssa_env_->end()) {
+    if (result_.ok() && !ssa_env_->end()) {
       AddImplicitReturnAtEnd();
     }
 
-    if (result_.error_code == kSuccess) {
+    if (result_.ok()) {
       if (trees_.size() == 0) {
         error(start_, "no trees created");
       } else if (trees_.size() > 1) {
         error(start_, "more than one tree created");
       } else {
-        result_.tree = trees_[0];
+        result_.val = trees_[0];
       }
     }
     return result_;
@@ -130,7 +131,7 @@ class LR_WasmDecoder {
   const byte* start_;
   const byte* pc_;
   const byte* limit_;
-  Result result_;
+  TreeResult result_;
 
   SsaEnv* ssa_env_;
   FunctionEnv* function_env_;
@@ -764,7 +765,8 @@ class LR_WasmDecoder {
         if (p->done()) {
           uint32_t count = p->tree->count;
           TFNode** buffer = builder_.Buffer(count);
-          uint32_t index = Operand<uint8_t>(p->pc());  // TODO
+          // TODO(titzer): function table index operand
+          uint32_t index = Operand<uint8_t>(p->pc());
           buffer[0] = nullptr;  // reserved for computed target.
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i]->node;
@@ -1084,8 +1086,9 @@ class LR_WasmDecoder {
     limit_ = start_;  // terminates the decoding loop
     if (result_.error_code == kSuccess) {
       result_.error_code = kError;  // TODO(titzer): error code
-      char* result = new char[strlen(msg) + 1];
-      strcpy(result, msg);
+      size_t len = strlen(msg) + 1;
+      char* result = new char[len];
+      strncpy(result, msg, len);
       result_.error_msg.Reset(result);
       result_.error_pc = pc;
       result_.error_pt = pt;
@@ -1121,19 +1124,20 @@ class LR_WasmDecoder {
 };
 
 
-Result VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end) {
+TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
+                          const byte* end) {
   Zone zone;
   LR_WasmDecoder decoder(&zone, nullptr);
-  Result result = decoder.Decode(env, start, end);
+  TreeResult result = decoder.Decode(env, start, end);
   return result;
 }
 
 
-Result BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
-                    const byte* end) {
+TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
+                        const byte* end) {
   Zone zone;
   LR_WasmDecoder decoder(&zone, graph);
-  Result result = decoder.Decode(env, start, end);
+  TreeResult result = decoder.Decode(env, start, end);
   return result;
 }
 
@@ -1161,7 +1165,7 @@ void TestWasmDecodingSpeed() {
   for (int i = 0; i < TRIALS; i++) {
     base::ElapsedTimer timer;
     timer.Start();
-    Result result = decoder.Decode(&env, big_code, big_code + TOTAL);
+    TreeResult result = decoder.Decode(&env, big_code, big_code + TOTAL);
     int64_t us = timer.Elapsed().InMicroseconds();
     OFStream os(stdout);
     double rate = ((TOTAL * 1000000.0) / us) / 1048576;
@@ -1183,34 +1187,6 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree) {
     os << *tree.children[i];
   }
   if (tree.count > 0) os << ")";
-  return os;
-}
-
-
-std::ostream& operator<<(std::ostream& os, const Result& result) {
-  os << "Result = ";
-  if (result.error_msg.get() != nullptr) {
-    os << result.error_msg.get() << " @+"
-       << static_cast<ptrdiff_t>(result.error_pc - result.pc);
-  } else if (result.tree != nullptr) {
-    os << *result.tree;
-  } else {
-    os << "null";
-  }
-  os << std::endl;
-  return os;
-}
-
-
-std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code) {
-  switch (error_code) {
-    case kSuccess:
-      os << "Success";
-      break;
-    default:  // TODO(titzer): render error codes
-      os << "Error";
-      break;
-  }
   return os;
 }
 }

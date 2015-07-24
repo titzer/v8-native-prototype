@@ -11,6 +11,7 @@
 #include "src/base/smart-pointers.h"
 
 #include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/wasm-result.h"
 
 namespace v8 {
 namespace internal {
@@ -79,42 +80,11 @@ struct FunctionEnv {
 };
 
 struct Tree;
+typedef Result<Tree*> TreeResult;
 
-// Error codes for programmatic checking of the decoder's verification.
-enum ErrorCode {
-  kSuccess,
-  kError,                 // TODO(titzer): remove me
-  kOutOfMemory,           // decoder ran out of memory
-  kEndOfCode,             // end of code reached prematurely
-  kInvalidOpcode,         // found invalid opcode
-  kUnreachableCode,       // found unreachable code
-  kImproperContinue,      // improperly nested continue
-  kImproperBreak,         // improperly nested break
-  kReturnCount,           // return count mismatch
-  kTypeError,             // type mismatch
-  kInvalidLocalIndex,     // invalid local
-  kInvalidGlobalIndex,    // invalid global
-  kInvalidFunctionIndex,  // invalid function
-  kInvalidMemType         // invalid memory type
-};
-
-// The overall result of decoding.
-struct Result {
-  Tree* tree;
-  ErrorCode error_code;
-  const byte* pc;
-  const byte* error_pc;
-  const byte* error_pt;
-  base::SmartArrayPointer<char> error_msg;
-};
-
-std::ostream& operator<<(std::ostream& os, const Tree& tree);
-std::ostream& operator<<(std::ostream& os, const Result& result);
-std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code);
-
-Result VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end);
-Result BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
-                    const byte* end);
+TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end);
+TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
+                        const byte* end);
 }
 }
 }

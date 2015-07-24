@@ -1,8 +1,8 @@
 diff --git a/tools/gyp/v8.gyp b/tools/gyp/v8.gyp
-index 524bca7..ab3d9be 100644
+index b269854..77aa1c8 100644
 --- a/tools/gyp/v8.gyp
 +++ b/tools/gyp/v8.gyp
-@@ -936,6 +936,17 @@
+@@ -969,6 +969,19 @@
          '../../src/version.h',
          '../../src/vm-state-inl.h',
          '../../src/vm-state.h',
@@ -17,6 +17,8 @@ index 524bca7..ab3d9be 100644
 +        '../../src/wasm/wasm-module.h',
 +        '../../src/wasm/wasm-opcodes.cc',
 +        '../../src/wasm/wasm-opcodes.h',
++        '../../src/wasm/wasm-result.cc',
++        '../../src/wasm/wasm-result.h',
          '../../src/zone.cc',
          '../../src/zone.h',
-         '../../src/third_party/fdlibm/fdlibm.cc',
+         '../../src/zone-allocator.h',

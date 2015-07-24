@@ -6,6 +6,7 @@
 #define V8_WASM_MODULE_H_
 
 #include "wasm-opcodes.h"
+#include "wasm-result.h"
 
 namespace v8 {
 namespace internal {
@@ -116,9 +117,13 @@ struct ModuleEnv {
   const compiler::CallDescriptor* GetCallDescriptor(Zone* zone, uint32_t index);
 };
 
+std::ostream& operator<<(std::ostream& os, const WasmModule& module);
 
-WasmModule* DecodeWasmModule(Isolate* isolate, const byte* module_start,
-                             const byte* module_end);
+typedef Result<WasmModule*> ModuleResult;
+
+
+ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
+                              const byte* module_end);
 }
 }
 }

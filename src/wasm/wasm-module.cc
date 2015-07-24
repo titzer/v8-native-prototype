@@ -4,18 +4,28 @@
 
 #include "src/v8.h"
 
-#include "src/wasm/wasm-module.h"
-#include "src/wasm/decoder.h"
-
 #include "src/compiler/common-operator.h"
+#include "src/compiler/js-graph.h"
 #include "src/compiler/machine-operator.h"
 #include "src/compiler/pipeline.h"
-#include "src/compiler/js-graph.h"
+#include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
+#include "src/wasm/wasm-module.h"
+#include "src/wasm/wasm-result.h"
 
 namespace v8 {
 namespace internal {
 namespace wasm {
+
+std::ostream& operator<<(std::ostream& os, const WasmModule& module) {
+  os << "WASM module with ";
+  os << (1 << module.mem_size_log2) << " mem bytes";
+  if (module.functions) os << module.functions->size() << " functions";
+  if (module.globals) os << module.functions->size() << " globals";
+  if (module.data_segments) os << module.functions->size() << " data segments";
+  return os;
+}
+
 
 // Internal constants for the layout of the module object.
 static const int kWasmModuleInternalFieldCount = 4;
@@ -28,8 +38,9 @@ namespace {
 // Helper function to allocate a placeholder code object that will be the
 // target of direct calls until the function is compiled.
 Handle<Code> CreatePlaceholderCode(Isolate* isolate, uint32_t index) {
-  return Handle<Code>::null();  // TODO
+  return Handle<Code>::null();  // TODO(titzer)
 }
+
 
 // Helper function to compile a single function.
 Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
@@ -53,12 +64,12 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
   compiler::CommonOperatorBuilder common(&zone);
   compiler::MachineOperatorBuilder machine(&zone);
   compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, &machine);
-  Result result = BuildTFGraph(
+  TreeResult result = BuildTFGraph(
       &jsgraph, &env,                                                 // --
       module_env->module->module_start + function.code_start_offset,  // --
       module_env->module->module_start + function.code_end_offset);   // --
 
-  if (result.error_code != kSuccess) {
+  if (result.failed()) {
     // TODO(titzer): render an appropriate error message and throw.
     return Handle<Code>::null();
   }
@@ -69,6 +80,7 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
   return compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor,
                                                     &graph);
 }
+
 
 // Patch the direct calls in a function to other functions.
 void PatchDirectCalls(ModuleEnv* module_env, const WasmFunction& function,
@@ -255,6 +267,107 @@ const compiler::CallDescriptor* ModuleEnv::GetWasmCallDescriptor(
 const compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
                                                              uint32_t index) {
   return nullptr;  // TODO
+}
+
+
+namespace {
+// The main logic for decoding a module.
+class ModuleDecoder {
+ public:
+  ModuleDecoder(const byte* module_start, const byte* module_end)
+      : start_(module_start), cur_(module_start), end_(module_end) {}
+
+
+  uint8_t u8() { return read<uint8_t>(); }
+  uint16_t u16() { return read<uint16_t>(); }
+  uint32_t offset() {
+    uint32_t offset = read<uint32_t>();
+    if (offset > (end_ - start_)) {
+      error(cur_ - sizeof(uint32_t), "offset out of bounds");
+    }
+    return offset;
+  }
+  uint32_t string() { return offset(); }  // TODO: validate string
+  FunctionSig* sig() { return nullptr; }  // TODO: parse signature
+
+  // Decodes an entire module.
+  ModuleResult DecodeModule(WasmModule* module) {
+    cur_ = start_;
+    result_.start = start_;
+    result_.val = module;
+    module->module_start = start_;
+    module->module_end = end_;
+    module->mem_size_log2 = 0;
+    module->mem_export = false;
+    module->mem_external = false;
+    module->functions = new std::vector<WasmFunction>();
+    module->globals = new std::vector<WasmGlobal>();
+    module->data_segments = new std::vector<WasmDataSegment>();
+
+    uint32_t count = u8();
+    for (uint32_t i = 0; i < count; i++) {
+      if (result_.failed()) break;
+      if (cur_ >= end_) break;
+      module->functions->push_back({nullptr, 0, 0, 0, 0, 0, 0, false, false});
+      DecodeFunction(&module->functions->back(), cur_);
+    }
+
+    return result_;
+  }
+
+  // Decodes a single function entry.
+  void DecodeFunction(WasmFunction* function, const byte* start) {
+    cur_ = start;
+    function->sig = sig();
+    function->name_offset = string();
+    function->code_start_offset = offset();
+    function->code_end_offset = offset();
+    function->local_int32_count = u16();
+    function->local_int64_count = u16();
+    function->local_float32_count = u16();
+    function->local_float64_count = u16();
+    function->exported = u8() != 0;
+    function->external = u8() != 0;
+  }
+
+ private:
+  const byte* start_;
+  const byte* cur_;
+  const byte* end_;
+  ModuleResult result_;
+
+  template <typename T>
+  T read() {
+    if (cur_ < start_ || cur_ + sizeof(T) >= end_) {
+      error(cur_, "fell of end of module bytes");
+      T val = 0;
+      return val;
+    }
+    T val = *reinterpret_cast<const T*>(cur_);
+    cur_ += sizeof(T);
+    return val;
+  }
+
+  void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
+    if (result_.error_code == kSuccess) {
+      result_.error_code = kError;  // TODO(titzer): error code
+      size_t len = strlen(msg) + 1;
+      char* result = new char[len];
+      strncpy(result, msg, len);
+      result_.error_msg.Reset(result);
+      result_.error_pc = pc;
+      result_.error_pt = pt;
+    }
+  }
+};
+}
+
+
+ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
+                              const byte* module_end) {
+  WasmModule* module = new WasmModule();
+  ModuleDecoder decoder(module_start, module_end);
+  return decoder.DecodeModule(module);
 }
 }
 }

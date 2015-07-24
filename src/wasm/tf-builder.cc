@@ -529,7 +529,7 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   }
 
   // Add code object as constant.
-  // TODO: handle JS, external calls with framestate.
+  // TODO(titzer): handle JS, external calls with framestate.
   args[0] = Constant(module->GetFunctionCode(index));
   // Add effect and control inputs.
   args[params + 1] = *effect;
@@ -537,7 +537,7 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
 
   const compiler::Operator* op =
       graph->common()->Call(module->GetCallDescriptor(zone, index));
-  // TODO: handle JS, external calls with framestate.
+  // TODO(titzer): handle JS, external calls with framestate.
   TFNode* call = graph->graph()->NewNode(op, static_cast<int>(params), args);
 
   *effect = call;

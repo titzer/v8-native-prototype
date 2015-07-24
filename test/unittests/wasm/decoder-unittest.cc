@@ -123,19 +123,21 @@ class DecoderTest : public TestWithZone {
   // A wrapper around VerifyWasmCode() that renders a nice failure message.
   void Verify(ErrorCode expected, FunctionEnv* env, const byte* start,
               const byte* end) {
-    Result result = VerifyWasmCode(env, start, end);
+    TreeResult result = VerifyWasmCode(env, start, end);
     if (result.error_code != expected) {
-      ptrdiff_t pc = result.error_pc - result.pc;
-      ptrdiff_t pt = result.error_pt - result.pc;
+      ptrdiff_t pc = result.error_pc - result.start;
+      ptrdiff_t pt = result.error_pt - result.start;
       std::ostringstream str;
       if (expected == kSuccess) {
-        str << "Verification failed: " << result.error_code << " pc = +" << pc
-            << ", pt = +" << pt;
+        str << "Verification failed: " << result.error_code << " pc = +" << pc;
+        if (result.error_pt) str << ", pt = +" << pt;
+        str << ", msg = " << result.error_msg.get();
       } else {
         str << "Verification expected: " << expected << ", but got "
             << result.error_code;
         if (result.error_code != kSuccess) {
-          str << " pc = +" << pc << ", pt = +" << pt;
+          str << " pc = +" << pc;
+          if (result.error_pt) str << ", pt = +" << pt;
         }
       }
       FATAL(str.str().c_str());

@@ -22,7 +22,7 @@ class WasmJs {
   static void Install(Isolate* isolate, Local<ObjectTemplate> global_template);
 
  private:
-  static void Verify(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 }
 
