@@ -77,10 +77,18 @@ struct FunctionEnv {
            (sig->parameter_count() + local_int32_count + local_int64_count +
             local_float32_count + local_float64_count));
   }
+
+  void SumLocals() {
+    total_locals = sig->parameter_count() + local_int32_count +
+                   local_int64_count + local_float32_count +
+                   local_float64_count;
+  }
 };
 
 struct Tree;
 typedef Result<Tree*> TreeResult;
+
+std::ostream& operator<<(std::ostream& os, const Tree& tree);
 
 TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end);
 TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,

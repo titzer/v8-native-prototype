@@ -5,6 +5,7 @@
 #include "test/unittests/test-utils.h"
 
 #include "src/wasm/wasm-module.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {
@@ -80,6 +81,41 @@ TEST_F(ModuleVerifyTest, DecodeOneEmptyVoidVoidFunction) {
     EXPECT_FALSE(result.ok());
   }
 }
+
+
+TEST_F(ModuleVerifyTest, DecodeModule_OneFunctionWithNopBody) {
+  static const byte data[] = {
+      1,                 // function count
+      0,       0,        // signature: void -> void
+      0,       0, 0, 0,  // name offset
+      24,      0, 0, 0,  // code start offset
+      25,      0, 0, 0,  // code end offset
+      1,       2,        // local int32 count
+      3,       4,        // local int64 count
+      5,       6,        // local float32 count
+      7,       8,        // local float64 count
+      0,                 // exported
+      0,                 // external
+      kStmtNop           // body
+  };
+
+  {
+    // Should decode to exactly one function.
+    ModuleResult result =
+        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    EXPECT_TRUE(result.ok());
+    EXPECT_EQ(1, result.val->functions->size());
+    WasmFunction* function = &result.val->functions->back();
+
+    EXPECT_EQ(0, function->name_offset);
+    EXPECT_EQ(24, function->code_start_offset);
+    EXPECT_EQ(25, function->code_end_offset);
+
+    EXPECT_EQ(false, function->exported);
+    EXPECT_EQ(false, function->external);
+  }
+}
+
 
 TEST_F(ModuleVerifyTest, DecodeSignature_v_v) {
   static const byte data[] = {0, 0};

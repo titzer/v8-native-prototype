@@ -287,7 +287,7 @@ class ModuleDecoder {
   }
 
   // Decodes an entire module.
-  ModuleResult DecodeModule(WasmModule* module) {
+  ModuleResult DecodeModule(WasmModule* module, bool verify_functions = true) {
     cur_ = start_;
     result_.val = module;
     module->module_start = start_;
@@ -299,18 +299,33 @@ class ModuleDecoder {
     module->globals = new std::vector<WasmGlobal>();
     module->data_segments = new std::vector<WasmDataSegment>();
 
+    // Set up module environment for verification.
+    ModuleEnv menv;
+    menv.module = module;
+    menv.globals_area = 0;
+    menv.mem_start = 0;
+    menv.mem_end = 0;
+    menv.function_code = nullptr;
+
     uint32_t count = u8();
+    // Decode each function.
     for (uint32_t i = 0; i < count; i++) {
       if (result_.failed()) break;
       module->functions->push_back({nullptr, 0, 0, 0, 0, 0, 0, false, false});
-      DecodeFunction(&module->functions->back(), cur_);
+      WasmFunction* function = &module->functions->back();
+      DecodeFunction(function, cur_, verify_functions);
+
+      if (result_.ok() && verify_functions) {
+        if (!function->external) VerifyFunctionBody(i, &menv, function);
+      }
     }
 
     return result_;
   }
 
   // Decodes a single function entry.
-  void DecodeFunction(WasmFunction* function, const byte* start) {
+  void DecodeFunction(WasmFunction* function, const byte* start,
+                      bool verify_body = true) {
     cur_ = start;
     function->sig = sig();
     function->name_offset = string();
@@ -322,6 +337,40 @@ class ModuleDecoder {
     function->local_float64_count = u16();
     function->exported = u8() != 0;
     function->external = u8() != 0;
+  }
+
+  // Verifies the body (code) of a given function.
+  void VerifyFunctionBody(uint32_t func_num, ModuleEnv* menv,
+                          WasmFunction* function) {
+    FunctionEnv fenv;
+    fenv.module = menv;
+    fenv.local_int32_count = function->local_int32_count;
+    fenv.local_int64_count = function->local_int64_count;
+    fenv.local_float32_count = function->local_float32_count;
+    fenv.local_float64_count = function->local_float64_count;
+    fenv.SumLocals();
+
+    TreeResult result =
+        VerifyWasmCode(&fenv, start_ + function->code_start_offset,
+                       start_ + function->code_end_offset);
+    if (result.failed()) {
+      // Wrap the error message from the function decoder.
+      std::ostringstream str;
+      str << "in function #" << func_num << ": ";
+      // TODO(titzer): add function name for the user?
+      str << result;
+      const char* raw = str.str().c_str();
+      size_t len = strlen(raw);
+      char* buffer = new char[len];
+      strncpy(buffer, raw, len);
+
+      // Copy error code and location.
+      result_.error_code = result.error_code;
+      result_.error_msg.Reset(buffer);
+      result.error_msg.Reset(nullptr);
+      result_.error_pc = result.error_pc;
+      result_.error_pt = result.error_pt;
+    }
   }
 
   FunctionSig* DecodeFunctionSignature(const byte* start) {
