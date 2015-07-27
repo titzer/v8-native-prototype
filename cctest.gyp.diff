@@ -1,12 +1,12 @@
 diff --git a/test/cctest/cctest.gyp b/test/cctest/cctest.gyp
-index a1f49b9..a48eb4e 100644
+index de1ad4f..40ea88b 100644
 --- a/test/cctest/cctest.gyp
 +++ b/test/cctest/cctest.gyp
-@@ -82,6 +82,7 @@
-         'compiler/test-run-stackcheck.cc',
-         'compiler/test-run-stubs.cc',
-         'compiler/test-run-variables.cc',
-+        'compiler/test-run-wasm.cc',
-         'compiler/test-simplified-lowering.cc',
-         'cctest.cc',
-         'gay-fixed.cc',
+@@ -162,6 +162,7 @@
+         'test-weakmaps.cc',
+         'test-weaksets.cc',
+         'trace-extension.cc',
++        'wasm/test-run-wasm.cc',
+         '../../src/startup-data-util.h',
+         '../../src/startup-data-util.cc'
+       ],
