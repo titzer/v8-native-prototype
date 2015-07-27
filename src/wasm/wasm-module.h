@@ -124,6 +124,11 @@ typedef Result<WasmModule*> ModuleResult;
 
 ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
                               const byte* module_end);
+
+// Exposed for testing. Decodes a single function signature, allocating it
+// in the given zone. Returns {nullptr} upon failure.
+FunctionSig* DecodeFunctionSignatureForTesting(Zone* zone, const byte* start,
+                                               const byte* end);
 }
 }
 }

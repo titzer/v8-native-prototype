@@ -1,13 +1,14 @@
 diff --git a/test/unittests/unittests.gyp b/test/unittests/unittests.gyp
-index 64c4b10..78e8aee 100644
+index d933165..1aef22a 100644
 --- a/test/unittests/unittests.gyp
 +++ b/test/unittests/unittests.gyp
-@@ -94,6 +94,8 @@
+@@ -103,6 +103,9 @@
          'run-all-unittests.cc',
          'test-utils.h',
          'test-utils.cc',
 +        'wasm/decoder-unittest.cc',
 +        'wasm/wasm-macro-gen-unittest.cc',
++        'wasm/wasm-module-unittest.cc',
          '../../src/startup-data-util.h',
          '../../src/startup-data-util.cc'
        ],

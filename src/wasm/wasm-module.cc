@@ -274,26 +274,21 @@ namespace {
 // The main logic for decoding a module.
 class ModuleDecoder {
  public:
-  ModuleDecoder(const byte* module_start, const byte* module_end)
-      : start_(module_start), cur_(module_start), end_(module_end) {}
-
-
-  uint8_t u8() { return read<uint8_t>(); }
-  uint16_t u16() { return read<uint16_t>(); }
-  uint32_t offset() {
-    uint32_t offset = read<uint32_t>();
-    if (offset > (end_ - start_)) {
-      error(cur_ - sizeof(uint32_t), "offset out of bounds");
+  ModuleDecoder(Zone* zone, const byte* module_start, const byte* module_end)
+      : module_zone(zone),
+        start_(module_start),
+        cur_(module_start),
+        end_(module_end) {
+    result_.start = start_;
+    if (end_ < start_) {
+      error(start_, "end is less than start");
+      end_ = start_;
     }
-    return offset;
   }
-  uint32_t string() { return offset(); }  // TODO: validate string
-  FunctionSig* sig() { return nullptr; }  // TODO: parse signature
 
   // Decodes an entire module.
   ModuleResult DecodeModule(WasmModule* module) {
     cur_ = start_;
-    result_.start = start_;
     result_.val = module;
     module->module_start = start_;
     module->module_end = end_;
@@ -307,7 +302,6 @@ class ModuleDecoder {
     uint32_t count = u8();
     for (uint32_t i = 0; i < count; i++) {
       if (result_.failed()) break;
-      if (cur_ >= end_) break;
       module->functions->push_back({nullptr, 0, 0, 0, 0, 0, 0, false, false});
       DecodeFunction(&module->functions->back(), cur_);
     }
@@ -330,15 +324,76 @@ class ModuleDecoder {
     function->external = u8() != 0;
   }
 
+  FunctionSig* DecodeFunctionSignature(const byte* start) {
+    cur_ = start;
+    FunctionSig* result = sig();
+    return result_.ok() ? result : nullptr;
+  }
+
  private:
+  Zone* module_zone;
   const byte* start_;
   const byte* cur_;
   const byte* end_;
   ModuleResult result_;
 
+  // Reads a single 8-bit unsigned integer (byte).
+  uint8_t u8() { return read<uint8_t>(); }
+
+  // Reads a single 16-bit unsigned integer (little endian).
+  uint16_t u16() {
+    return read<uint8_t>() | (static_cast<uint16_t>(read<uint8_t>()) << 8);
+  }
+
+  // Reads a single 32-bit unsigned integer interpreted as an offset, checking
+  // the offset is within bounds.
+  uint32_t offset() {
+    uint32_t offset = read<uint32_t>();
+    if (offset > (end_ - start_)) {
+      error(cur_ - sizeof(uint32_t), "offset out of bounds");
+    }
+    return offset;
+  }
+
+  // Reads a single 32-bit unsigned integer interpreted as an offset into the
+  // data and validating the string there.
+  uint32_t string() { return offset(); }  // TODO: validate string
+
+  // Reads a single 8-bit integer, interpreting it as a local type.
+  LocalType type() {
+    byte val = u8();
+    LocalType t = static_cast<LocalType>(val);
+    switch (t) {
+      case kAstStmt:
+      case kAstInt32:
+      case kAstInt64:
+      case kAstFloat32:
+      case kAstFloat64:
+        return t;
+      default:
+        error(cur_ - 1, "invalid local type");
+        return kAstStmt;
+    }
+  }
+
+  // Parses an inline function signature.
+  FunctionSig* sig() {
+    byte count = u8();
+    LocalType ret = type();
+    FunctionSig::Builder builder(module_zone, ret == kAstStmt ? 0 : 1, count);
+    if (ret != kAstStmt) builder.AddReturn(ret);
+
+    for (int i = 0; i < count; i++) {
+      // TODO(titzer): disallow void as a parameter type.
+      LocalType param = type();
+      builder.AddParam(param);
+    }
+    return builder.Build();
+  }
+
   template <typename T>
   T read() {
-    if (cur_ < start_ || cur_ + sizeof(T) >= end_) {
+    if (cur_ < start_ || cur_ + sizeof(T) > end_) {
       error(cur_, "fell of end of module bytes");
       T val = 0;
       return val;
@@ -366,8 +421,16 @@ class ModuleDecoder {
 ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
                               const byte* module_end) {
   WasmModule* module = new WasmModule();
-  ModuleDecoder decoder(module_start, module_end);
+  Zone zone;  // TODO(titzer): make the module zone persistent.
+  ModuleDecoder decoder(&zone, module_start, module_end);
   return decoder.DecodeModule(module);
+}
+
+
+FunctionSig* DecodeFunctionSignatureForTesting(Zone* zone, const byte* start,
+                                               const byte* end) {
+  ModuleDecoder decoder(zone, start, end);
+  return decoder.DecodeFunctionSignature(start);
 }
 }
 }
