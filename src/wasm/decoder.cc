@@ -3,13 +3,14 @@
 // found in the LICENSE file.
 
 #include "src/signature.h"
+
 #include "src/v8.h"
 #include "src/zone-containers.h"
 
 #include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
-#include "src/wasm/wasm-opcodes.h"
 #include "src/wasm/wasm-module.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {

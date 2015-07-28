@@ -7,8 +7,8 @@
 #include "src/compiler/machine-operator.h"
 
 #include "src/wasm/tf-builder.h"
-#include "src/wasm/wasm-opcodes.h"
 #include "src/wasm/wasm-module.h"
+#include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
 namespace internal {

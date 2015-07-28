@@ -6,6 +6,8 @@
 
 #include "src/v8.h"
 
+#include "test/cctest/wasm/test-signatures.h"
+
 #include "src/wasm/decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-module.h"
@@ -13,24 +15,6 @@
 namespace v8 {
 namespace internal {
 namespace wasm {
-
-static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
-                                 kAstInt32};
-
-static LocalType kLongTypes5[] = {kAstInt64, kAstInt64, kAstInt64, kAstInt64,
-                                  kAstInt64};
-
-static LocalType kIntFloatTypes5[] = {kAstInt32, kAstFloat32, kAstFloat32,
-                                      kAstFloat32, kAstFloat32};
-
-static LocalType kFloatTypes5[] = {kAstFloat32, kAstFloat32, kAstFloat32,
-                                   kAstFloat32, kAstFloat32};
-
-static LocalType kIntDoubleTypes5[] = {kAstInt32, kAstFloat64, kAstFloat64,
-                                       kAstFloat64, kAstFloat64};
-
-static LocalType kDoubleTypes5[] = {kAstFloat64, kAstFloat64, kAstFloat64,
-                                    kAstFloat64, kAstFloat64};
 
 static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
@@ -56,53 +40,15 @@ static const WasmOpcode kInt32BinopOpcodes[] = {
 
 class DecoderTest : public TestWithZone {
  public:
-  DecoderTest()
-      : TestWithZone(),
-        sig_i_v(1, 0, kIntTypes5),
-        sig_i_i(1, 1, kIntTypes5),
-        sig_i_ii(1, 2, kIntTypes5),
-        sig_i_iii(1, 3, kIntTypes5),
-        sig_i_f(1, 1, kIntFloatTypes5),
-        sig_i_ff(1, 2, kIntFloatTypes5),
-        sig_i_d(1, 1, kIntDoubleTypes5),
-        sig_i_dd(1, 2, kIntDoubleTypes5),
-        sig_l_v(1, 0, kLongTypes5),
-        sig_l_l(1, 1, kLongTypes5),
-        sig_l_ll(1, 2, kLongTypes5),
-        sig_f_ff(1, 2, kFloatTypes5),
-        sig_d_dd(1, 2, kDoubleTypes5),
-        sig_v_v(0, 0, kIntTypes5),
-        sig_v_i(0, 1, kIntTypes5),
-        sig_v_ii(0, 2, kIntTypes5),
-        sig_v_iii(0, 3, kIntTypes5) {
-    init_env(&env_i_i, &sig_i_i);
-    init_env(&env_v_v, &sig_v_v);
-    init_env(&env_i_f, &sig_i_f);
-    init_env(&env_i_d, &sig_i_d);
-    init_env(&env_l_l, &sig_l_l);
+  DecoderTest() : TestWithZone(), sigs() {
+    init_env(&env_i_i, sigs.i_i());
+    init_env(&env_v_v, sigs.v_v());
+    init_env(&env_i_f, sigs.i_f());
+    init_env(&env_i_d, sigs.i_d());
+    init_env(&env_l_l, sigs.l_l());
   }
 
-  FunctionSig sig_i_v;
-  FunctionSig sig_i_i;
-  FunctionSig sig_i_ii;
-  FunctionSig sig_i_iii;
-
-  FunctionSig sig_i_f;
-  FunctionSig sig_i_ff;
-  FunctionSig sig_i_d;
-  FunctionSig sig_i_dd;
-
-  FunctionSig sig_l_v;
-  FunctionSig sig_l_l;
-  FunctionSig sig_l_ll;
-
-  FunctionSig sig_f_ff;
-  FunctionSig sig_d_dd;
-
-  FunctionSig sig_v_v;
-  FunctionSig sig_v_i;
-  FunctionSig sig_v_ii;
-  FunctionSig sig_v_iii;
+  TestSignatures sigs;
 
   FunctionEnv env_i_i;
   FunctionEnv env_v_v;
@@ -117,7 +63,7 @@ class DecoderTest : public TestWithZone {
     env->local_int64_count = 0;
     env->local_float32_count = 0;
     env->local_float64_count = 0;
-    env->total_locals = static_cast<unsigned>(sig->parameter_count());
+    env->SumLocals();
   }
 
   // A wrapper around VerifyWasmCode() that renders a nice failure message.
@@ -280,17 +226,17 @@ TEST_F(DecoderTest, GetLocal0_param) {
 
 TEST_F(DecoderTest, GetLocal0_local) {
   FunctionEnv env;
-  init_env(&env, &sig_i_v);
+  init_env(&env, sigs.i_v());
   env.AddLocals(kAstInt32, 1);
   EXPECT_VERIFIES(&env, kCodeGetLocal0);
 }
 
 
 TEST_F(DecoderTest, GetLocal0_param_n) {
-  FunctionSig* sigs[] = {&sig_i_i, &sig_i_ii, &sig_i_iii};
+  FunctionSig* array[] = {sigs.i_i(), sigs.i_ii(), sigs.i_iii()};
 
-  for (size_t i = 0; i < arraysize(sigs); i++) {
-    FunctionEnv env = CreateInt32FunctionEnv(sigs[i], 0);
+  for (size_t i = 0; i < arraysize(array); i++) {
+    FunctionEnv env = CreateInt32FunctionEnv(array[i], 0);
     EXPECT_VERIFIES(&env, kCodeGetLocal0);
   }
 }
@@ -298,7 +244,7 @@ TEST_F(DecoderTest, GetLocal0_param_n) {
 
 TEST_F(DecoderTest, GetLocalN_local) {
   for (byte i = 1; i < 8; i++) {
-    FunctionEnv env = CreateInt32FunctionEnv(&sig_i_v, i);
+    FunctionEnv env = CreateInt32FunctionEnv(sigs.i_v(), i);
     for (byte j = 0; j < i; j++) {
       byte code[] = {kExprGetLocal, j};
       EXPECT_VERIFIES(&env, code);
@@ -308,7 +254,7 @@ TEST_F(DecoderTest, GetLocalN_local) {
 
 
 TEST_F(DecoderTest, GetLocal0_fail_no_params) {
-  FunctionEnv env = CreateInt32FunctionEnv(&sig_i_v, 0);
+  FunctionEnv env = CreateInt32FunctionEnv(sigs.i_v(), 0);
 
   EXPECT_FAILURE(&env, kCodeGetLocal0);
 }
@@ -394,7 +340,7 @@ TEST_F(DecoderTest, SetLocal0_param) {
 
 TEST_F(DecoderTest, SetLocal0_local) {
   byte code[] = {kExprSetLocal, 0, kExprInt8Const, 0};
-  FunctionEnv env = CreateInt32FunctionEnv(&sig_i_v, 1);
+  FunctionEnv env = CreateInt32FunctionEnv(sigs.i_v(), 1);
 
   EXPECT_VERIFIES(&env, code);
 }
@@ -402,7 +348,7 @@ TEST_F(DecoderTest, SetLocal0_local) {
 
 TEST_F(DecoderTest, SetLocalN_local) {
   for (byte i = 1; i < 8; i++) {
-    FunctionEnv env = CreateInt32FunctionEnv(&sig_i_v, i);
+    FunctionEnv env = CreateInt32FunctionEnv(sigs.i_v(), i);
     for (byte j = 0; j < i; j++) {
       byte code[] = {kExprSetLocal, j, kExprInt8Const, i};
       EXPECT_VERIFIES(&env, code);
@@ -718,7 +664,7 @@ TEST_F(DecoderTest, Int64Local_param) {
 TEST_F(DecoderTest, Int64Locals) {
   for (byte i = 1; i < 8; i++) {
     FunctionEnv env;
-    init_env(&env, &sig_l_v);
+    init_env(&env, sigs.l_v());
     env.AddLocals(kAstInt64, i);
     for (byte j = 0; j < i; j++) {
       byte code[] = {kExprGetLocal, j};
@@ -729,48 +675,48 @@ TEST_F(DecoderTest, Int64Locals) {
 
 
 TEST_F(DecoderTest, Int32Binops) {
-  TestBinop(kExprInt32Add, &sig_i_ii);
-  TestBinop(kExprInt32Sub, &sig_i_ii);
-  TestBinop(kExprInt32Mul, &sig_i_ii);
-  TestBinop(kExprInt32SDiv, &sig_i_ii);
-  TestBinop(kExprInt32UDiv, &sig_i_ii);
-  TestBinop(kExprInt32SRem, &sig_i_ii);
-  TestBinop(kExprInt32URem, &sig_i_ii);
-  TestBinop(kExprInt32And, &sig_i_ii);
-  TestBinop(kExprInt32Ior, &sig_i_ii);
-  TestBinop(kExprInt32Xor, &sig_i_ii);
-  TestBinop(kExprInt32Shl, &sig_i_ii);
-  TestBinop(kExprInt32Shr, &sig_i_ii);
-  TestBinop(kExprInt32Sar, &sig_i_ii);
-  TestBinop(kExprInt32Eq, &sig_i_ii);
-  TestBinop(kExprInt32Slt, &sig_i_ii);
-  TestBinop(kExprInt32Sle, &sig_i_ii);
-  TestBinop(kExprInt32Ult, &sig_i_ii);
-  TestBinop(kExprInt32Ule, &sig_i_ii);
+  TestBinop(kExprInt32Add, sigs.i_ii());
+  TestBinop(kExprInt32Sub, sigs.i_ii());
+  TestBinop(kExprInt32Mul, sigs.i_ii());
+  TestBinop(kExprInt32SDiv, sigs.i_ii());
+  TestBinop(kExprInt32UDiv, sigs.i_ii());
+  TestBinop(kExprInt32SRem, sigs.i_ii());
+  TestBinop(kExprInt32URem, sigs.i_ii());
+  TestBinop(kExprInt32And, sigs.i_ii());
+  TestBinop(kExprInt32Ior, sigs.i_ii());
+  TestBinop(kExprInt32Xor, sigs.i_ii());
+  TestBinop(kExprInt32Shl, sigs.i_ii());
+  TestBinop(kExprInt32Shr, sigs.i_ii());
+  TestBinop(kExprInt32Sar, sigs.i_ii());
+  TestBinop(kExprInt32Eq, sigs.i_ii());
+  TestBinop(kExprInt32Slt, sigs.i_ii());
+  TestBinop(kExprInt32Sle, sigs.i_ii());
+  TestBinop(kExprInt32Ult, sigs.i_ii());
+  TestBinop(kExprInt32Ule, sigs.i_ii());
 }
 
 
 TEST_F(DecoderTest, DoubleBinops) {
-  TestBinop(kExprFloat64Add, &sig_d_dd);
-  TestBinop(kExprFloat64Sub, &sig_d_dd);
-  TestBinop(kExprFloat64Mul, &sig_d_dd);
-  TestBinop(kExprFloat64Div, &sig_d_dd);
+  TestBinop(kExprFloat64Add, sigs.d_dd());
+  TestBinop(kExprFloat64Sub, sigs.d_dd());
+  TestBinop(kExprFloat64Mul, sigs.d_dd());
+  TestBinop(kExprFloat64Div, sigs.d_dd());
 
-  TestBinop(kExprFloat64Eq, &sig_i_dd);
-  TestBinop(kExprFloat64Lt, &sig_i_dd);
-  TestBinop(kExprFloat64Le, &sig_i_dd);
+  TestBinop(kExprFloat64Eq, sigs.i_dd());
+  TestBinop(kExprFloat64Lt, sigs.i_dd());
+  TestBinop(kExprFloat64Le, sigs.i_dd());
 }
 
 
 TEST_F(DecoderTest, FloatBinops) {
-  TestBinop(kExprFloat32Add, &sig_f_ff);
-  TestBinop(kExprFloat32Sub, &sig_f_ff);
-  TestBinop(kExprFloat32Mul, &sig_f_ff);
-  TestBinop(kExprFloat32Div, &sig_f_ff);
+  TestBinop(kExprFloat32Add, sigs.f_ff());
+  TestBinop(kExprFloat32Sub, sigs.f_ff());
+  TestBinop(kExprFloat32Mul, sigs.f_ff());
+  TestBinop(kExprFloat32Div, sigs.f_ff());
 
-  TestBinop(kExprFloat32Eq, &sig_i_ff);
-  TestBinop(kExprFloat32Lt, &sig_i_ff);
-  TestBinop(kExprFloat32Le, &sig_i_ff);
+  TestBinop(kExprFloat32Eq, sigs.i_ff());
+  TestBinop(kExprFloat32Lt, sigs.i_ff());
+  TestBinop(kExprFloat32Le, sigs.i_ff());
 }
 
 
@@ -820,6 +766,8 @@ TEST_F(DecoderTest, MacrosNestedBlocks) {
 
 
 TEST_F(DecoderTest, MultipleReturn) {
+  static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
+                                   kAstInt32};
   FunctionSig sig_ii_v(2, 0, kIntTypes5);
   FunctionEnv env_ii_v;
   init_env(&env_ii_v, &sig_ii_v);
@@ -975,9 +923,9 @@ TEST_F(DecoderTest, SimpleCalls) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddFunction(&sig_i_v);
-  module_env.AddFunction(&sig_i_i);
-  module_env.AddFunction(&sig_i_ii);
+  module_env.AddFunction(sigs.i_v());
+  module_env.AddFunction(sigs.i_i());
+  module_env.AddFunction(sigs.i_ii());
 
   EXPECT_VERIFIES_INLINE(env, WASM_CALL_FUNCTION(0));
   EXPECT_VERIFIES_INLINE(env, WASM_CALL_FUNCTION(1, WASM_INT8(27)));
@@ -991,9 +939,9 @@ TEST_F(DecoderTest, CallsWithMismatchedSigs1) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddFunction(&sig_i_v);
-  module_env.AddFunction(&sig_i_i);
-  module_env.AddFunction(&sig_i_ii);
+  module_env.AddFunction(sigs.i_v());
+  module_env.AddFunction(sigs.i_i());
+  module_env.AddFunction(sigs.i_ii());
 
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT8(17)));
   EXPECT_FAILURE_INLINE(env,
@@ -1007,7 +955,7 @@ TEST_F(DecoderTest, CallsWithMismatchedSigs2) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddFunction(&sig_i_i);
+  module_env.AddFunction(sigs.i_i());
 
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT64(17)));
   EXPECT_FAILURE_INLINE(
@@ -1021,13 +969,13 @@ TEST_F(DecoderTest, CallsWithMismatchedSigs3) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddFunction(&sig_i_f);
+  module_env.AddFunction(sigs.i_f());
 
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT8(17)));
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT64(27)));
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_FLOAT64(37.2)));
 
-  module_env.AddFunction(&sig_i_d);
+  module_env.AddFunction(sigs.i_d());
 
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_INT8(16)));
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_INT64(16)));
@@ -1105,7 +1053,7 @@ TEST_F(DecoderTest, Int64Globals) {
 TEST_F(DecoderTest, Float32Globals) {
   FunctionEnv env_f_ff;
   FunctionEnv* env = &env_f_ff;
-  init_env(env, &sig_f_ff);
+  init_env(env, sigs.f_ff());
   TestModuleEnv module_env;
   env->module = &module_env;
 
@@ -1119,7 +1067,7 @@ TEST_F(DecoderTest, Float32Globals) {
 TEST_F(DecoderTest, Float64Globals) {
   FunctionEnv env_d_dd;
   FunctionEnv* env = &env_d_dd;
-  init_env(env, &sig_d_dd);
+  init_env(env, sigs.d_dd());
   TestModuleEnv module_env;
   env->module = &module_env;
 

@@ -6,6 +6,7 @@
 #define V8_WASM_RESULT_H_
 
 #include "src/v8.h"
+
 #include "src/base/smart-pointers.h"
 
 namespace v8 {

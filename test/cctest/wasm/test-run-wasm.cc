@@ -2,20 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "src/compiler/graph-visualizer.h"
 #include "src/compiler/js-graph.h"
 
 #include "src/wasm/decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
-#include "src/wasm/wasm-opcodes.h"
 #include "src/wasm/wasm-module.h"
+#include "src/wasm/wasm-opcodes.h"
 
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/graph-builder-tester.h"
 #include "test/cctest/compiler/value-helper.h"
+
+#include "test/cctest/wasm/test-signatures.h"
 
 #if V8_TURBOFAN_TARGET
 
@@ -30,53 +32,6 @@ using namespace v8::internal;
 using namespace v8::internal::compiler;
 using namespace v8::internal::wasm;
 
-// Helpers for many common signatures that involve int32 types.
-static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
-                                 kAstInt32};
-static LocalType kLongTypes5[] = {kAstInt64, kAstInt64, kAstInt64, kAstInt64,
-                                  kAstInt64};
-
-struct CommonSignatures {
-  CommonSignatures()
-      : sig_i_v(1, 0, kIntTypes5),
-        sig_i_i(1, 1, kIntTypes5),
-        sig_i_ii(1, 2, kIntTypes5),
-        sig_i_iii(1, 3, kIntTypes5),
-        sig_v_v(0, 0, nullptr),
-        sig_l_ll(1, 2, kLongTypes5) {
-    init_env(&env_i_v, &sig_i_v);
-    init_env(&env_i_i, &sig_i_i);
-    init_env(&env_i_ii, &sig_i_ii);
-    init_env(&env_i_iii, &sig_i_iii);
-    init_env(&env_v_v, &sig_v_v);
-    init_env(&env_l_ll, &sig_l_ll);
-  }
-
-  FunctionSig sig_i_v;
-  FunctionSig sig_i_i;
-  FunctionSig sig_i_ii;
-  FunctionSig sig_i_iii;
-  FunctionSig sig_v_v;
-  FunctionSig sig_l_ll;
-  FunctionEnv env_i_v;
-  FunctionEnv env_i_i;
-  FunctionEnv env_i_ii;
-  FunctionEnv env_i_iii;
-  FunctionEnv env_v_v;
-  FunctionEnv env_l_ll;
-
-  static void init_env(FunctionEnv* env, FunctionSig* sig) {
-    env->module = nullptr;
-    env->sig = sig;
-    env->local_int32_count = 0;
-    env->local_int64_count = 0;
-    env->local_float32_count = 0;
-    env->local_float64_count = 0;
-    env->total_locals = static_cast<unsigned>(sig->parameter_count());
-  }
-};
-
-
 // A helper class to build graphs from Wasm bytecode, generate machine
 // code, and run that code.
 template <typename ReturnType>
@@ -88,18 +43,39 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
       : GraphBuilderTester<ReturnType>(p0, p1, p2, p3, p4),
         jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
                 this->machine()) {
+    init_env(&env_i_v, sigs.i_v());
+    init_env(&env_i_i, sigs.i_i());
+    init_env(&env_i_ii, sigs.i_ii());
+    init_env(&env_v_v, sigs.v_v());
+    init_env(&env_l_ll, sigs.l_ll());
+
     if (p1 != kMachNone) {
-      function_env = &sigs_.env_i_ii;
+      function_env = &env_i_ii;
     } else if (p0 != kMachNone) {
-      function_env = &sigs_.env_i_i;
+      function_env = &env_i_i;
     } else {
-      function_env = &sigs_.env_i_v;
+      function_env = &env_i_v;
     }
   }
 
   JSGraph jsgraph;
-  CommonSignatures sigs_;
+  TestSignatures sigs;
+  FunctionEnv env_i_v;
+  FunctionEnv env_i_i;
+  FunctionEnv env_i_ii;
+  FunctionEnv env_v_v;
+  FunctionEnv env_l_ll;
   FunctionEnv* function_env;
+
+  void init_env(FunctionEnv* env, FunctionSig* sig) {
+    env->module = nullptr;
+    env->sig = sig;
+    env->local_int32_count = 0;
+    env->local_int64_count = 0;
+    env->local_float32_count = 0;
+    env->local_float64_count = 0;
+    env->SumLocals();
+  }
 
   void Build(const byte* start, const byte* end) {
     TreeResult result = BuildTFGraph(&jsgraph, function_env, start, end);
@@ -183,7 +159,7 @@ TEST(Run_WasmInt64Const) {
   WasmRunner<int64_t> r;
   const int64_t kExpectedValue = 0x1122334455667788LL;
   // return(kExpectedValue)
-  r.function_env = &r.sigs_.env_l_ll;
+  r.function_env = &r.env_l_ll;
   BUILD(r, WASM_RETURN(WASM_INT64(kExpectedValue)));
   CHECK_EQ(kExpectedValue, r.Call());
 }
@@ -193,7 +169,7 @@ TEST(Run_WasmInt64Const_many) {
   int cntr = 0;
   FOR_INT32_INPUTS(i) {
     WasmRunner<int64_t> r;
-    r.function_env = &r.sigs_.env_l_ll;
+    r.function_env = &r.env_l_ll;
     const int64_t kExpectedValue = (static_cast<int64_t>(*i) << 32) | cntr;
     // return(kExpectedValue)
     BUILD(r, WASM_RETURN(WASM_INT64(kExpectedValue)));
@@ -318,14 +294,14 @@ void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b) {
   if (!WasmOpcodes::IsSupported(opcode)) return;
   {
     WasmRunner<int64_t> r;
-    r.function_env = &r.sigs_.env_l_ll;
+    r.function_env = &r.env_l_ll;
     // return K op K
     BUILD(r, WASM_RETURN(WASM_BINOP(opcode, WASM_INT64(a), WASM_INT64(b))));
     CHECK_EQ(expected, r.Call());
   }
   {
     WasmRunner<int64_t> r(kMachInt64, kMachInt64);
-    r.function_env = &r.sigs_.env_l_ll;
+    r.function_env = &r.env_l_ll;
     // return a op b
     BUILD(r, WASM_RETURN(
                  WASM_BINOP(opcode, WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
@@ -335,7 +311,7 @@ void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b) {
 
 
 TEST(Run_WasmInt64Binops) {
-  // TODO: real 64-bit numbers
+  // TODO(titzer): real 64-bit numbers
   TestInt64Binop(kExprInt64Add, 8888888888888LL, 3333333333333LL,
                  5555555555555LL);
   TestInt64Binop(kExprInt64Sub, -111111111111LL, 777777777777LL,
@@ -475,7 +451,7 @@ TEST(Run_Wasm_IfThen_P) {
 
 TEST(Run_Wasm_VoidReturn) {
   WasmRunner<void> r;
-  r.function_env = &r.sigs_.env_v_v;
+  r.function_env = &r.env_v_v;
   BUILD(r, WASM_RETURN0);
   // TODO(titzer): code generator fixes:  r.Call();
 }
@@ -944,14 +920,14 @@ TEST(Run_Wasm_Infinite_Loop_not_taken) {
 
 static void TestBuildGraphForUnop(WasmOpcode opcode, FunctionSig* sig) {
   WasmRunner<int32_t> r(kMachInt32);
-  CommonSignatures::init_env(r.function_env, sig);
+  r.init_env(r.function_env, sig);
   BUILD(r, kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0);
 }
 
 
 static void TestBuildGraphForBinop(WasmOpcode opcode, FunctionSig* sig) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
-  CommonSignatures::init_env(r.function_env, sig);
+  r.init_env(r.function_env, sig);
   BUILD(r, kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0,
         kExprGetLocal, 1);
 }
