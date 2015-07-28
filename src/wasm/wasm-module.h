@@ -118,12 +118,18 @@ struct ModuleEnv {
 };
 
 std::ostream& operator<<(std::ostream& os, const WasmModule& module);
+std::ostream& operator<<(std::ostream& os, const WasmFunction& function);
 
 typedef Result<WasmModule*> ModuleResult;
+typedef Result<WasmFunction*> FunctionResult;
 
 
 ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
                               const byte* module_end);
+
+FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone, ModuleEnv* env,
+                                  const byte* function_start,
+                                  const byte* function_end);
 
 // Exposed for testing. Decodes a single function signature, allocating it
 // in the given zone. Returns {nullptr} upon failure.

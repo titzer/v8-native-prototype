@@ -23,6 +23,7 @@ class WasmJs {
 
  private:
   static void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 }
 

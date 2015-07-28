@@ -27,14 +27,43 @@ std::ostream& operator<<(std::ostream& os, const WasmModule& module) {
 }
 
 
-// Internal constants for the layout of the module object.
-static const int kWasmModuleInternalFieldCount = 4;
-static const int kWasmModuleFunctionTable = 0;
-static const int kWasmModuleCodeTable = 1;
-static const int kWasmMemArrayBuffer = 2;
-static const int kWasmGlobalsArrayBuffer = 3;
+std::ostream& operator<<(std::ostream& os, const WasmFunction& function) {
+  os << "WASM function with signature ";
+
+  // TODO(titzer): factor out rendering of signatures.
+  if (function.sig->return_count() == 0) os << "v";
+  for (size_t i = 0; i < function.sig->return_count(); i++) {
+    os << WasmOpcodes::ShortNameOf(function.sig->GetReturn(i));
+  }
+  os << "_";
+  if (function.sig->parameter_count() == 0) os << "v";
+  for (size_t i = 0; i < function.sig->parameter_count(); i++) {
+    os << WasmOpcodes::ShortNameOf(function.sig->GetParam(i));
+  }
+  os << " locals: ";
+  if (function.local_int32_count)
+    os << function.local_int32_count << " int32s ";
+  if (function.local_int64_count)
+    os << function.local_int64_count << " int64s ";
+  if (function.local_float32_count)
+    os << function.local_float32_count << " float32s ";
+  if (function.local_float64_count)
+    os << function.local_float64_count << " float64s ";
+
+  os << " code bytes: "
+     << (function.code_end_offset - function.code_start_offset);
+  return os;
+}
+
 
 namespace {
+// Internal constants for the layout of the module object.
+const int kWasmModuleInternalFieldCount = 4;
+const int kWasmModuleFunctionTable = 0;
+const int kWasmModuleCodeTable = 1;
+const int kWasmMemArrayBuffer = 2;
+const int kWasmGlobalsArrayBuffer = 3;
+
 // Helper function to allocate a placeholder code object that will be the
 // target of direct calls until the function is compiled.
 Handle<Code> CreatePlaceholderCode(Isolate* isolate, uint32_t index) {
@@ -112,7 +141,227 @@ Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate, int size,
   buffer->set_byte_length(Smi::FromInt(size));
   return buffer;
 }
-}
+
+// The main logic for decoding the bytes of a module.
+class ModuleDecoder {
+ public:
+  ModuleDecoder(Zone* zone, const byte* module_start, const byte* module_end)
+      : module_zone(zone),
+        start_(module_start),
+        cur_(module_start),
+        end_(module_end) {
+    result_.start = start_;
+    if (end_ < start_) {
+      error(start_, "end is less than start");
+      end_ = start_;
+    }
+  }
+
+  // Decodes an entire module.
+  ModuleResult DecodeModule(WasmModule* module, bool verify_functions = true) {
+    cur_ = start_;
+    result_.val = module;
+    module->module_start = start_;
+    module->module_end = end_;
+    module->mem_size_log2 = 0;
+    module->mem_export = false;
+    module->mem_external = false;
+    module->functions = new std::vector<WasmFunction>();
+    module->globals = new std::vector<WasmGlobal>();
+    module->data_segments = new std::vector<WasmDataSegment>();
+
+    // Set up module environment for verification.
+    ModuleEnv menv;
+    menv.module = module;
+    menv.globals_area = 0;
+    menv.mem_start = 0;
+    menv.mem_end = 0;
+    menv.function_code = nullptr;
+
+    uint32_t count = u8();
+    // Decode each function.
+    for (uint32_t i = 0; i < count; i++) {
+      if (result_.failed()) break;
+      module->functions->push_back({nullptr, 0, 0, 0, 0, 0, 0, false, false});
+      WasmFunction* function = &module->functions->back();
+      DecodeFunctionInModule(function, cur_, verify_functions);
+
+      if (result_.ok() && verify_functions) {
+        if (!function->external) VerifyFunctionBody(i, &menv, function);
+      }
+    }
+
+    return result_;
+  }
+
+  // Decodes a single anonymous function.
+  FunctionResult DecodeSingleFunction(ModuleEnv* module_env,
+                                      WasmFunction* function) {
+    cur_ = start_;
+    function->sig = sig();                        // read signature
+    function->name_offset = 0;                    // ---- name
+    function->code_start_offset = off(cur_ + 8);  // ---- code start
+    function->code_end_offset = off(end_);        // ---- code end
+    function->local_int32_count = u16();          // read u16
+    function->local_int64_count = u16();          // read u16
+    function->local_float32_count = u16();        // read u16
+    function->local_float64_count = u16();        // read u16
+    function->exported = false;                   // ---- exported
+    function->external = false;                   // ---- external
+
+    if (result_.ok()) {
+      VerifyFunctionBody(0, module_env, function);
+    }
+
+    FunctionResult result;
+    // Copy error code and location.
+    result.CopyFrom(result_);
+    result.val = function;
+    return result;
+  }
+
+  FunctionSig* DecodeFunctionSignature(const byte* start) {
+    cur_ = start;
+    FunctionSig* result = sig();
+    return result_.ok() ? result : nullptr;
+  }
+
+ private:
+  Zone* module_zone;
+  const byte* start_;
+  const byte* cur_;
+  const byte* end_;
+  ModuleResult result_;
+
+  uint32_t off(const byte* ptr) { return static_cast<uint32_t>(ptr - start_); }
+
+  // Decodes a single function entry inside a module.
+  void DecodeFunctionInModule(WasmFunction* function, const byte* start,
+                              bool verify_body = true) {
+    cur_ = start;
+    function->sig = sig();
+    function->name_offset = string();
+    function->code_start_offset = offset();
+    function->code_end_offset = offset();
+    function->local_int32_count = u16();
+    function->local_int64_count = u16();
+    function->local_float32_count = u16();
+    function->local_float64_count = u16();
+    function->exported = u8() != 0;
+    function->external = u8() != 0;
+  }
+
+  // Verifies the body (code) of a given function.
+  void VerifyFunctionBody(uint32_t func_num, ModuleEnv* menv,
+                          WasmFunction* function) {
+    FunctionEnv fenv;
+    fenv.module = menv;
+    fenv.sig = function->sig;
+    fenv.local_int32_count = function->local_int32_count;
+    fenv.local_int64_count = function->local_int64_count;
+    fenv.local_float32_count = function->local_float32_count;
+    fenv.local_float64_count = function->local_float64_count;
+    fenv.SumLocals();
+
+    TreeResult result =
+        VerifyWasmCode(&fenv, start_ + function->code_start_offset,
+                       start_ + function->code_end_offset);
+    if (result.failed()) {
+      // Wrap the error message from the function decoder.
+      std::ostringstream str;
+      str << "in function #" << func_num << ": ";
+      // TODO(titzer): add function name for the user?
+      str << result;
+      const char* raw = str.str().c_str();
+      size_t len = strlen(raw);
+      char* buffer = new char[len];
+      strncpy(buffer, raw, len);
+
+      // Copy error code and location.
+      result_.CopyFrom(result);
+      result_.error_msg.Reset(buffer);
+    }
+  }
+
+  // Reads a single 8-bit unsigned integer (byte).
+  uint8_t u8() { return read<uint8_t>(); }
+
+  // Reads a single 16-bit unsigned integer (little endian).
+  uint16_t u16() {
+    return read<uint8_t>() | (static_cast<uint16_t>(read<uint8_t>()) << 8);
+  }
+
+  // Reads a single 32-bit unsigned integer interpreted as an offset, checking
+  // the offset is within bounds.
+  uint32_t offset() {
+    uint32_t offset = read<uint32_t>();
+    if (offset > (end_ - start_)) {
+      error(cur_ - sizeof(uint32_t), "offset out of bounds");
+    }
+    return offset;
+  }
+
+  // Reads a single 32-bit unsigned integer interpreted as an offset into the
+  // data and validating the string there.
+  uint32_t string() { return offset(); }  // TODO: validate string
+
+  // Reads a single 8-bit integer, interpreting it as a local type.
+  LocalType type() {
+    byte val = u8();
+    LocalType t = static_cast<LocalType>(val);
+    switch (t) {
+      case kAstStmt:
+      case kAstInt32:
+      case kAstInt64:
+      case kAstFloat32:
+      case kAstFloat64:
+        return t;
+      default:
+        error(cur_ - 1, "invalid local type");
+        return kAstStmt;
+    }
+  }
+
+  // Parses an inline function signature.
+  FunctionSig* sig() {
+    byte count = u8();
+    LocalType ret = type();
+    FunctionSig::Builder builder(module_zone, ret == kAstStmt ? 0 : 1, count);
+    if (ret != kAstStmt) builder.AddReturn(ret);
+
+    for (int i = 0; i < count; i++) {
+      // TODO(titzer): disallow void as a parameter type.
+      LocalType param = type();
+      builder.AddParam(param);
+    }
+    return builder.Build();
+  }
+
+  template <typename T>
+  T read() {
+    if (cur_ < start_ || cur_ + sizeof(T) > end_) {
+      error(cur_, "fell of end of module bytes");
+      T val = 0;
+      return val;
+    }
+    T val = *reinterpret_cast<const T*>(cur_);
+    cur_ += sizeof(T);
+    return val;
+  }
+
+  void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
+    if (result_.error_code == kSuccess) {
+      result_.error_code = kError;  // TODO(titzer): better error code
+      size_t len = strlen(msg) + 1;
+      char* result = new char[len];
+      strncpy(result, msg, len);
+      result_.error_msg.Reset(result);
+      result_.error_pc = pc;
+      result_.error_pt = pt;
+    }
+  }
+};
+}  // namespace
 
 
 // Instantiates a wasm module as a JSObject.
@@ -270,203 +519,6 @@ const compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
 }
 
 
-namespace {
-// The main logic for decoding a module.
-class ModuleDecoder {
- public:
-  ModuleDecoder(Zone* zone, const byte* module_start, const byte* module_end)
-      : module_zone(zone),
-        start_(module_start),
-        cur_(module_start),
-        end_(module_end) {
-    result_.start = start_;
-    if (end_ < start_) {
-      error(start_, "end is less than start");
-      end_ = start_;
-    }
-  }
-
-  // Decodes an entire module.
-  ModuleResult DecodeModule(WasmModule* module, bool verify_functions = true) {
-    cur_ = start_;
-    result_.val = module;
-    module->module_start = start_;
-    module->module_end = end_;
-    module->mem_size_log2 = 0;
-    module->mem_export = false;
-    module->mem_external = false;
-    module->functions = new std::vector<WasmFunction>();
-    module->globals = new std::vector<WasmGlobal>();
-    module->data_segments = new std::vector<WasmDataSegment>();
-
-    // Set up module environment for verification.
-    ModuleEnv menv;
-    menv.module = module;
-    menv.globals_area = 0;
-    menv.mem_start = 0;
-    menv.mem_end = 0;
-    menv.function_code = nullptr;
-
-    uint32_t count = u8();
-    // Decode each function.
-    for (uint32_t i = 0; i < count; i++) {
-      if (result_.failed()) break;
-      module->functions->push_back({nullptr, 0, 0, 0, 0, 0, 0, false, false});
-      WasmFunction* function = &module->functions->back();
-      DecodeFunction(function, cur_, verify_functions);
-
-      if (result_.ok() && verify_functions) {
-        if (!function->external) VerifyFunctionBody(i, &menv, function);
-      }
-    }
-
-    return result_;
-  }
-
-  // Decodes a single function entry.
-  void DecodeFunction(WasmFunction* function, const byte* start,
-                      bool verify_body = true) {
-    cur_ = start;
-    function->sig = sig();
-    function->name_offset = string();
-    function->code_start_offset = offset();
-    function->code_end_offset = offset();
-    function->local_int32_count = u16();
-    function->local_int64_count = u16();
-    function->local_float32_count = u16();
-    function->local_float64_count = u16();
-    function->exported = u8() != 0;
-    function->external = u8() != 0;
-  }
-
-  // Verifies the body (code) of a given function.
-  void VerifyFunctionBody(uint32_t func_num, ModuleEnv* menv,
-                          WasmFunction* function) {
-    FunctionEnv fenv;
-    fenv.module = menv;
-    fenv.local_int32_count = function->local_int32_count;
-    fenv.local_int64_count = function->local_int64_count;
-    fenv.local_float32_count = function->local_float32_count;
-    fenv.local_float64_count = function->local_float64_count;
-    fenv.SumLocals();
-
-    TreeResult result =
-        VerifyWasmCode(&fenv, start_ + function->code_start_offset,
-                       start_ + function->code_end_offset);
-    if (result.failed()) {
-      // Wrap the error message from the function decoder.
-      std::ostringstream str;
-      str << "in function #" << func_num << ": ";
-      // TODO(titzer): add function name for the user?
-      str << result;
-      const char* raw = str.str().c_str();
-      size_t len = strlen(raw);
-      char* buffer = new char[len];
-      strncpy(buffer, raw, len);
-
-      // Copy error code and location.
-      result_.error_code = result.error_code;
-      result_.error_msg.Reset(buffer);
-      result.error_msg.Reset(nullptr);
-      result_.error_pc = result.error_pc;
-      result_.error_pt = result.error_pt;
-    }
-  }
-
-  FunctionSig* DecodeFunctionSignature(const byte* start) {
-    cur_ = start;
-    FunctionSig* result = sig();
-    return result_.ok() ? result : nullptr;
-  }
-
- private:
-  Zone* module_zone;
-  const byte* start_;
-  const byte* cur_;
-  const byte* end_;
-  ModuleResult result_;
-
-  // Reads a single 8-bit unsigned integer (byte).
-  uint8_t u8() { return read<uint8_t>(); }
-
-  // Reads a single 16-bit unsigned integer (little endian).
-  uint16_t u16() {
-    return read<uint8_t>() | (static_cast<uint16_t>(read<uint8_t>()) << 8);
-  }
-
-  // Reads a single 32-bit unsigned integer interpreted as an offset, checking
-  // the offset is within bounds.
-  uint32_t offset() {
-    uint32_t offset = read<uint32_t>();
-    if (offset > (end_ - start_)) {
-      error(cur_ - sizeof(uint32_t), "offset out of bounds");
-    }
-    return offset;
-  }
-
-  // Reads a single 32-bit unsigned integer interpreted as an offset into the
-  // data and validating the string there.
-  uint32_t string() { return offset(); }  // TODO: validate string
-
-  // Reads a single 8-bit integer, interpreting it as a local type.
-  LocalType type() {
-    byte val = u8();
-    LocalType t = static_cast<LocalType>(val);
-    switch (t) {
-      case kAstStmt:
-      case kAstInt32:
-      case kAstInt64:
-      case kAstFloat32:
-      case kAstFloat64:
-        return t;
-      default:
-        error(cur_ - 1, "invalid local type");
-        return kAstStmt;
-    }
-  }
-
-  // Parses an inline function signature.
-  FunctionSig* sig() {
-    byte count = u8();
-    LocalType ret = type();
-    FunctionSig::Builder builder(module_zone, ret == kAstStmt ? 0 : 1, count);
-    if (ret != kAstStmt) builder.AddReturn(ret);
-
-    for (int i = 0; i < count; i++) {
-      // TODO(titzer): disallow void as a parameter type.
-      LocalType param = type();
-      builder.AddParam(param);
-    }
-    return builder.Build();
-  }
-
-  template <typename T>
-  T read() {
-    if (cur_ < start_ || cur_ + sizeof(T) > end_) {
-      error(cur_, "fell of end of module bytes");
-      T val = 0;
-      return val;
-    }
-    T val = *reinterpret_cast<const T*>(cur_);
-    cur_ += sizeof(T);
-    return val;
-  }
-
-  void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
-    if (result_.error_code == kSuccess) {
-      result_.error_code = kError;  // TODO(titzer): error code
-      size_t len = strlen(msg) + 1;
-      char* result = new char[len];
-      strncpy(result, msg, len);
-      result_.error_msg.Reset(result);
-      result_.error_pc = pc;
-      result_.error_pt = pt;
-    }
-  }
-};
-}
-
-
 ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
                               const byte* module_end) {
   WasmModule* module = new WasmModule();
@@ -480,6 +532,16 @@ FunctionSig* DecodeFunctionSignatureForTesting(Zone* zone, const byte* start,
                                                const byte* end) {
   ModuleDecoder decoder(zone, start, end);
   return decoder.DecodeFunctionSignature(start);
+}
+
+
+FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone,
+                                  ModuleEnv* module_env,
+                                  const byte* function_start,
+                                  const byte* function_end) {
+  WasmFunction* function = new WasmFunction();
+  ModuleDecoder decoder(zone, function_start, function_end);
+  return decoder.DecodeSingleFunction(module_env, function);
 }
 }
 }

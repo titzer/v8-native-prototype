@@ -378,6 +378,21 @@ class WasmOpcodes {
         return 0;
     }
   }
+
+  static char ShortNameOf(LocalType type) {
+    switch (type) {
+      case kAstInt32:
+        return 'i';
+      case kAstInt64:
+        return 'l';
+      case kAstFloat32:
+        return 'f';
+      case kAstFloat64:
+        return 'd';
+      case kAstStmt:
+        return 'v';
+    }
+  }
 };
 }
 }

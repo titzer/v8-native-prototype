@@ -48,6 +48,15 @@ struct Result {
 
   bool ok() const { return error_code == kSuccess; }
   bool failed() const { return error_code != kSuccess; }
+
+  template <typename V>
+  void CopyFrom(Result<V>& that) {
+    error_code = that.error_code;
+    start = that.start;
+    error_pc = that.error_pc;
+    error_pt = that.error_pt;
+    error_msg = that.error_msg;
+  }
 };
 
 template <typename T>

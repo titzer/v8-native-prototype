@@ -238,6 +238,37 @@ TEST_F(ModuleVerifyTest, DecodeSignature_invalid_type) {
     EXPECT_EQ(nullptr, sig);
   }
 }
+
+
+TEST_F(ModuleVerifyTest, DecodeFunction_v_v_empty) {
+  byte data[] = {
+      0,       kAstStmt,  // signature
+      3,       0,         // local int32 count
+      4,       0,         // local int64 count
+      5,       0,         // local float32 count
+      6,       0,         // local float64 count
+      kStmtNop            // body
+  };
+
+  FunctionResult result = DecodeWasmFunction(nullptr, zone(), nullptr, data,
+                                             data + arraysize(data));
+  EXPECT_TRUE(result.ok());
+
+  if (result.val && result.ok()) {
+    WasmFunction* function = result.val;
+    EXPECT_EQ(0, function->sig->parameter_count());
+    EXPECT_EQ(0, function->sig->return_count());
+    EXPECT_EQ(0, function->name_offset);
+    EXPECT_EQ(arraysize(data) - 1, function->code_start_offset);
+    EXPECT_EQ(arraysize(data), function->code_end_offset);
+    EXPECT_EQ(3, function->local_int32_count);
+    EXPECT_EQ(4, function->local_int64_count);
+    EXPECT_EQ(5, function->local_float32_count);
+    EXPECT_EQ(6, function->local_float64_count);
+    EXPECT_FALSE(function->external);
+    EXPECT_FALSE(function->exported);
+  }
+}
 }
 }
 }
