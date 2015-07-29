@@ -234,6 +234,71 @@ TEST_F(ModuleVerifyTest, OneFunctionWithNopBody) {
 }
 
 
+TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
+  static const byte kCodeStartOffset = 49;
+  static const byte kCodeEndOffset = 50;
+
+  static const byte data[] = {
+      MODULE_HEADER(1, 1, 1),  // globals, functions, data segments
+      // global#0 --------------------------------------------------
+      0, 0, 0, 0,  // name offset
+      kMemUint8,   // memory type
+      0,           // exported
+      // func#0 ----------------------------------------------------
+      0, 0,                       // signature: void -> void
+      0, 0, 0, 0,                 // name offset
+      kCodeStartOffset, 0, 0, 0,  // code start offset
+      kCodeEndOffset, 0, 0, 0,    // code end offset
+      1, 2,                       // local int32 count
+      3, 4,                       // local int64 count
+      5, 6,                       // local float32 count
+      7, 8,                       // local float64 count
+      0,                          // exported
+      0,                          // external
+      // segment#0 -------------------------------------------------
+      0xae, 0xb3, 0x08, 0,  // dest addr
+      15, 0, 0, 0,          // source offset
+      5, 0, 0, 0,           // source size
+      1,                    // init
+      // rest ------------------------------------------------------
+      kStmtNop,                   // func#0 body
+
+  };
+
+  {
+    ModuleResult result =
+        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    EXPECT_TRUE(result.ok());
+    EXPECT_EQ(1, result.val->globals->size());
+    EXPECT_EQ(1, result.val->functions->size());
+    EXPECT_EQ(1, result.val->data_segments->size());
+
+    WasmGlobal* global = &result.val->globals->back();
+
+    EXPECT_EQ(0, global->name_offset);
+    EXPECT_EQ(kMemUint8, global->type);
+    EXPECT_EQ(0, global->offset);
+    EXPECT_EQ(false, global->exported);
+
+    WasmFunction* function = &result.val->functions->back();
+
+    EXPECT_EQ(0, function->name_offset);
+    EXPECT_EQ(kCodeStartOffset, function->code_start_offset);
+    EXPECT_EQ(kCodeEndOffset, function->code_end_offset);
+
+    EXPECT_EQ(false, function->exported);
+    EXPECT_EQ(false, function->external);
+
+    WasmDataSegment* segment = &result.val->data_segments->back();
+
+    EXPECT_EQ(0x8b3ae, segment->dest_addr);
+    EXPECT_EQ(15, segment->source_offset);
+    EXPECT_EQ(5, segment->source_size);
+    EXPECT_EQ(true, segment->init);
+  }
+}
+
+
 TEST_F(ModuleVerifyTest, OneDataSegment) {
   const byte data[] = {
       MODULE_HEADER(0, 0, 1),  // globals, functions, data_segments
@@ -244,7 +309,6 @@ TEST_F(ModuleVerifyTest, OneDataSegment) {
   };
 
   {
-    // Should decode to exactly one global.
     ModuleResult result =
         DecodeWasmModule(nullptr, data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
@@ -282,7 +346,6 @@ TEST_F(ModuleVerifyTest, TwoDataSegments) {
   };
 
   {
-    // Should decode to exactly one global.
     ModuleResult result =
         DecodeWasmModule(nullptr, data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
