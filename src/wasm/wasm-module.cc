@@ -170,6 +170,19 @@ class ModuleDecoder {
     module->globals = new std::vector<WasmGlobal>();
     module->data_segments = new std::vector<WasmDataSegment>();
 
+    // Decode the module header.
+    uint32_t globals_count = u16();        // read number of globals
+    uint32_t functions_count = u16();      // read number of functions
+    uint32_t data_segments_count = u16();  // read number of data segments
+
+    // Decode globals.
+    for (uint32_t i = 0; i < globals_count; i++) {
+      if (result_.failed()) break;
+      module->globals->push_back({0, kMemInt32, 0, false});
+      WasmGlobal* global = &module->globals->back();
+      DecodeGlobalInModule(global);
+    }
+
     // Set up module environment for verification.
     ModuleEnv menv;
     menv.module = module;
@@ -178,23 +191,30 @@ class ModuleDecoder {
     menv.mem_end = 0;
     menv.function_code = nullptr;
 
-    uint32_t count = u8();
-    // Decode each function.
-    for (uint32_t i = 0; i < count; i++) {
+    // Decode functions.
+    for (uint32_t i = 0; i < functions_count; i++) {
       if (result_.failed()) break;
       module->functions->push_back({nullptr, 0, 0, 0, 0, 0, 0, false, false});
       WasmFunction* function = &module->functions->back();
-      DecodeFunctionInModule(function, cur_, verify_functions);
+      DecodeFunctionInModule(function, verify_functions);
 
       if (result_.ok() && verify_functions) {
         if (!function->external) VerifyFunctionBody(i, &menv, function);
       }
     }
 
+    // Decode data segments.
+    for (uint32_t i = 0; i < data_segments_count; i++) {
+      if (result_.failed()) break;
+      module->data_segments->push_back({0, 0, 0});
+      WasmDataSegment* segment = &module->data_segments->back();
+      DecodeDataSegmentInModule(segment);
+    }
+
     return result_;
   }
 
-  // Decodes a single anonymous function.
+  // Decodes a single anonymous function starting at {start_}.
   FunctionResult DecodeSingleFunction(ModuleEnv* module_env,
                                       WasmFunction* function) {
     cur_ = start_;
@@ -220,6 +240,7 @@ class ModuleDecoder {
     return result;
   }
 
+  // Decodes a single function signature at {start}.
   FunctionSig* DecodeFunctionSignature(const byte* start) {
     cur_ = start;
     FunctionSig* result = sig();
@@ -235,20 +256,34 @@ class ModuleDecoder {
 
   uint32_t off(const byte* ptr) { return static_cast<uint32_t>(ptr - start_); }
 
-  // Decodes a single function entry inside a module.
-  void DecodeFunctionInModule(WasmFunction* function, const byte* start,
-                              bool verify_body = true) {
-    cur_ = start;
-    function->sig = sig();
-    function->name_offset = string();
-    function->code_start_offset = offset();
-    function->code_end_offset = offset();
-    function->local_int32_count = u16();
-    function->local_int64_count = u16();
-    function->local_float32_count = u16();
-    function->local_float64_count = u16();
-    function->exported = u8() != 0;
-    function->external = u8() != 0;
+  // Decodes a single global entry inside a module starting at {cur_}.
+  void DecodeGlobalInModule(WasmGlobal* global) {
+    global->name_offset = string();  // read global name
+    global->type = mem_type();       // read global memory type
+    global->offset = 0;              // ---- offset is computed later
+    global->exported = u8() != 0;    // read exported flag
+  }
+
+  // Decodes a single function entry inside a module starting at {cur_}.
+  void DecodeFunctionInModule(WasmFunction* function, bool verify_body = true) {
+    function->sig = sig();                   // read function signature
+    function->name_offset = string();        // read function name
+    function->code_start_offset = offset();  // read code start offset
+    function->code_end_offset = offset();    // read code end offset
+    function->local_int32_count = u16();     // read local int32 count
+    function->local_int64_count = u16();     // read local int64 count
+    function->local_float32_count = u16();   // read local float32 count
+    function->local_float64_count = u16();   // read local float64 count
+    function->exported = u8() != 0;          // read exported flag
+    function->external = u8() != 0;          // read external flag
+  }
+
+  // Decodes a single data segment entry inside a module starting at {cur_}.
+  void DecodeDataSegmentInModule(WasmDataSegment* segment) {
+    segment->dest_addr = u32();  // TODO: check it's within the memory size.
+    segment->source_offset = offset();
+    segment->source_size = u32();  // TODO: check the size is reasonable.
+    segment->init = u8();
   }
 
   // Verifies the body (code) of a given function.
@@ -287,9 +322,10 @@ class ModuleDecoder {
   uint8_t u8() { return read<uint8_t>(); }
 
   // Reads a single 16-bit unsigned integer (little endian).
-  uint16_t u16() {
-    return read<uint8_t>() | (static_cast<uint16_t>(read<uint8_t>()) << 8);
-  }
+  uint16_t u16() { return read<uint16_t>(); }
+
+  // Reads a single 32-bit unsigned integer (little endian).
+  uint32_t u32() { return read<uint32_t>(); }
 
   // Reads a single 32-bit unsigned integer interpreted as an offset, checking
   // the offset is within bounds.
@@ -306,7 +342,7 @@ class ModuleDecoder {
   uint32_t string() { return offset(); }  // TODO: validate string
 
   // Reads a single 8-bit integer, interpreting it as a local type.
-  LocalType type() {
+  LocalType local_type() {
     byte val = u8();
     LocalType t = static_cast<LocalType>(val);
     switch (t) {
@@ -322,16 +358,38 @@ class ModuleDecoder {
     }
   }
 
+  // Reads a single 8-bit integer, interpreting it as a memory type.
+  MemType mem_type() {
+    byte val = u8();
+    MemType t = static_cast<MemType>(val);
+    switch (t) {
+      case kMemInt8:
+      case kMemUint8:
+      case kMemInt16:
+      case kMemUint16:
+      case kMemInt32:
+      case kMemUint32:
+      case kMemInt64:
+      case kMemUint64:
+      case kMemFloat32:
+      case kMemFloat64:
+        return t;
+      default:
+        error(cur_ - 1, "invalid memory type");
+        return kMemInt32;
+    }
+  }
+
   // Parses an inline function signature.
   FunctionSig* sig() {
     byte count = u8();
-    LocalType ret = type();
+    LocalType ret = local_type();
     FunctionSig::Builder builder(module_zone, ret == kAstStmt ? 0 : 1, count);
     if (ret != kAstStmt) builder.AddReturn(ret);
 
     for (int i = 0; i < count; i++) {
       // TODO(titzer): disallow void as a parameter type.
-      LocalType param = type();
+      LocalType param = local_type();
       builder.AddParam(param);
     }
     return builder.Build();
@@ -366,7 +424,7 @@ class ModuleDecoder {
 
 // Instantiates a wasm module as a JSObject.
 //  * allocates a backing store of {mem_size} bytes.
-//  * installs a named property for that buffer if exported
+//  * installs a named property "memory" for that buffer if exported
 //  * installs named properties on the object for exported functions
 //  * compiles wasm code to machine code
 MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
