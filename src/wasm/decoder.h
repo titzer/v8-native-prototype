@@ -79,8 +79,8 @@ struct FunctionEnv {
   }
 
   void SumLocals() {
-    total_locals = sig->parameter_count() + local_int32_count +
-                   local_int64_count + local_float32_count +
+    total_locals = static_cast<uint32_t>(sig->parameter_count()) +
+                   local_int32_count + local_int64_count + local_float32_count +
                    local_float64_count;
   }
 };
