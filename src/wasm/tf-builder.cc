@@ -519,7 +519,7 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   FunctionSig* sig = module->GetFunctionSignature(index);
   const size_t params = sig->parameter_count();
   const size_t extra = 2;  // effect and control inputs.
-  const size_t count = params + extra;
+  const size_t count = 1 + params + extra;
 
   if (args != cur_buffer || cur_bufsize < count) {
     // Reallocate the buffer to make space for extra inputs.
@@ -536,9 +536,9 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   args[params + 2] = *control;
 
   const compiler::Operator* op =
-      graph->common()->Call(module->GetCallDescriptor(zone, index));
+      graph->common()->Call(module->GetCallDescriptor(graph->zone(), index));
   // TODO(titzer): handle JS, external calls with framestate.
-  TFNode* call = graph->graph()->NewNode(op, static_cast<int>(params), args);
+  TFNode* call = graph->graph()->NewNode(op, static_cast<int>(count), args);
 
   *effect = call;
   return call;

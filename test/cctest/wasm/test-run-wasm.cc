@@ -32,6 +32,135 @@ using namespace v8::internal;
 using namespace v8::internal::compiler;
 using namespace v8::internal::wasm;
 
+static void init_env(FunctionEnv* env, FunctionSig* sig) {
+  env->module = nullptr;
+  env->sig = sig;
+  env->local_int32_count = 0;
+  env->local_int64_count = 0;
+  env->local_float32_count = 0;
+  env->local_float64_count = 0;
+  env->SumLocals();
+}
+
+const int kMaxGlobalsSize = 128;
+
+// A helper for module environments that adds the ability to allocate memory
+// and global variables.
+class TestingModule : public ModuleEnv {
+ public:
+  TestingModule() : mem_size(0), global_offset(0) {
+    globals_area = 0;
+    mem_start = 0;
+    mem_end = 0;
+    module = nullptr;
+    function_code = nullptr;
+  }
+
+  ~TestingModule() {
+    if (mem_start) {
+      free(raw_mem_start<byte>());
+    }
+    if (module) {
+      if (module->globals) delete module->globals;
+      if (module->functions) delete module->functions;
+      if (globals_area) free(reinterpret_cast<byte*>(globals_area));
+      delete module;
+    }
+  }
+
+  byte* AddMemory(size_t size) {
+    CHECK_EQ(0, mem_start);
+    CHECK_EQ(0, mem_size);
+    mem_start = reinterpret_cast<uintptr_t>(malloc(size));
+    CHECK(mem_start);
+    memset(raw_mem_start<byte>(), 0, size);
+    mem_end = mem_start + size;
+    mem_size = size;
+    return raw_mem_start<byte>();
+  }
+
+  template <typename T>
+  T* AddMemoryElems(size_t count) {
+    AddMemory(count * sizeof(T));
+    return raw_mem_start<T>();
+  }
+
+  template <typename T>
+  T* AddGlobal(MemType mem_type) {
+    WasmGlobal* global = AddGlobal(mem_type);
+    return reinterpret_cast<T*>(globals_area + global->offset);
+  }
+
+
+  template <typename T>
+  T* raw_mem_start() {
+    DCHECK(mem_start);
+    return reinterpret_cast<T*>(mem_start);
+  }
+
+  template <typename T>
+  T* raw_mem_end() {
+    DCHECK(mem_start);
+    return reinterpret_cast<T*>(mem_end);
+  }
+
+  template <typename T>
+  T raw_mem_at(int i) {
+    DCHECK(mem_start);
+    return reinterpret_cast<T*>(mem_start)[i];
+  }
+
+  // Zero-initialize the memory.
+  void ZeroMemory() { memset(raw_mem_start<byte>(), 0, mem_size); }
+
+  // Pseudo-randomly intialize the memory.
+  void RandomizeMemory(unsigned seed = 88) {
+    byte* raw = raw_mem_start<byte>();
+    byte* end = raw_mem_end<byte>();
+    while (raw < end) {
+      *raw = static_cast<byte>(rand_r(&seed));
+      raw++;
+    }
+  }
+
+  WasmFunction* AddFunction(FunctionSig* sig, Handle<Code> code) {
+    AllocModule();
+    if (module->functions == nullptr) {
+      module->functions = new std::vector<WasmFunction>();
+      function_code = new std::vector<Handle<Code>>();
+    }
+    module->functions->push_back({sig, 0, 0, 0, 0, 0, 0, 0, false, false});
+    function_code->push_back(code);
+    return &module->functions->back();
+  }
+
+ private:
+  size_t mem_size;
+  unsigned global_offset;
+
+  WasmGlobal* AddGlobal(MemType mem_type) {
+    AllocModule();
+    if (globals_area == 0) {
+      globals_area = reinterpret_cast<uintptr_t>(malloc(kMaxGlobalsSize));
+      module->globals = new std::vector<WasmGlobal>();
+    }
+    byte size = WasmOpcodes::MemSize(mem_type);
+    global_offset = (global_offset + size - 1) & ~(size - 1);  // align
+    module->globals->push_back({0, mem_type, global_offset, false});
+    global_offset += size;
+    CHECK_LT(global_offset, kMaxGlobalsSize);  // limit number of globals.
+    return &module->globals->back();
+  }
+  void AllocModule() {
+    if (module == nullptr) {
+      module = new WasmModule();
+      module->globals = nullptr;
+      module->functions = nullptr;
+      module->data_segments = nullptr;
+    }
+  }
+};
+
 // A helper class to build graphs from Wasm bytecode, generate machine
 // code, and run that code.
 template <typename ReturnType>
@@ -67,16 +196,6 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
   FunctionEnv env_l_ll;
   FunctionEnv* function_env;
 
-  void init_env(FunctionEnv* env, FunctionSig* sig) {
-    env->module = nullptr;
-    env->sig = sig;
-    env->local_int32_count = 0;
-    env->local_int64_count = 0;
-    env->local_float32_count = 0;
-    env->local_float64_count = 0;
-    env->SumLocals();
-  }
-
   void Build(const byte* start, const byte* end) {
     TreeResult result = BuildTFGraph(&jsgraph, function_env, start, end);
     if (result.failed()) {
@@ -95,14 +214,79 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
   }
 
   byte AllocateLocal(LocalType type) {
-    int result = static_cast<int>(function_env->sig->parameter_count());
-    if (type == kAstInt32) result += function_env->local_int32_count++;
-    if (type == kAstFloat32) result += function_env->local_float32_count++;
-    if (type == kAstFloat64) result += function_env->local_float64_count++;
-    function_env->total_locals++;
+    int result = static_cast<int>(function_env->total_locals);
+    function_env->AddLocals(type, 1);
     byte b = static_cast<byte>(result);
     CHECK_EQ(result, b);
     return b;
+  }
+};
+
+
+// A helper for compiling functions that are only internally callable WASM code.
+class WasmFunctionCompiler : public HandleAndZoneScope,
+                             private GraphAndBuilders {
+ public:
+  explicit WasmFunctionCompiler(FunctionSig* sig)
+      : GraphAndBuilders(main_zone()),
+        jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
+                this->machine()) {
+    init_env(&env, sig);
+  }
+
+  JSGraph jsgraph;
+  FunctionEnv env;
+
+  Isolate* isolate() { return main_isolate(); }
+  Graph* graph() const { return main_graph_; }
+  Zone* zone() const { return graph()->zone(); }
+  CommonOperatorBuilder* common() { return &main_common_; }
+  MachineOperatorBuilder* machine() { return &main_machine_; }
+
+  void Build(const byte* start, const byte* end) {
+    TreeResult result = BuildTFGraph(&jsgraph, &env, start, end);
+    if (result.failed()) {
+      ptrdiff_t pc = result.error_pc - result.start;
+      ptrdiff_t pt = result.error_pt - result.start;
+      std::ostringstream str;
+      str << "Verification failed: " << result.error_code << " pc = +" << pc;
+      if (result.error_pt) str << ", pt = +" << pt;
+      str << ", msg = " << result.error_msg.get();
+      FATAL(str.str().c_str());
+    }
+    if (FLAG_trace_turbo_graph) {
+      OFStream os(stdout);
+      os << AsRPO(*jsgraph.graph());
+    }
+  }
+
+  byte AllocateLocal(LocalType type) {
+    int result = static_cast<int>(env.total_locals);
+    env.AddLocals(type, 1);
+    byte b = static_cast<byte>(result);
+    CHECK_EQ(result, b);
+    return b;
+  }
+
+  Handle<Code> Compile(ModuleEnv* module) {
+    CallDescriptor* desc = module->GetWasmCallDescriptor(this->zone(), env.sig);
+    Handle<Code> result =
+        Pipeline::GenerateCodeForTesting(this->isolate(), desc, this->graph());
+    if (!result.is_null() && FLAG_print_opt_code) {
+      OFStream os(stdout);
+      result->Disassemble("wasm code", os);
+    }
+
+    return result;
+  }
+
+  unsigned CompileAndAdd(TestingModule* module) {
+    unsigned index = 0;
+    if (module->module && module->module->functions) {
+      index = static_cast<unsigned>(module->module->functions->size());
+    }
+    module->AddFunction(env.sig, Compile(module));
+    return index;
   }
 };
 
@@ -547,110 +731,6 @@ TEST(Run_Wasm_WhileCountDown) {
 }
 
 
-namespace {
-const int kMaxGlobalsSize = 128;
-
-// A helper for module environments that adds the ability to allocate memory
-// and global variables.
-class TestingModule : public ModuleEnv {
- public:
-  TestingModule() : mem_size(0), global_offset(0) {
-    globals_area = 0;
-    mem_start = 0;
-    mem_end = 0;
-    module = nullptr;
-    function_code = nullptr;
-  }
-
-  ~TestingModule() {
-    if (mem_start) {
-      free(raw_mem_start<byte>());
-    }
-    if (module) {
-      delete module->globals;
-      free(reinterpret_cast<byte*>(globals_area));
-      free(module);
-    }
-  }
-
-  byte* AddMemory(size_t size) {
-    CHECK_EQ(0, mem_start);
-    CHECK_EQ(0, mem_size);
-    mem_start = reinterpret_cast<uintptr_t>(malloc(size));
-    CHECK(mem_start);
-    memset(raw_mem_start<byte>(), 0, size);
-    mem_end = mem_start + size;
-    mem_size = size;
-    return raw_mem_start<byte>();
-  }
-
-  template <typename T>
-  T* AddMemoryElems(size_t count) {
-    AddMemory(count * sizeof(T));
-    return raw_mem_start<T>();
-  }
-
-  template <typename T>
-  T* AddGlobal(MemType mem_type) {
-    WasmGlobal* global = AddGlobal(mem_type);
-    return reinterpret_cast<T*>(globals_area + global->offset);
-  }
-
-
-  template <typename T>
-  T* raw_mem_start() {
-    DCHECK(mem_start);
-    return reinterpret_cast<T*>(mem_start);
-  }
-
-  template <typename T>
-  T* raw_mem_end() {
-    DCHECK(mem_start);
-    return reinterpret_cast<T*>(mem_end);
-  }
-
-  template <typename T>
-  T raw_mem_at(int i) {
-    DCHECK(mem_start);
-    return reinterpret_cast<T*>(mem_start)[i];
-  }
-
-  // Zero-initialize the memory.
-  void ZeroMemory() { memset(raw_mem_start<byte>(), 0, mem_size); }
-
-  // Pseudo-randomly intialize the memory.
-  void RandomizeMemory(unsigned seed = 88) {
-    byte* raw = raw_mem_start<byte>();
-    byte* end = raw_mem_end<byte>();
-    while (raw < end) {
-      *raw = static_cast<byte>(rand_r(&seed));
-      raw++;
-    }
-  }
-
- private:
-  size_t mem_size;
-  unsigned global_offset;
-
-  WasmGlobal* AddGlobal(MemType mem_type) {
-    if (module == nullptr) {
-      globals_area = reinterpret_cast<uintptr_t>(malloc(kMaxGlobalsSize));
-      module = reinterpret_cast<WasmModule*>(malloc(sizeof(WasmModule)));
-      module->functions = nullptr;
-      module->data_segments = nullptr;
-      module->globals = new std::vector<WasmGlobal>();
-    }
-    byte size = WasmOpcodes::MemSize(mem_type);
-    global_offset = (global_offset + size - 1) & ~(size - 1);  // align
-    module->globals->push_back({0, mem_type, global_offset, false});
-    global_offset += size;
-    CHECK_LT(global_offset, kMaxGlobalsSize);  // limit number of globals.
-    return &module->globals->back();
-  }
-};
-}
-
-
 TEST(Run_Wasm_LoadMemInt32) {
   WasmRunner<int32_t> r(kMachInt32);
   TestingModule module;
@@ -920,14 +1000,14 @@ TEST(Run_Wasm_Infinite_Loop_not_taken) {
 
 static void TestBuildGraphForUnop(WasmOpcode opcode, FunctionSig* sig) {
   WasmRunner<int32_t> r(kMachInt32);
-  r.init_env(r.function_env, sig);
+  init_env(r.function_env, sig);
   BUILD(r, kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0);
 }
 
 
 static void TestBuildGraphForBinop(WasmOpcode opcode, FunctionSig* sig) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
-  r.init_env(r.function_env, sig);
+  init_env(r.function_env, sig);
   BUILD(r, kStmtReturn, static_cast<byte>(opcode), kExprGetLocal, 0,
         kExprGetLocal, 1);
 }
@@ -1179,5 +1259,75 @@ TEST(Run_WasmMixedGlobals) {
 
   USE(unused);
 }
+
+
+TEST(Run_WasmCallEmpty) {
+  const int32_t kExpected = -414444;
+  // Build the target function.
+  TestSignatures sigs;
+  TestingModule module;
+  WasmFunctionCompiler t(sigs.i_v());
+  BUILD(t, WASM_RETURN(WASM_INT32(kExpected)));
+  unsigned index = t.CompileAndAdd(&module);
+
+  // Build the calling function.
+  WasmRunner<int32_t> r;
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_CALL_FUNCTION0(index)));
+
+  int32_t result = r.Call();
+  CHECK_EQ(kExpected, result);
+}
+
+
+TEST(Run_WasmCall_Int32Add) {
+  // Build the target function.
+  TestSignatures sigs;
+  TestingModule module;
+  WasmFunctionCompiler t(sigs.i_ii());
+  BUILD(t, WASM_RETURN(WASM_INT32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+  unsigned index = t.CompileAndAdd(&module);
+
+  // Build the caller function.
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_CALL_FUNCTION(index, WASM_GET_LOCAL(0),
+                                          WASM_GET_LOCAL(1))));
+
+  FOR_INT32_INPUTS(i) {
+    FOR_INT32_INPUTS(j) {
+      int32_t expected = static_cast<int32_t>(static_cast<uint32_t>(*i) +
+                                              static_cast<uint32_t>(*j));
+      CHECK_EQ(expected, r.Call(*i, *j));
+    }
+  }
+}
+
+
+TEST(Run_WasmCall_Float64Sub) {
+  TestSignatures sigs;
+  WasmFunctionCompiler t(sigs.d_dd());
+
+  // Build the target function.
+  TestingModule module;
+  BUILD(t, WASM_RETURN(WASM_FLOAT64_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+  unsigned index = t.CompileAndAdd(&module);
+
+  // Builder the caller function.
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT64(WASM_CALL_FUNCTION(
+               index, WASM_FLOAT64_SCONVERT_INT32(WASM_GET_LOCAL(0)),
+               WASM_FLOAT64_SCONVERT_INT32(WASM_GET_LOCAL(1))))));
+
+  FOR_INT32_INPUTS(i) {
+    FOR_INT32_INPUTS(j) {
+      int32_t expected = static_cast<int32_t>(static_cast<double>(*i) -
+                                              static_cast<double>(*j));
+      CHECK_EQ(expected, r.Call(*i, *j));
+    }
+  }
+}
+
 
 #endif  // V8_TURBOFAN_TARGET

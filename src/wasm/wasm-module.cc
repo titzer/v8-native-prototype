@@ -565,14 +565,14 @@ Handle<Code> ModuleEnv::GetFunctionCode(uint32_t index) {
 }
 
 
-const compiler::CallDescriptor* ModuleEnv::GetWasmCallDescriptor(
-    Zone* zone, FunctionSig* sig) {
-  return nullptr;  // TODO
-}
-
-
-const compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
-                                                             uint32_t index) {
+compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
+                                                       uint32_t index) {
+  DCHECK(IsValidFunction(index));
+  WasmFunction* function = &module->functions->at(index);
+  if (!function->external) {
+    // WASM -> WASM direct call.
+    return GetWasmCallDescriptor(zone, function->sig);
+  }
   return nullptr;  // TODO
 }
 

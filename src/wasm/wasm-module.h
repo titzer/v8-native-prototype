@@ -112,9 +112,8 @@ struct ModuleEnv {
 
   Handle<Code> GetFunctionCode(uint32_t index);
 
-  const compiler::CallDescriptor* GetWasmCallDescriptor(Zone* zone,
-                                                        FunctionSig* sig);
-  const compiler::CallDescriptor* GetCallDescriptor(Zone* zone, uint32_t index);
+  compiler::CallDescriptor* GetWasmCallDescriptor(Zone* zone, FunctionSig* sig);
+  compiler::CallDescriptor* GetCallDescriptor(Zone* zone, uint32_t index);
 };
 
 std::ostream& operator<<(std::ostream& os, const WasmModule& module);

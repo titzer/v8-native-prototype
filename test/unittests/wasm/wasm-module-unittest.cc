@@ -261,7 +261,7 @@ TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
       5, 0, 0, 0,           // source size
       1,                    // init
       // rest ------------------------------------------------------
-      kStmtNop,                   // func#0 body
+      kStmtNop,  // func#0 body
 
   };
 

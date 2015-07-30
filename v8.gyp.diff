@@ -1,8 +1,8 @@
 diff --git a/tools/gyp/v8.gyp b/tools/gyp/v8.gyp
-index b269854..77aa1c8 100644
+index 4879107..7990620 100644
 --- a/tools/gyp/v8.gyp
 +++ b/tools/gyp/v8.gyp
-@@ -969,6 +969,19 @@
+@@ -976,6 +976,20 @@
          '../../src/version.h',
          '../../src/vm-state-inl.h',
          '../../src/vm-state.h',
@@ -12,6 +12,7 @@ index b269854..77aa1c8 100644
 +        '../../src/wasm/tf-builder.cc',
 +        '../../src/wasm/wasm-js.cc',
 +        '../../src/wasm/wasm-js.h',
++        '../../src/wasm/wasm-linkage.cc',
 +        '../../src/wasm/wasm-macro-gen.h',
 +        '../../src/wasm/wasm-module.cc',
 +        '../../src/wasm/wasm-module.h',

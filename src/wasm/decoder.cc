@@ -195,7 +195,6 @@ class LR_WasmDecoder {
   }
 
   void Shift(LocalType type, uint32_t count) {
-    if (count == 0) return Leaf(type);
     size_t size = sizeof(Tree) + (count - 1) * sizeof(Tree*);
     Tree* tree = reinterpret_cast<Tree*>(zone_->New(size));
     tree->type = type;
@@ -203,7 +202,13 @@ class LR_WasmDecoder {
     tree->pc = pc_;
     tree->node = nullptr;
     for (uint32_t i = 0; i < count; i++) tree->children[i] = nullptr;
-    stack_.push_back({tree, 0});
+    if (count == 0) {
+      Production p = {tree, 0};
+      Reduce(&p);
+      Reduce(tree);
+    } else {
+      stack_.push_back({tree, 0});
+    }
   }
 
   void Reduce(Tree* tree) {
@@ -447,15 +452,11 @@ class LR_WasmDecoder {
         case kExprCallFunction: {
           FunctionSig* sig = FunctionSigOperand(pc_, &len);
           if (sig) {
-            LocalType type = kAstInt32;
-            if (sig->return_count() == 1) {
-              type = sig->GetReturn();
-            } else {
-              error(pc_, "function call should return exactly 1 result");
-            }
+            LocalType type =
+                sig->return_count() == 0 ? kAstStmt : sig->GetReturn();
             Shift(type, static_cast<int>(sig->parameter_count()));
           } else {
-            Leaf(kAstInt32);
+            Leaf(kAstInt32);  // error
           }
           break;
         }
@@ -470,7 +471,7 @@ class LR_WasmDecoder {
             }
             Shift(type, static_cast<int>(1 + sig->parameter_count()));
           } else {
-            Leaf(kAstInt32);
+            Leaf(kAstInt32);  // error
           }
           break;
         }
@@ -742,7 +743,9 @@ class LR_WasmDecoder {
         int unused = 0;
         FunctionSig* sig = FunctionSigOperand(p->pc(), &unused);
         if (!sig) break;
-        TypeCheckLast(p, sig->GetParam(p->index - 1));
+        if (p->index > 0) {
+          TypeCheckLast(p, sig->GetParam(p->index - 1));
+        }
         if (p->done()) {
           uint32_t count = p->tree->count + 1;
           TFNode** buffer = builder_.Buffer(count);

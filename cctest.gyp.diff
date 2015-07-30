@@ -1,12 +1,12 @@
 diff --git a/test/cctest/cctest.gyp b/test/cctest/cctest.gyp
-index 40ea88b..2131a09 100644
+index de1ad4f..40ea88b 100644
 --- a/test/cctest/cctest.gyp
 +++ b/test/cctest/cctest.gyp
-@@ -163,6 +163,7 @@
+@@ -162,6 +162,7 @@
+         'test-weakmaps.cc',
          'test-weaksets.cc',
          'trace-extension.cc',
-         'wasm/test-run-wasm.cc',
-+        'wasm/test-signatures.h',
++        'wasm/test-run-wasm.cc',
          '../../src/startup-data-util.h',
          '../../src/startup-data-util.cc'
        ],
