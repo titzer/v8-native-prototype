@@ -195,7 +195,8 @@ class LR_WasmDecoder {
   }
 
   void Shift(LocalType type, uint32_t count) {
-    size_t size = sizeof(Tree) + (count - 1) * sizeof(Tree*);
+    size_t size =
+        sizeof(Tree) + (count == 0 ? 0 : ((count - 1) * sizeof(Tree*)));
     Tree* tree = reinterpret_cast<Tree*>(zone_->New(size));
     tree->type = type;
     tree->count = count;
