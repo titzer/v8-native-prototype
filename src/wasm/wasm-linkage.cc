@@ -41,18 +41,17 @@ MachineType MachineTypeFor(LocalType type) {
 
 // Platform-specific configuration for C calling convention.
 LinkageLocation regloc(Register reg) {
-  return LinkageLocation(Register::ToAllocationIndex(reg));
+  return LinkageLocation::ForRegister(Register::ToAllocationIndex(reg));
 }
 
 
 LinkageLocation regloc(DoubleRegister reg) {
-  return LinkageLocation(DoubleRegister::ToAllocationIndex(reg));
+  return LinkageLocation::ForRegister(DoubleRegister::ToAllocationIndex(reg));
 }
 
 
 LinkageLocation stackloc(int i) {
-  DCHECK_LT(i, 0);
-  return LinkageLocation(i);
+  return LinkageLocation::ForCallerFrameSlot(i);
 }
 
 
@@ -249,7 +248,7 @@ CallDescriptor* ModuleEnv::GetWasmCallDescriptor(Zone* zone,
 
   // The target for WASM calls is always a code object.
   MachineType target_type = compiler::kMachAnyTagged;
-  LinkageLocation target_loc = LinkageLocation::AnyRegister();
+  LinkageLocation target_loc = LinkageLocation::ForAnyRegister();
   return new (zone) CallDescriptor(       // --
       CallDescriptor::kCallCodeObject,    // kind
       target_type,                        // target MachineType
