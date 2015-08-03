@@ -11,21 +11,25 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-class ModuleVerifyTest : public TestWithZone {};
+class ModuleVerifyTest : public TestWithZone {
+ public:
+  ModuleResult DecodeModule(const byte* module_start, const byte* module_end) {
+    return DecodeWasmModule(nullptr, zone(), module_start, module_end);
+  }
+};
 
-#define EXPECT_VERIFIES(data)                                    \
-  do {                                                           \
-    ModuleResult result =                                        \
-        DecodeWasmModule(nullptr, data, data + arraysize(data)); \
-    EXPECT_TRUE(result.ok());                                    \
+
+#define EXPECT_VERIFIES(data)                                         \
+  do {                                                                \
+    ModuleResult result = DecodeModule(data, data + arraysize(data)); \
+    EXPECT_TRUE(result.ok());                                         \
   } while (false)
 
 
-#define EXPECT_FAILURE(data)                                     \
-  do {                                                           \
-    ModuleResult result =                                        \
-        DecodeWasmModule(nullptr, data, data + arraysize(data)); \
-    EXPECT_FALSE(result.ok());                                   \
+#define EXPECT_FAILURE(data)                                          \
+  do {                                                                \
+    ModuleResult result = DecodeModule(data, data + arraysize(data)); \
+    EXPECT_FALSE(result.ok());                                        \
   } while (false)
 
 
@@ -56,8 +60,7 @@ TEST_F(ModuleVerifyTest, OneGlobal) {
 
   {
     // Should decode to exactly one global.
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(1, result.val->globals->size());
     EXPECT_EQ(0, result.val->functions->size());
@@ -73,7 +76,7 @@ TEST_F(ModuleVerifyTest, OneGlobal) {
 
   for (size_t size = 0; size < arraysize(data); size++) {
     // Should fall off end of module bytes.
-    ModuleResult result = DecodeWasmModule(nullptr, data, data + size);
+    ModuleResult result = DecodeModule(data, data + size);
     EXPECT_FALSE(result.ok());
   }
 }
@@ -87,7 +90,7 @@ TEST_F(ModuleVerifyTest, GlobalWithInvalidNameOffset) {
       0,                       // exported
   };
 
-  ModuleResult result = DecodeWasmModule(nullptr, data, data + arraysize(data));
+  ModuleResult result = DecodeModule(data, data + arraysize(data));
   EXPECT_FALSE(result.ok());
 }
 
@@ -101,7 +104,7 @@ TEST_F(ModuleVerifyTest, GlobalWithInvalidMemoryType) {
   };
 
 
-  ModuleResult result = DecodeWasmModule(nullptr, data, data + arraysize(data));
+  ModuleResult result = DecodeModule(data, data + arraysize(data));
   EXPECT_FALSE(result.ok());
 }
 
@@ -119,8 +122,7 @@ TEST_F(ModuleVerifyTest, TwoGlobals) {
 
   {
     // Should decode to exactly two globals.
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(2, result.val->globals->size());
     EXPECT_EQ(0, result.val->functions->size());
@@ -142,7 +144,7 @@ TEST_F(ModuleVerifyTest, TwoGlobals) {
 
   for (size_t size = 0; size < arraysize(data); size++) {
     // Should fall off end of module bytes.
-    ModuleResult result = DecodeWasmModule(nullptr, data, data + size);
+    ModuleResult result = DecodeModule(data, data + size);
     EXPECT_FALSE(result.ok());
   }
 }
@@ -165,8 +167,7 @@ TEST_F(ModuleVerifyTest, OneEmptyVoidVoidFunction) {
 
   {
     // Should decode to exactly one function.
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(0, result.val->globals->size());
     EXPECT_EQ(1, result.val->functions->size());
@@ -189,7 +190,7 @@ TEST_F(ModuleVerifyTest, OneEmptyVoidVoidFunction) {
 
   for (size_t size = 0; size < arraysize(data); size++) {
     // Should fall off end of module bytes.
-    ModuleResult result = DecodeWasmModule(nullptr, data, data + size);
+    ModuleResult result = DecodeModule(data, data + size);
     EXPECT_FALSE(result.ok());
   }
 }
@@ -218,8 +219,7 @@ TEST_F(ModuleVerifyTest, OneFunctionWithNopBody) {
 
   {
     // Should decode to exactly one function.
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(1, result.val->functions->size());
     WasmFunction* function = &result.val->functions->back();
@@ -266,8 +266,7 @@ TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
   };
 
   {
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(1, result.val->globals->size());
     EXPECT_EQ(1, result.val->functions->size());
@@ -309,8 +308,7 @@ TEST_F(ModuleVerifyTest, OneDataSegment) {
   };
 
   {
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(0, result.val->globals->size());
     EXPECT_EQ(0, result.val->functions->size());
@@ -326,7 +324,7 @@ TEST_F(ModuleVerifyTest, OneDataSegment) {
 
   for (size_t size = 0; size < arraysize(data); size++) {
     // Should fall off end of module bytes.
-    ModuleResult result = DecodeWasmModule(nullptr, data, data + size);
+    ModuleResult result = DecodeModule(data, data + size);
     EXPECT_FALSE(result.ok());
   }
 }
@@ -346,8 +344,7 @@ TEST_F(ModuleVerifyTest, TwoDataSegments) {
   };
 
   {
-    ModuleResult result =
-        DecodeWasmModule(nullptr, data, data + arraysize(data));
+    ModuleResult result = DecodeModule(data, data + arraysize(data));
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(0, result.val->globals->size());
     EXPECT_EQ(0, result.val->functions->size());
@@ -369,7 +366,7 @@ TEST_F(ModuleVerifyTest, TwoDataSegments) {
 
   for (size_t size = 0; size < arraysize(data); size++) {
     // Should fall off end of module bytes.
-    ModuleResult result = DecodeWasmModule(nullptr, data, data + size);
+    ModuleResult result = DecodeModule(data, data + size);
     EXPECT_FALSE(result.ok());
   }
 }

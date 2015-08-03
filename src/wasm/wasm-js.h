@@ -20,10 +20,6 @@ namespace v8 {
 class WasmJs {
  public:
   static void Install(Isolate* isolate, Local<ObjectTemplate> global_template);
-
- private:
-  static void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 }
 

@@ -160,6 +160,13 @@ class LR_WasmDecoder {
           ssa_env->locals[pos++] = zero;
         }
       }
+      // Initialize int64 locals.
+      if (function_env_->local_int64_count > 0) {
+        TFNode* zero = builder_.Int64Constant(0);
+        for (uint32_t i = 0; i < function_env_->local_int64_count; i++) {
+          ssa_env->locals[pos++] = zero;
+        }
+      }
       // Initialize float32 locals.
       if (function_env_->local_float32_count > 0) {
         TFNode* zero = builder_.Float32Constant(0);

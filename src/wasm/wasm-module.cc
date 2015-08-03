@@ -82,10 +82,7 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
   env.local_int64_count = function.local_int64_count;
   env.local_float32_count = function.local_float32_count;
   env.local_float64_count = function.local_float64_count;
-
-  env.total_locals =                                      // --
-      env.local_int32_count + env.local_int64_count +     // --
-      env.local_float32_count + env.local_float64_count;  // --
+  env.SumLocals();
 
   // Create a TF graph during decoding.
   Zone zone;
@@ -388,8 +385,8 @@ class ModuleDecoder {
     if (ret != kAstStmt) builder.AddReturn(ret);
 
     for (int i = 0; i < count; i++) {
-      // TODO(titzer): disallow void as a parameter type.
       LocalType param = local_type();
+      if (param == kAstStmt) error(cur_ - 1, "invalid void parameter type");
       builder.AddParam(param);
     }
     return builder.Build();
@@ -577,11 +574,41 @@ compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
 }
 
 
-ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
+// Helpers for nice error messages.
+class ModuleError : public ModuleResult {
+ public:
+  explicit ModuleError(const char* msg) {
+    error_code = kError;
+    size_t len = strlen(msg) + 1;
+    char* result = new char[len];
+    strncpy(result, msg, len);
+    error_msg.Reset(result);
+  }
+};
+
+
+// Helpers for nice error messages.
+class FunctionError : public FunctionResult {
+ public:
+  explicit FunctionError(const char* msg) {
+    error_code = kError;
+    size_t len = strlen(msg) + 1;
+    char* result = new char[len];
+    strncpy(result, msg, len);
+    error_msg.Reset(result);
+  }
+};
+
+
+ModuleResult DecodeWasmModule(Isolate* isolate, Zone* zone,
+                              const byte* module_start,
                               const byte* module_end) {
+  size_t size = module_end - module_start;
+  if (module_start > module_end) return ModuleError("start > end");
+  if (size < kMinModuleSize) return ModuleError("size < minimum module size");
+  if (size >= kMaxModuleSize) return ModuleError("size > maximum module size");
   WasmModule* module = new WasmModule();
-  Zone zone;  // TODO(titzer): make the module zone persistent.
-  ModuleDecoder decoder(&zone, module_start, module_end);
+  ModuleDecoder decoder(zone, module_start, module_end);
   return decoder.DecodeModule(module);
 }
 
@@ -597,9 +624,77 @@ FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone,
                                   ModuleEnv* module_env,
                                   const byte* function_start,
                                   const byte* function_end) {
+  size_t size = function_end - function_start;
+  if (function_start > function_end) return FunctionError("start > end");
+  if (size > kMaxFunctionSize)
+    return FunctionError("size > maximum function size");
   WasmFunction* function = new WasmFunction();
   ModuleDecoder decoder(zone, function_start, function_end);
   return decoder.DecodeSingleFunction(module_env, function);
+}
+
+
+int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
+                                const byte* module_end) {
+  {
+    HandleScope scope(isolate);
+    Zone zone;
+    ModuleResult result =
+        DecodeWasmModule(isolate, &zone, module_start, module_end);
+    if (result.failed()) {
+      // Module verification failed. throw.
+      std::ostringstream str;
+      str << "WASM.compileRun() failed: " << result;
+      isolate->Throw(
+          *isolate->factory()->NewStringFromAsciiChecked(str.str().c_str()));
+      return -1;
+    }
+
+    base::SmartPointer<WasmModule> module(result.val);
+
+    // Allocate temporary linear memory and globals.
+    size_t mem_size = 128 * 1024 * 1024;
+    size_t globals_size = 0;
+    // TODO: use embedder API?
+    base::SmartArrayPointer<byte> mem_addr(new byte[mem_size]);
+    base::SmartArrayPointer<byte> globals_addr(new byte[globals_size]);
+
+    // Create module environment.
+    ModuleEnv module_env;
+    module_env.module = module.get();
+    module_env.mem_start = reinterpret_cast<uintptr_t>(mem_addr.get());
+    module_env.mem_end = reinterpret_cast<uintptr_t>(mem_addr.get()) + mem_size;
+    module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr.get());
+    std::vector<Handle<Code>> function_code(module->functions->size());
+    module_env.function_code = &function_code;
+
+    // Compile all functions.
+    Handle<Code> main_code = Handle<Code>::null();  // record last code.
+    int index = 0;
+    for (const WasmFunction& func : *module->functions) {
+      if (!func.external) {
+        // Compile the function and install it in the code table.
+        Handle<Code> code = CompileFunction(isolate, &module_env, func);
+        function_code[index] = code;
+        if (!code.is_null() && func.exported) main_code = code;
+      }
+      index++;
+    }
+
+    if (!main_code.is_null()) {
+      // Run the main code.
+      int32_t (*raw_func)() = reinterpret_cast<int (*)()>(main_code->entry());
+      return raw_func();
+    } else {
+      // No main code was found.
+      isolate->Throw(*isolate->factory()->NewStringFromStaticChars(
+          "WASM.compileRun() failed: no valid main code produced."));
+      return -1;
+    }
+  }
+
+  // Return a number representing the return value.
+  return -1;
 }
 }
 }

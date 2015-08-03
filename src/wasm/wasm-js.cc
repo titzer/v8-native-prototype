@@ -10,27 +10,6 @@ typedef uint8_t byte;
 
 namespace v8 {
 
-const size_t kMinModuleSize = 8;
-const size_t kMaxModuleSize = 1024 * 1024 * 1024;
-const size_t kMaxFunctionSize = 128 * 1024;
-
-void WasmJs::Install(Isolate* isolate, Local<ObjectTemplate> global_template) {
-  // Bind the WASM object.
-  Local<ObjectTemplate> wasm_template = ObjectTemplate::New(isolate);
-  wasm_template->Set(
-      String::NewFromUtf8(isolate, "verifyModule", NewStringType::kNormal)
-          .ToLocalChecked(),
-      FunctionTemplate::New(isolate, VerifyModule));
-  wasm_template->Set(
-      String::NewFromUtf8(isolate, "verifyFunction", NewStringType::kNormal)
-          .ToLocalChecked(),
-      FunctionTemplate::New(isolate, VerifyFunction));
-  global_template->Set(
-      String::NewFromUtf8(isolate, "WASM", NewStringType::kNormal)
-          .ToLocalChecked(),
-      wasm_template);
-}
-
 namespace {
 struct RawBuffer {
   const byte* start;
@@ -56,33 +35,15 @@ RawBuffer GetRawBufferArgument(
   const byte* end = start + contents.ByteLength();
   return {start, end};
 }
-}
 
-void WasmJs::VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
-
   RawBuffer buffer = GetRawBufferArgument("WASM.verifyModule()", args);
-
-  if (buffer.size() < kMinModuleSize) {
-    args.GetIsolate()->ThrowException(
-        String::NewFromUtf8(
-            args.GetIsolate(),
-            "WASM.verifyModule(): ArrayBuffer smaller than minimum module size",
-            NewStringType::kNormal).ToLocalChecked());
-  }
-
-  if (buffer.size() > kMaxModuleSize) {
-    args.GetIsolate()->ThrowException(
-        String::NewFromUtf8(
-            args.GetIsolate(),
-            "WASM.verifyModule(): ArrayBuffer larger than maximum module size",
-            NewStringType::kNormal).ToLocalChecked());
-  }
-
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
 
-  internal::wasm::ModuleResult result =
-      internal::wasm::DecodeWasmModule(isolate, buffer.start, buffer.end);
+  i::Zone zone;
+  internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
+      isolate, &zone, buffer.start, buffer.end);
 
   if (result.failed()) {
     std::ostringstream str;
@@ -91,23 +52,14 @@ void WasmJs::VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
                             NewStringType::kNormal).ToLocalChecked());
   }
+  // TODO(titzer): free memory created by DecodeWasmModule.
 }
 
 
-void WasmJs::VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
-
   // TODO(titzer): no need to externalize to get the bytes for verification.
   RawBuffer buffer = GetRawBufferArgument("WASM.verifyFunction()", args);
-
-  if (buffer.size() > kMaxFunctionSize) {
-    args.GetIsolate()->ThrowException(
-        String::NewFromUtf8(args.GetIsolate(),
-                            "WASM.verifyFunction(): ArrayBuffer larger than "
-                            "maximum function size",
-                            NewStringType::kNormal).ToLocalChecked());
-  }
-
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
 
   internal::wasm::FunctionResult result;
@@ -126,5 +78,52 @@ void WasmJs::VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
                             NewStringType::kNormal).ToLocalChecked());
   }
+  // TODO(titzer): free memory created by DecodeWasmFunction.
+}
+
+
+void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  HandleScope scope(args.GetIsolate());
+  RawBuffer buffer = GetRawBufferArgument("WASM.compileRun()", args);
+  i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
+
+  i::Zone zone;
+  internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
+      isolate, &zone, buffer.start, buffer.end);
+
+  if (result.failed()) {
+    std::ostringstream str;
+    str << "WASM.compileRun() failed: " << result;
+    args.GetIsolate()->ThrowException(
+        String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
+                            NewStringType::kNormal).ToLocalChecked());
+  }
+
+  int32_t retval =
+      i::wasm::CompileAndRunWasmModule(isolate, buffer.start, buffer.end);
+  args.GetReturnValue().Set(retval);
+}
+}
+
+
+void WasmJs::Install(Isolate* isolate, Local<ObjectTemplate> global_template) {
+  // Bind the WASM object.
+  Local<ObjectTemplate> wasm_template = ObjectTemplate::New(isolate);
+  wasm_template->Set(
+      String::NewFromUtf8(isolate, "verifyModule", NewStringType::kNormal)
+          .ToLocalChecked(),
+      FunctionTemplate::New(isolate, VerifyModule));
+  wasm_template->Set(
+      String::NewFromUtf8(isolate, "verifyFunction", NewStringType::kNormal)
+          .ToLocalChecked(),
+      FunctionTemplate::New(isolate, VerifyFunction));
+  wasm_template->Set(
+      String::NewFromUtf8(isolate, "compileRun", NewStringType::kNormal)
+          .ToLocalChecked(),
+      FunctionTemplate::New(isolate, CompileRun));
+  global_template->Set(
+      String::NewFromUtf8(isolate, "WASM", NewStringType::kNormal)
+          .ToLocalChecked(),
+      wasm_template);
 }
 }

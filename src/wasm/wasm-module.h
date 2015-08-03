@@ -17,6 +17,11 @@ class CallDescriptor;
 
 namespace wasm {
 
+const size_t kMinModuleSize = 8;
+const size_t kMaxModuleSize = 1024 * 1024 * 1024;
+const size_t kMaxFunctionSize = 128 * 1024;
+const size_t kMaxStringSize = 256;
+
 // Static representation of a wasm function.
 struct WasmFunction {
   FunctionSig* sig;      // signature of the function.
@@ -123,12 +128,17 @@ typedef Result<WasmModule*> ModuleResult;
 typedef Result<WasmFunction*> FunctionResult;
 
 
-ModuleResult DecodeWasmModule(Isolate* isolate, const byte* module_start,
-                              const byte* module_end);
+ModuleResult DecodeWasmModule(Isolate* isolate, Zone* zone,
+                              const byte* module_start, const byte* module_end);
 
 FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone, ModuleEnv* env,
                                   const byte* function_start,
                                   const byte* function_end);
+
+// For testing. Decode, verify, and run the last exported function in the
+// given encoding module.
+int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
+                                const byte* module_end);
 
 // Exposed for testing. Decodes a single function signature, allocating it
 // in the given zone. Returns {nullptr} upon failure.
