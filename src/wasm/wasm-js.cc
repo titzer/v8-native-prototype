@@ -27,7 +27,8 @@ RawBuffer GetRawBufferArgument(
     return {nullptr, nullptr};
   }
   Local<ArrayBuffer> buffer = Local<ArrayBuffer>::Cast(args[0]);
-  ArrayBuffer::Contents contents = buffer->Externalize();
+  ArrayBuffer::Contents contents =
+      buffer->IsExternal() ? buffer->GetContents() : buffer->Externalize();
 
   // TODO(titzer): allow offsets into buffers, views, etc.
 
