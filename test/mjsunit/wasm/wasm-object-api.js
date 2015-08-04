@@ -6,3 +6,4 @@ assertFalse(undefined === WASM);
 assertFalse(undefined == WASM);
 assertEquals("function", typeof WASM.verifyModule);
 assertEquals("function", typeof WASM.verifyFunction);
+assertEquals("function", typeof WASM.compileRun);
