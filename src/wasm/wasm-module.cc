@@ -73,7 +73,7 @@ Handle<Code> CreatePlaceholderCode(Isolate* isolate, uint32_t index) {
 
 // Helper function to compile a single function.
 Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
-                             const WasmFunction& function) {
+                             const WasmFunction& function, int index) {
   // Initialize the function environment for decoding.
   FunctionEnv env;
   env.module = module_env;
@@ -103,8 +103,25 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
   // Run the compiler pipeline to generate machine code.
   compiler::CallDescriptor* descriptor = const_cast<compiler::CallDescriptor*>(
       module_env->GetWasmCallDescriptor(&zone, function.sig));
-  return compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor,
-                                                    &graph);
+  Handle<Code> code =
+      compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor, &graph);
+
+#ifdef ENABLE_DISASSEMBLER
+  // Disassemble the code for debugging.
+  if (!code.is_null() && FLAG_print_opt_code) {
+    static const int kBufferSize = 128;
+    char buffer[kBufferSize];
+    const char* name = "";
+    if (function.name_offset > 0) {
+      const byte* ptr = module_env->module->module_start + function.name_offset;
+      name = reinterpret_cast<const char*>(ptr);
+    }
+    snprintf(buffer, kBufferSize, "WASM function #%d:%s", index, name);
+    OFStream os(stdout);
+    code->Disassemble(buffer, os);
+  }
+#endif
+  return code;
 }
 
 
@@ -521,7 +538,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
       JSObject::AddProperty(module, name, undefined, DONT_DELETE);
     } else {
       // Compile the function and install it in the code table.
-      Handle<Code> code = CompileFunction(isolate, &module_env, func);
+      Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
       if (!code.is_null()) {
         function_code[index] = code;
         code_table->set(index, *code);
@@ -674,7 +691,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
     for (const WasmFunction& func : *module->functions) {
       if (!func.external) {
         // Compile the function and install it in the code table.
-        Handle<Code> code = CompileFunction(isolate, &module_env, func);
+        Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
         function_code[index] = code;
         if (!code.is_null() && func.exported) main_code = code;
       }

@@ -16,6 +16,15 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
+#if DEBUG
+#define TRACE(...)                                    \
+  do {                                                \
+    if (FLAG_trace_wasm_decoder) PrintF(__VA_ARGS__); \
+  } while (false)
+#else
+#define TRACE(...)
+#endif
+
 // The root of a decoded tree.
 struct Tree {
   LocalType type : 3;  // tree type.
@@ -120,6 +129,13 @@ class LR_WasmDecoder {
       } else {
         result_.val = trees_[0];
       }
+    }
+    if (result_.ok()) {
+      TRACE("wasm-decode ok\n\n");
+    } else {
+      TRACE("wasm-error  @+%d: %s\n\n",
+            static_cast<int>(result_.error_pc - start_),
+            result_.error_msg.get());
     }
     return result_;
   }
@@ -237,8 +253,24 @@ class LR_WasmDecoder {
     }
   }
 
+  char* indentation() {
+    static const int kMaxIndent = 64;
+    static char bytes[kMaxIndent + 1];
+    for (int i = 0; i < kMaxIndent; i++) bytes[i] = ' ';
+    bytes[kMaxIndent] = 0;
+    if (stack_.size() < kMaxIndent / 2) {
+      bytes[stack_.size() * 2] = 0;
+    }
+    return bytes;
+  }
+
   // Decodes the body of a function, producing reduced trees into {result}.
   void DecodeFunctionBody() {
+    TRACE("wasm-decode %p...%p (%d bytes)\n",
+          reinterpret_cast<const void*>(start_),
+          reinterpret_cast<const void*>(limit_),
+          static_cast<int>(limit_ - start_));
+
     if (pc_ >= limit_) return;  // Nothing to do.
 
     while (true) {  // decoding loop.
@@ -249,6 +281,9 @@ class LR_WasmDecoder {
 
       int len = 1;
       WasmOpcode opcode = static_cast<WasmOpcode>(*pc_);
+      TRACE("wasm-decode %s@+%d: 0x%02x %s\n", indentation(),
+            static_cast<int>(pc_ - start_), opcode,
+            WasmOpcodes::OpcodeName(opcode));
 
       FunctionSig* sig = WasmOpcodes::Signature(opcode);
       if (sig) {
@@ -512,6 +547,9 @@ class LR_WasmDecoder {
 
   void Reduce(Production* p) {
     WasmOpcode opcode = p->opcode();
+    TRACE("wasm-reduce %s@+%d: 0x%02x %s\n", indentation(),
+          static_cast<int>(p->pc() - start_), opcode,
+          WasmOpcodes::OpcodeName(opcode));
     FunctionSig* sig = WasmOpcodes::Signature(opcode);
     if (sig) {
       // A simple expression with a fixed signature.
