@@ -488,6 +488,18 @@ TEST_F(SignatureDecodeTest, Fail_invalid_type) {
 }
 
 
+TEST_F(SignatureDecodeTest, Fail_invalid_param_type) {
+  static const int kParamCount = 3;
+  for (int i = 0; i < kParamCount; i++) {
+    byte data[] = {kParamCount, kAstInt32, kAstInt32, kAstInt32, kAstInt32};
+    data[i + 2] = kAstStmt;
+    FunctionSig* sig =
+        DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));
+    EXPECT_EQ(nullptr, sig);
+  }
+}
+
+
 class FunctionVerifyTest : public TestWithZone {};
 
 
