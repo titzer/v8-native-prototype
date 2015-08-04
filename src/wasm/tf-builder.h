@@ -88,6 +88,7 @@ struct TFBuilder {
   //-----------------------------------------------------------------------
   void Branch(TFNode* cond, TFNode** true_node, TFNode** false_node);
   void Return(unsigned count, TFNode** vals);
+  void ReturnVoid();
 
   TFNode* FunctionTableLookup(unsigned index, TFNode* offset) {
     return nullptr;

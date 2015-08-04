@@ -41,7 +41,7 @@ try {
       3,       0,         // local int64 count
       4,       0,         // local float32 count
       5,       0,         // local float64 count
-      kStmtReturn, kExprInt8Const, 1   // body
+      kStmtReturn, kStmtReturn   // body
   );
 
   WASM.verifyFunction(data);

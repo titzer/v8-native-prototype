@@ -117,19 +117,18 @@ class LR_WasmDecoder {
     InitSsaEnv();
     DecodeFunctionBody();
 
-    if (result_.ok() && !ssa_env_->end()) {
-      AddImplicitReturnAtEnd();
-    }
-
     if (result_.ok()) {
+      if (ssa_env_->state == SsaEnv::kReached ||
+          ssa_env_->state == SsaEnv::kMerged) {
+        AddImplicitReturnAtEnd();
+      }
       if (trees_.size() == 0) {
         error(start_, "no trees created");
-      } else if (trees_.size() > 1) {
-        error(start_, "more than one tree created");
       } else {
         result_.val = trees_[0];
       }
     }
+
     if (result_.ok()) {
       TRACE("wasm-decode ok\n\n");
     } else {
@@ -339,6 +338,7 @@ class LR_WasmDecoder {
           int length = Operand<uint8_t>(pc_);
           if (length == 0) {
             BuildInfiniteLoop();
+            ssa_env_->state = SsaEnv::kControlEnd;
             Leaf(kAstStmt);
           } else {
             Shift(kAstStmt, length);
@@ -386,6 +386,7 @@ class LR_WasmDecoder {
           int count = static_cast<int>(function_env_->sig->return_count());
           if (count == 0) {
             builder_.Return(0, builder_.Buffer(0));
+            ssa_env_->state = SsaEnv::kControlEnd;
             Leaf(kAstStmt);
           } else {
             Shift(kAstStmt, count);
@@ -541,13 +542,52 @@ class LR_WasmDecoder {
     }
   }
 
+  Tree* GetLastValueIfBlock(Tree* tree) {
+    while (tree->opcode() == kStmtBlock) {
+      if (tree->count == 0) break;
+      tree = tree->children[tree->count - 1];
+    }
+    return tree;
+  }
+
   void AddImplicitReturnAtEnd() {
-    // TODO(titzer): add implicit return at end?
+    int retcount = static_cast<int>(function_env_->sig->return_count());
+    if (retcount == 0) return builder_.ReturnVoid();
+
+    if (trees_.size() < function_env_->sig->return_count()) {
+      char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
+      snprintf(buffer, kErrorMsgSize,
+               "ImplicitReturn expects %d arguments, only %d remain", retcount,
+               static_cast<int>(trees_.size()));
+      error(limit_, buffer);
+      return;
+    }
+
+    TRACE("wasm-decode implicit return of %d args\n", retcount);
+
+    TFNode** buffer = builder_.Buffer(retcount);
+    for (int index = 0; index < retcount; index++) {
+      Tree* tree = GetLastValueIfBlock(trees_[trees_.size() - 1 - index]);
+      buffer[index] = tree->node;
+      LocalType expected = function_env_->sig->GetReturn(index);
+      if (tree->type != expected) {
+        char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
+        snprintf(buffer, kErrorMsgSize,
+                 "ImplicitReturn[%d] expected type %s, found %s of type %s",
+                 index, WasmOpcodes::TypeName(expected),
+                 WasmOpcodes::OpcodeName(tree->opcode()),
+                 WasmOpcodes::TypeName(tree->type));
+        error(limit_, buffer, tree->pc);
+        return;
+      }
+    }
+
+    builder_.Return(retcount, buffer);
   }
 
   void Reduce(Production* p) {
     WasmOpcode opcode = p->opcode();
-    TRACE("wasm-reduce %s@+%d: 0x%02x %s\n", indentation(),
+    TRACE("-----reduce %s@+%d: 0x%02x %s\n", indentation(),
           static_cast<int>(p->pc() - start_), opcode,
           WasmOpcodes::OpcodeName(opcode));
     FunctionSig* sig = WasmOpcodes::Signature(opcode);
@@ -618,7 +658,6 @@ class LR_WasmDecoder {
       }
       case kStmtBlock:
       case kStmtLoop: {
-        //        TypeCheckLast(p, kAstStmt);
         if (p->done()) {
           Block* last = &blocks_.back();
           if (!ssa_env_->end()) {
@@ -661,12 +700,11 @@ class LR_WasmDecoder {
           SetEnv(env->true_env);
         } else if (p->index == 2) {
           // True block done. Switch to environment for false branch.
-          //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
+          env->true_env = ssa_env_;
           SetEnv(env->false_env);
         } else if (p->index == 3) {
           // False block done. Switch to environment for merge.
-          //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
           if (ssa_env_->end()) {
             SetEnv(env->true_env);

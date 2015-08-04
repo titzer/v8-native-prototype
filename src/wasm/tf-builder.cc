@@ -512,6 +512,12 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
 }
 
 
+void TFBuilder::ReturnVoid() {
+  TFNode** vals = Buffer(0);
+  Return(0, vals);
+}
+
+
 TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   DCHECK_NULL(args[0]);
   if (!graph) return nullptr;

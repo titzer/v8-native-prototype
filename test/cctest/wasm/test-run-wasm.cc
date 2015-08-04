@@ -307,6 +307,33 @@ TEST(Run_WasmInt8Const) {
 }
 
 
+TEST(Run_WasmInt8Const_fallthru1) {
+  WasmRunner<int8_t> r;
+  const byte kExpectedValue = 122;
+  // kExpectedValue
+  BUILD(r, WASM_INT8(kExpectedValue));
+  CHECK_EQ(kExpectedValue, r.Call());
+}
+
+
+TEST(Run_WasmInt8Const_fallthru2) {
+  WasmRunner<int8_t> r;
+  const byte kExpectedValue = 123;
+  // -99 kExpectedValue
+  BUILD(r, WASM_INT8(-99), WASM_INT8(kExpectedValue));
+  CHECK_EQ(kExpectedValue, r.Call());
+}
+
+
+TEST(Run_WasmInt8Const_comma1) {
+  WasmRunner<int8_t> r;
+  const byte kExpectedValue = 124;
+  // -98, kExpectedValue
+  BUILD(r, WASM_COMMA(WASM_INT8(-98), WASM_INT8(kExpectedValue)));
+  CHECK_EQ(kExpectedValue, r.Call());
+}
+
+
 TEST(Run_WasmInt8Const_all) {
   for (int value = -128; value <= 127; value++) {
     WasmRunner<int8_t> r;
@@ -372,6 +399,14 @@ TEST(Run_WasmInt32Param0) {
 }
 
 
+TEST(Run_WasmInt32Param0_fallthru) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // local[0]
+  BUILD(r, WASM_GET_LOCAL(0));
+  FOR_INT32_INPUTS(i) { CHECK_EQ(*i, r.Call(*i)); }
+}
+
+
 TEST(Run_WasmInt32Param1) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
   // return(local[1])
@@ -392,6 +427,14 @@ TEST(Run_WasmInt32Add_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // return p0 + 13
   BUILD(r, WASM_RETURN(WASM_INT32_ADD(WASM_INT8(13), WASM_GET_LOCAL(0))));
+  FOR_INT32_INPUTS(i) { CHECK_EQ(*i + 13, r.Call(*i)); }
+}
+
+
+TEST(Run_WasmInt32Add_P_fallthru) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // p0 + 13
+  BUILD(r, WASM_INT32_ADD(WASM_INT8(13), WASM_GET_LOCAL(0)));
   FOR_INT32_INPUTS(i) { CHECK_EQ(*i + 13, r.Call(*i)); }
 }
 
@@ -637,7 +680,7 @@ TEST(Run_Wasm_VoidReturn) {
   WasmRunner<void> r;
   r.function_env = &r.env_v_v;
   BUILD(r, WASM_RETURN0);
-  // TODO(titzer): code generator fixes:  r.Call();
+  r.Call();
 }
 
 
@@ -696,6 +739,19 @@ TEST(Run_Wasm_Ternary_P) {
 }
 
 
+TEST(Run_Wasm_Ternary_P_fallthru) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // p0 ? 11 : 22;
+  BUILD(r, WASM_TERNARY(WASM_GET_LOCAL(0),  // --
+                        WASM_INT8(11),      // --
+                        WASM_INT8(22)));    // --
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i ? 11 : 22;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
 TEST(Run_Wasm_Comma_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // return p0, 17;
@@ -712,6 +768,20 @@ TEST(Run_Wasm_CountDown) {
                          WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
                                                           WASM_INT8(1)))),
             WASM_RETURN(WASM_GET_LOCAL(0))));
+  CHECK_EQ(0, r.Call(1));
+  CHECK_EQ(0, r.Call(10));
+  CHECK_EQ(0, r.Call(100));
+}
+
+
+TEST(Run_Wasm_CountDown_fallthru) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_BLOCK(
+            2, WASM_LOOP(2, WASM_IF(WASM_NOT(WASM_GET_LOCAL(0)), WASM_BREAK(0)),
+                         WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
+                                                          WASM_INT8(1)))),
+            WASM_GET_LOCAL(0)));
   CHECK_EQ(0, r.Call(1));
   CHECK_EQ(0, r.Call(10));
   CHECK_EQ(0, r.Call(100));
@@ -989,12 +1059,21 @@ TEST(Build_Wasm_Infinite_Loop) {
 }
 
 
-TEST(Run_Wasm_Infinite_Loop_not_taken) {
+TEST(Run_Wasm_Infinite_Loop_not_taken1) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_INFINITE_LOOP,
                         WASM_RETURN(WASM_INT8(45))));
   // Run the code, but don't go into the infinite loop.
   CHECK_EQ(45, r.Call(0));
+}
+
+
+TEST(Run_Wasm_Infinite_Loop_not_taken2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_RETURN(WASM_INT8(45)),
+                        WASM_INFINITE_LOOP));
+  // Run the code, but don't go into the infinite loop.
+  CHECK_EQ(45, r.Call(1));
 }
 
 
@@ -1277,6 +1356,33 @@ TEST(Run_WasmCallEmpty) {
 
   int32_t result = r.Call();
   CHECK_EQ(kExpected, result);
+}
+
+
+TEST(Run_WasmCallVoid) {
+  const byte kMemOffset = 8;
+  const int32_t kElemNum = kMemOffset / sizeof(int32_t);
+  const int32_t kExpected = -414444;
+  // Build the target function.
+  TestSignatures sigs;
+  TestingModule module;
+  module.AddMemory(16);
+  module.RandomizeMemory();
+  WasmFunctionCompiler t(sigs.v_v());
+  t.env.module = &module;
+  BUILD(t, WASM_STORE_MEM(kMemInt32, WASM_INT8(kMemOffset),
+                          WASM_INT32(kExpected)));
+  unsigned index = t.CompileAndAdd(&module);
+
+  // Build the calling function.
+  WasmRunner<int32_t> r;
+  r.function_env->module = &module;
+  BUILD(r, WASM_CALL_FUNCTION0(index),
+        WASM_LOAD_MEM(kMemInt32, WASM_INT8(kMemOffset)));
+
+  int32_t result = r.Call();
+  CHECK_EQ(kExpected, result);
+  CHECK_EQ(kExpected, module.raw_mem_start<int32_t>()[kElemNum]);
 }
 
 
