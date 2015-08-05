@@ -434,6 +434,20 @@ class ModuleDecoder {
   }
 };
 
+
+size_t AllocateGlobalsOffsets(std::vector<WasmGlobal>* globals) {
+  uint32_t offset = 0;
+  if (!globals) return 0;
+  for (WasmGlobal& global : *globals) {
+    byte size = WasmOpcodes::MemSize(global.type);
+    offset = (offset + size - 1) & ~(size - 1);  // align
+    global.offset = offset;
+    offset += size;
+  }
+  return offset;
+}
+
+
 size_t ComputeGlobalsSize(std::vector<WasmGlobal>* globals) {
   uint32_t globals_size = 0;
   if (!globals) return 0;
@@ -685,7 +699,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   // TODO(titzer): 128mb is just a hack until the memory size is encoded.
   size_t mem_size = module->mem_size_log2 == 0 ? 128 * 1024 * 1024
                                                : 1 << module->mem_size_log2;
-  size_t globals_size = ComputeGlobalsSize(module->globals);
+  size_t globals_size = AllocateGlobalsOffsets(module->globals);
 
   // TODO(titzer): use embedder API to allocate internal module?
   base::SmartArrayPointer<byte> mem_addr(new byte[mem_size]);
