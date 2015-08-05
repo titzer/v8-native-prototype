@@ -53,7 +53,8 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
                             NewStringType::kNormal).ToLocalChecked());
   }
-  // TODO(titzer): free memory created by DecodeWasmModule.
+
+  if (result.val) delete result.val;
 }
 
 
@@ -79,7 +80,8 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
                             NewStringType::kNormal).ToLocalChecked());
   }
-  // TODO(titzer): free memory created by DecodeWasmFunction.
+
+  if (result.val) delete result.val;
 }
 
 
@@ -88,6 +90,8 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   RawBuffer buffer = GetRawBufferArgument("WASM.compileRun()", args);
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
 
+  // TODO(titzer): remove pre-verification of the whole module once
+  // the compileRun() method produces a decent per-function error.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
       isolate, &zone, buffer.start, buffer.end);
@@ -98,11 +102,13 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
                             NewStringType::kNormal).ToLocalChecked());
+  } else {
+    // Success. Compile and run!
+    int32_t retval = i::wasm::CompileAndRunWasmModule(isolate, result.val);
+    args.GetReturnValue().Set(retval);
   }
 
-  int32_t retval =
-      i::wasm::CompileAndRunWasmModule(isolate, buffer.start, buffer.end);
-  args.GetReturnValue().Set(retval);
+  if (result.val) delete result.val;
 }
 }
 

@@ -129,16 +129,21 @@ typedef Result<WasmFunction*> FunctionResult;
 
 
 ModuleResult DecodeWasmModule(Isolate* isolate, Zone* zone,
-                              const byte* module_start, const byte* module_end);
+                              const byte* module_start, const byte* module_end,
+                              bool verify_functions = true);
 
 FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone, ModuleEnv* env,
                                   const byte* function_start,
                                   const byte* function_end);
 
 // For testing. Decode, verify, and run the last exported function in the
-// given encoding module.
+// given encoded module.
 int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
                                 const byte* module_end);
+
+// For testing. Decode, verify, and run the last exported function in the
+// given decoded module.
+int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module);
 
 // Exposed for testing. Decodes a single function signature, allocating it
 // in the given zone. Returns {nullptr} upon failure.

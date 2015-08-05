@@ -433,6 +433,16 @@ class ModuleDecoder {
     }
   }
 };
+
+size_t ComputeGlobalsSize(std::vector<WasmGlobal>* globals) {
+  uint32_t globals_size = 0;
+  if (!globals) return 0;
+  for (const WasmGlobal& global : *globals) {  // maximum of all globals.
+    uint32_t end = global.offset + WasmOpcodes::MemSize(global.type);
+    if (end > globals_size) globals_size = end;
+  }
+  return globals_size;
+}
 }  // namespace
 
 
@@ -496,11 +506,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   //-------------------------------------------------------------------------
   // Allocate the globals area if necessary.
   //-------------------------------------------------------------------------
-  uint32_t globals_size = 0;
-  for (const WasmGlobal& global : *globals) {  // maximum of all globals.
-    uint32_t end = global.offset + WasmOpcodes::MemSize(global.type);
-    if (end > globals_size) globals_size = end;
-  }
+  uint32_t globals_size = ComputeGlobalsSize(globals);
   byte* globals_addr = nullptr;
   if (globals_size > 0) {
     Handle<JSArrayBuffer> globals_buffer =
@@ -618,15 +624,15 @@ class FunctionError : public FunctionResult {
 
 
 ModuleResult DecodeWasmModule(Isolate* isolate, Zone* zone,
-                              const byte* module_start,
-                              const byte* module_end) {
+                              const byte* module_start, const byte* module_end,
+                              bool verify_functions) {
   size_t size = module_end - module_start;
   if (module_start > module_end) return ModuleError("start > end");
   if (size < kMinModuleSize) return ModuleError("size < minimum module size");
   if (size >= kMaxModuleSize) return ModuleError("size > maximum module size");
   WasmModule* module = new WasmModule();
   ModuleDecoder decoder(zone, module_start, module_end);
-  return decoder.DecodeModule(module);
+  return decoder.DecodeModule(module, verify_functions);
 }
 
 
@@ -653,64 +659,72 @@ FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone,
 
 int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
                                 const byte* module_end) {
-  {
-    HandleScope scope(isolate);
-    Zone zone;
-    ModuleResult result =
-        DecodeWasmModule(isolate, &zone, module_start, module_end);
-    if (result.failed()) {
-      // Module verification failed. throw.
-      std::ostringstream str;
-      str << "WASM.compileRun() failed: " << result;
-      isolate->Throw(
-          *isolate->factory()->NewStringFromAsciiChecked(str.str().c_str()));
-      return -1;
-    }
-
-    base::SmartPointer<WasmModule> module(result.val);
-
-    // Allocate temporary linear memory and globals.
-    size_t mem_size = 128 * 1024 * 1024;
-    size_t globals_size = 0;
-    // TODO: use embedder API?
-    base::SmartArrayPointer<byte> mem_addr(new byte[mem_size]);
-    base::SmartArrayPointer<byte> globals_addr(new byte[globals_size]);
-
-    // Create module environment.
-    ModuleEnv module_env;
-    module_env.module = module.get();
-    module_env.mem_start = reinterpret_cast<uintptr_t>(mem_addr.get());
-    module_env.mem_end = reinterpret_cast<uintptr_t>(mem_addr.get()) + mem_size;
-    module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr.get());
-    std::vector<Handle<Code>> function_code(module->functions->size());
-    module_env.function_code = &function_code;
-
-    // Compile all functions.
-    Handle<Code> main_code = Handle<Code>::null();  // record last code.
-    int index = 0;
-    for (const WasmFunction& func : *module->functions) {
-      if (!func.external) {
-        // Compile the function and install it in the code table.
-        Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
-        function_code[index] = code;
-        if (!code.is_null() && func.exported) main_code = code;
-      }
-      index++;
-    }
-
-    if (!main_code.is_null()) {
-      // Run the main code.
-      int32_t (*raw_func)() = reinterpret_cast<int (*)()>(main_code->entry());
-      return raw_func();
-    } else {
-      // No main code was found.
-      isolate->Throw(*isolate->factory()->NewStringFromStaticChars(
-          "WASM.compileRun() failed: no valid main code produced."));
-      return -1;
-    }
+  HandleScope scope(isolate);
+  Zone zone;
+  // Decode the module, but don't verify function bodies, since we'll
+  // be compiling them anyway.
+  ModuleResult result =
+      DecodeWasmModule(isolate, &zone, module_start, module_end, false);
+  if (result.failed()) {
+    // Module verification failed. throw.
+    std::ostringstream str;
+    str << "WASM.compileRun() failed: " << result;
+    isolate->Throw(
+        *isolate->factory()->NewStringFromAsciiChecked(str.str().c_str()));
+    return -1;
   }
 
-  // Return a number representing the return value.
+  int32_t retval = CompileAndRunWasmModule(isolate, result.val);
+  delete result.val;
+  return retval;
+}
+
+
+int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
+  // Allocate temporary linear memory and globals.
+  // TODO(titzer): 128mb is just a hack until the memory size is encoded.
+  size_t mem_size = module->mem_size_log2 == 0 ? 128 * 1024 * 1024
+                                               : 1 << module->mem_size_log2;
+  size_t globals_size = ComputeGlobalsSize(module->globals);
+
+  // TODO(titzer): use embedder API to allocate internal module?
+  base::SmartArrayPointer<byte> mem_addr(new byte[mem_size]);
+  base::SmartArrayPointer<byte> globals_addr(new byte[globals_size]);
+
+  memset(mem_addr.get(), 0, mem_size);
+  memset(globals_addr.get(), 0, globals_size);
+
+  // Create module environment.
+  ModuleEnv module_env;
+  module_env.module = module;
+  module_env.mem_start = reinterpret_cast<uintptr_t>(mem_addr.get());
+  module_env.mem_end = reinterpret_cast<uintptr_t>(mem_addr.get()) + mem_size;
+  module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr.get());
+  std::vector<Handle<Code>> function_code(module->functions->size());
+  module_env.function_code = &function_code;
+
+  // Compile all functions.
+  Handle<Code> main_code = Handle<Code>::null();  // record last code.
+  int index = 0;
+  for (const WasmFunction& func : *module->functions) {
+    if (!func.external) {
+      // Compile the function and install it in the code table.
+      Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
+      function_code[index] = code;
+      if (!code.is_null() && func.exported) main_code = code;
+    }
+    index++;
+  }
+
+  if (!main_code.is_null()) {
+    // Run the main code.
+    int32_t (*raw_func)() = reinterpret_cast<int (*)()>(main_code->entry());
+    return raw_func();
+  } else {
+    // No main code was found.
+    isolate->Throw(*isolate->factory()->NewStringFromStaticChars(
+        "WASM.compileRun() failed: no valid main code produced."));
+  }
   return -1;
 }
 }

@@ -265,10 +265,11 @@ class LR_WasmDecoder {
 
   // Decodes the body of a function, producing reduced trees into {result}.
   void DecodeFunctionBody() {
-    TRACE("wasm-decode %p...%p (%d bytes)\n",
+    TRACE("wasm-decode %p...%p (%d bytes) %s\n",
           reinterpret_cast<const void*>(start_),
           reinterpret_cast<const void*>(limit_),
-          static_cast<int>(limit_ - start_));
+          static_cast<int>(limit_ - start_),
+          builder_.graph ? "graph building" : "");
 
     if (pc_ >= limit_) return;  // Nothing to do.
 
