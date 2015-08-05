@@ -60,6 +60,16 @@ static compiler::MachineType MachineTypeFor(MemType type) {
 }
 
 
+static void MergeControlToEnd(TFGraph* graph, TFNode* node) {
+  compiler::Graph* g = graph->graph();
+  if (g->end()) {
+    compiler::NodeProperties::MergeControlToEnd(g, graph->common(), node);
+  } else {
+    g->SetEnd(g->NewNode(graph->common()->End(1), node));
+  }
+}
+
+
 TFNode* TFBuilder::Error() {
   if (!graph) return nullptr;
   return graph->Dead();
@@ -86,6 +96,15 @@ TFNode* TFBuilder::Param(unsigned index, LocalType type) {
 TFNode* TFBuilder::Loop(TFNode* entry) {
   return graph ? graph->graph()->NewNode(graph->common()->Loop(1), entry)
                : nullptr;
+}
+
+
+TFNode* TFBuilder::Terminate(TFNode* effect, TFNode* control) {
+  if (!graph) return nullptr;
+  TFNode* terminate =
+      graph->graph()->NewNode(graph->common()->Terminate(), effect, control);
+  MergeControlToEnd(graph, terminate);
+  return terminate;
 }
 
 
@@ -504,11 +523,7 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   buf[count + 1] = *control;
   TFNode* ret = g->NewNode(graph->common()->Return(), count + 2, vals);
 
-  if (g->end()) {
-    compiler::NodeProperties::MergeControlToEnd(g, graph->common(), ret);
-  } else {
-    g->SetEnd(g->NewNode(graph->common()->End(1), ret));
-  }
+  MergeControlToEnd(graph, ret);
 }
 
 

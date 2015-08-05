@@ -68,6 +68,7 @@ struct TFBuilder {
   TFNode* Start(unsigned params);
   TFNode* Param(unsigned index, LocalType type);
   TFNode* Loop(TFNode* entry);
+  TFNode* Terminate(TFNode* effect, TFNode* control);
   TFNode* Merge(unsigned count, TFNode** controls);
   TFNode* Phi(LocalType type, unsigned count, TFNode** vals, TFNode* control);
   TFNode* EffectPhi(unsigned count, TFNode** effects, TFNode* control);

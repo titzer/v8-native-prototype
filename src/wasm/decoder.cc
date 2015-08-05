@@ -1024,10 +1024,10 @@ class LR_WasmDecoder {
   }
 
   void PrepareForLoop(SsaEnv* env) {
-    // TODO(titzer): add Terminate for all loops.
     env->state = SsaEnv::kMerged;
     env->control = builder_.Loop(env->control);
     env->effect = builder_.EffectPhi(1, &env->effect, env->control);
+    builder_.Terminate(env->effect, env->control);
     for (int i = EnvironmentCount() - 1; i >= 0; i--) {
       env->locals[i] = builder_.Phi(function_env_->GetLocalType(i), 1,
                                     &env->locals[i], env->control);

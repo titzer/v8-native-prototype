@@ -1054,8 +1054,9 @@ TEST(Run_Wasm_Switch_Nf_N) {
 
 TEST(Build_Wasm_Infinite_Loop) {
   WasmRunner<int32_t> r(kMachInt32);
-  // Only build the graph, don't run the code.
+  // Only build the graph and compile, don't run.
   BUILD(r, WASM_INFINITE_LOOP);
+  r.GenerateCode();
 }
 
 
