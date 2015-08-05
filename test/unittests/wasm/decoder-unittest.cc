@@ -656,6 +656,16 @@ TEST_F(DecoderTest, UnreachableCode3) {
 }
 
 
+TEST_F(DecoderTest, Unreachable4) {
+  EXPECT_FAILURE_INLINE(
+      &env_i_i,
+      WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(1)),
+                              WASM_SET_LOCAL(0, WASM_INT8(99))),
+                 /*unreachable*/ WASM_RETURN(WASM_GET_LOCAL(0))),
+      WASM_INT8(43));
+}
+
+
 TEST_F(DecoderTest, Codeiness) {
   VERIFY(kStmtLoop, 2,                         // --
          kExprSetLocal, 0, kExprInt8Const, 0,  // --
@@ -1221,6 +1231,108 @@ TEST_F(DecoderTest, AllStoreGlobalCombinations) {
   }
 }
 
+
+TEST_F(DecoderTest, BreakNesting1) {
+  for (int i = 0; i < 5; i++) {
+    // (block[2] (loop[2] (if (get p) break[N]) (set p 1)) (return p))
+    byte code[] = {
+        WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(i)),
+                                WASM_SET_LOCAL(0, WASM_INT8(1))),
+                   WASM_RETURN(WASM_GET_LOCAL(0)))};
+    if (i == 0) {
+      EXPECT_VERIFIES(&env_i_i, code);
+    } else {
+      EXPECT_FAILURE(&env_i_i, code);
+    }
+  }
+}
+
+
+TEST_F(DecoderTest, BreakNesting2) {
+  env_v_v.AddLocals(kAstInt32, 1);
+  for (int i = 0; i < 5; i++) {
+    // (block[2] (loop[2] (if (get p) break[N]) (set p 1)) (return p)) (11)
+    byte code[] = {
+        WASM_BLOCK(1, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(i)),
+                                WASM_SET_LOCAL(0, WASM_INT8(1)))),
+        WASM_INT8(11)};
+    if (i < 2) {
+      EXPECT_VERIFIES(&env_v_v, code);
+    } else {
+      EXPECT_FAILURE(&env_v_v, code);
+    }
+  }
+}
+
+
+TEST_F(DecoderTest, BreakNesting3) {
+  env_v_v.AddLocals(kAstInt32, 1);
+  for (int i = 0; i < 5; i++) {
+    // (block[1] (loop[1] (block[1] (if (get p) break[N])
+    byte code[] = {WASM_BLOCK(
+        1, WASM_LOOP(
+               1, WASM_BLOCK(1, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(i)))))};
+    if (i < 3) {
+      EXPECT_VERIFIES(&env_v_v, code);
+    } else {
+      EXPECT_FAILURE(&env_v_v, code);
+    }
+  }
+}
+
+
+TEST_F(DecoderTest, BreakNesting_6_levels) {
+  for (int mask = 0; mask < 64; mask++) {
+    for (int i = 0; i < 12; i++) {
+      byte code[] = {
+          kStmtBlock, 1,                    // --
+          kStmtBlock, 1,                    // --
+          kStmtBlock, 1,                    // --
+          kStmtBlock, 1,                    // --
+          kStmtBlock, 1,                    // --
+          kStmtBlock, 1,                    // --
+          kStmtBreak, static_cast<byte>(i)  // --
+      };
+
+      for (int l = 0; l < 6; l++) {
+        if (mask & (1 << l)) code[l * 2] = kStmtLoop;
+      }
+
+      if (i < 6) {
+        EXPECT_VERIFIES(&env_v_v, code);
+      } else {
+        EXPECT_FAILURE(&env_v_v, code);
+      }
+    }
+  }
+}
+
+
+TEST_F(DecoderTest, ContinueNesting_6_levels) {
+  for (int mask = 0; mask < 64; mask++) {
+    for (int i = 0; i < 12; i++) {
+      byte code[] = {
+          kStmtBlock, 1,                       // --
+          kStmtBlock, 1,                       // --
+          kStmtBlock, 1,                       // --
+          kStmtBlock, 1,                       // --
+          kStmtBlock, 1,                       // --
+          kStmtBlock, 1,                       // --
+          kStmtContinue, static_cast<byte>(i)  // --
+      };
+
+      for (int l = 0; l < 6; l++) {
+        if (mask & (1 << l)) code[10 - l * 2] = kStmtLoop;
+      }
+
+      if (i < 6 && (mask & (1 << i))) {
+        EXPECT_VERIFIES(&env_v_v, code);
+      } else {
+        EXPECT_FAILURE(&env_v_v, code);
+      }
+    }
+  }
+}
 
 //--------------------------------------------------------------------------
 // TODO(titzer): not a real test.

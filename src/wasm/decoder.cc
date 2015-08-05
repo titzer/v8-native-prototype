@@ -59,7 +59,8 @@ struct SsaEnv {
   TFNode* effect;
   TFNode** locals;
 
-  bool end() { return state == kControlEnd; }
+  bool go() { return state == kReached || state == kMerged; }
+  //  bool end() { return state == kControlEnd; }
   void Kill() {
     state = kControlEnd;
     locals = nullptr;
@@ -118,8 +119,7 @@ class LR_WasmDecoder {
     DecodeFunctionBody();
 
     if (result_.ok()) {
-      if (ssa_env_->state == SsaEnv::kReached ||
-          ssa_env_->state == SsaEnv::kMerged) {
+      if (ssa_env_->go()) {
         AddImplicitReturnAtEnd();
       }
       if (trees_.size() == 0) {
@@ -274,7 +274,7 @@ class LR_WasmDecoder {
     if (pc_ >= limit_) return;  // Nothing to do.
 
     while (true) {  // decoding loop.
-      if (ssa_env_->end()) {
+      if (!ssa_env_->go()) {
         error(pc_, "unreachable code");
         return;
       }
@@ -634,7 +634,7 @@ class LR_WasmDecoder {
             SsaEnv* true_env = env->true_env = Split(env->false_env);
             SetEnv(env->false_env);
             builder_.Branch(cond, &true_env->control, &env->false_env->control);
-            if (!fallthru->end()) {
+            if (fallthru->go()) {
               // StmtSwitch falls through to next case, StmtSwitchNf to the end.
               SsaEnv* next = p->opcode() == kStmtSwitch
                                  ? true_env
@@ -646,7 +646,7 @@ class LR_WasmDecoder {
             // Finished all cases.
             Block* last = &blocks_.back();
             Goto(env->false_env, last->break_env);
-            if (!fallthru->end()) {
+            if (fallthru->go()) {
               // Handle fallthru from this case to the end.
               Goto(fallthru, last->break_env);
             }
@@ -661,7 +661,7 @@ class LR_WasmDecoder {
       case kStmtLoop: {
         if (p->done()) {
           Block* last = &blocks_.back();
-          if (!ssa_env_->end()) {
+          if (ssa_env_->go()) {
             Goto(ssa_env_,
                  opcode == kStmtLoop ? last->cont_env : last->break_env);
           }
@@ -684,7 +684,7 @@ class LR_WasmDecoder {
           //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
           env->false_env->state = SsaEnv::kReached;
-          if (!ssa_env_->end()) Goto(ssa_env_, env->false_env);
+          if (ssa_env_->go()) Goto(ssa_env_, env->false_env);
           SetEnv(env->false_env);
           ifs_.pop_back();
         }
@@ -707,11 +707,11 @@ class LR_WasmDecoder {
         } else if (p->index == 3) {
           // False block done. Switch to environment for merge.
           IfEnv* env = &ifs_.back();
-          if (ssa_env_->end()) {
-            SetEnv(env->true_env);
-          } else {
+          if (ssa_env_->go()) {
             ssa_env_->state = SsaEnv::kReached;
-            Goto(env->true_env, ssa_env_);
+            if (env->true_env->go()) Goto(env->true_env, ssa_env_);
+          } else {
+            SetEnv(env->true_env);
           }
           ifs_.pop_back();
         }
@@ -891,11 +891,11 @@ class LR_WasmDecoder {
           // False expr done. Switch to environment for merge.
           TypeCheckLast(p, left->type);
           IfEnv* env = &ifs_.back();
-          if (ssa_env_->end()) {
-            SetEnv(env->true_env);
-          } else {
+          if (ssa_env_->go()) {
             ssa_env_->state = SsaEnv::kReached;
-            Goto(env->true_env, ssa_env_);
+            if (env->true_env->go()) Goto(env->true_env, ssa_env_);
+          } else {
+            SetEnv(env->true_env);
           }
           ifs_.pop_back();
           // Create a phi for the value output.
@@ -940,6 +940,7 @@ class LR_WasmDecoder {
   }
 
   void SetEnv(SsaEnv* env) {
+    TRACE("  env = %p (%d)\n", static_cast<void*>(env), env->state);
     ssa_env_ = env;
     builder_.control = &env->control;
     builder_.effect = &env->effect;
@@ -947,7 +948,7 @@ class LR_WasmDecoder {
 
   void Goto(SsaEnv* from, SsaEnv* to) {
     DCHECK_NOT_NULL(to);
-    if (from->end()) return;
+    if (!from->go()) return;
     switch (to->state) {
       case SsaEnv::kUnreachable: {  // Overwrite destination.
         to->state = SsaEnv::kReached;
@@ -1041,12 +1042,15 @@ class LR_WasmDecoder {
     result->locals =
         size > 0 ? reinterpret_cast<TFNode**>(zone_->New(size)) : nullptr;
     if (from) {
-      DCHECK(!from->end());
+      DCHECK(from->go());
       memcpy(result->locals, from->locals, size);
       result->control = from->control;
       result->effect = from->effect;
+      result->state = from->state == SsaEnv::kUnreachable ? SsaEnv::kUnreachable
+                                                          : SsaEnv::kReached;
+    } else {
+      result->state = SsaEnv::kReached;
     }
-    result->state = SsaEnv::kReached;
     return result;
   }
 

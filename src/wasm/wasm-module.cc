@@ -520,7 +520,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   //-------------------------------------------------------------------------
   // Allocate the globals area if necessary.
   //-------------------------------------------------------------------------
-  uint32_t globals_size = ComputeGlobalsSize(globals);
+  size_t globals_size = ComputeGlobalsSize(globals);
   byte* globals_addr = nullptr;
   if (globals_size > 0) {
     Handle<JSArrayBuffer> globals_buffer =

@@ -801,6 +801,30 @@ TEST(Run_Wasm_WhileCountDown) {
 }
 
 
+TEST(Run_Wasm_Loop_if_break1) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(0)),
+                                   WASM_SET_LOCAL(0, WASM_INT8(99))),
+                      WASM_RETURN(WASM_GET_LOCAL(0))));
+  CHECK_EQ(99, r.Call(0));
+  CHECK_EQ(3, r.Call(3));
+  CHECK_EQ(10000, r.Call(10000));
+  CHECK_EQ(-29, r.Call(-29));
+}
+
+
+TEST(Run_Wasm_Loop_if_break_fallthru) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(1, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(1)),
+                                   WASM_SET_LOCAL(0, WASM_INT8(93)))),
+        WASM_GET_LOCAL(0));
+  CHECK_EQ(93, r.Call(0));
+  CHECK_EQ(3, r.Call(3));
+  CHECK_EQ(10001, r.Call(10001));
+  CHECK_EQ(-22, r.Call(-22));
+}
+
+
 TEST(Run_Wasm_LoadMemInt32) {
   WasmRunner<int32_t> r(kMachInt32);
   TestingModule module;
