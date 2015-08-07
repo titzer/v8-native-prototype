@@ -1551,4 +1551,49 @@ TEST(Run_WasmModule_CallAdd) {
   CHECK_EQ(99, result);
 }
 
+
+TEST(Run_WasmModule_ReadLoadedDataSegment) {
+  static const int kModuleHeaderSize = 6;
+  static const int kFunctionSize = 24;
+  static const int kDataSegmentSize = 13;
+  static const byte kCodeStartOffset0 =
+      kModuleHeaderSize + 2 + kFunctionSize * 1 + kDataSegmentSize;
+  static const byte kCodeEndOffset0 = kCodeStartOffset0 + 5;
+  static const byte kDataSegmentOffset0 = kCodeEndOffset0;
+  static const byte kDataSegmentSize0 = 4;
+  static const byte kDataSegmentDest0 = 12;
+  static const byte data[] = {
+      MODULE_HEADER(0, 1, 1),  // globals, functions, data segments
+      // func#0 -----------------------------------------
+      2, kAstInt32, kAstInt32, kAstInt32,  // signature: int,int -> int
+      0, 0, 0, 0,                          // name offset
+      kCodeStartOffset0, 0, 0, 0,          // code start offset
+      kCodeEndOffset0, 0, 0, 0,            // code end offset
+      0, 0,                                // local int32 count
+      0, 0,                                // local int64 count
+      0, 0,                                // local float32 count
+      0, 0,                                // local float64 count
+      1,                                   // exported
+      0,                                   // external
+      // segment#0 -------------------------------------------------
+      kDataSegmentDest0, 0, 0, 0,    // dest addr
+      kDataSegmentOffset0, 0, 0, 0,  // source offset
+      kDataSegmentSize0, 0, 0, 0,    // source size
+      1,                             // init
+      // body#0 -----------------------------------------
+      kStmtReturn,                                // --
+      kExprInt32LoadMemL,                         // --
+      WasmOpcodes::LoadStoreAccessOf(kMemInt32),  // --
+      kExprInt8Const,                             // --
+      kDataSegmentDest0,                          // --
+      // data -----------------------------------------
+      0xaa, 0xbb, 0xcc, 0xdd  // --
+  };
+
+  Isolate* isolate = CcTest::InitIsolateOnce();
+  int32_t result =
+      CompileAndRunWasmModule(isolate, data, data + arraysize(data));
+  CHECK_EQ(0xddccbbaa, result);
+}
+
 #endif  // V8_TURBOFAN_TARGET

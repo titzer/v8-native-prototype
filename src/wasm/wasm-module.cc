@@ -422,6 +422,11 @@ class ModuleDecoder {
   }
 
   void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
+#if DEBUG
+    if (FLAG_wasm_break_on_decoder_error) {
+      base::OS::DebugBreak();
+    }
+#endif
     if (result_.error_code == kSuccess) {
       result_.error_code = kError;  // TODO(titzer): better error code
       size_t len = strlen(msg) + 1;
@@ -456,6 +461,18 @@ size_t ComputeGlobalsSize(std::vector<WasmGlobal>* globals) {
     if (end > globals_size) globals_size = end;
   }
   return globals_size;
+}
+
+void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
+  for (const WasmDataSegment& segment : *module->data_segments) {
+    if (!segment.init) continue;
+    CHECK_LT(segment.dest_addr, mem_size);
+    CHECK_LT(segment.source_size, mem_size);
+    CHECK_LT(segment.dest_addr + segment.source_size, mem_size);
+    byte* addr = mem_addr + segment.dest_addr;
+    memcpy(addr, module->module_start + segment.source_offset,
+           segment.source_size);
+  }
 }
 }  // namespace
 
@@ -500,14 +517,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   }
 
   // Load initialized data segments.
-  for (const WasmDataSegment& segment : *data_segments) {
-    if (!segment.init) continue;
-    CHECK_LT(segment.dest_addr, mem_size);
-    CHECK_LT(segment.source_size, mem_size);
-    CHECK_LT(segment.dest_addr + segment.source_size, mem_size);
-    byte* addr = mem_addr + segment.dest_addr;
-    memcpy(addr, module_start + segment.source_offset, segment.source_size);
-  }
+  LoadDataSegments(this, mem_addr, mem_size);
 
   module->SetInternalField(kWasmMemArrayBuffer, *mem_buffer);
 
@@ -716,6 +726,10 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr.get());
   std::vector<Handle<Code>> function_code(module->functions->size());
   module_env.function_code = &function_code;
+
+  // Load data segments.
+  // TODO(titzer): throw instead of crashing if segments don't fit in memory?
+  LoadDataSegments(module, mem_addr.get(), mem_size);
 
   // Compile all functions.
   Handle<Code> main_code = Handle<Code>::null();  // record last code.
