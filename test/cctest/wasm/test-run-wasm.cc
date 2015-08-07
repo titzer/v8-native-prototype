@@ -1557,7 +1557,7 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   static const int kFunctionSize = 24;
   static const int kDataSegmentSize = 13;
   static const byte kCodeStartOffset0 =
-      kModuleHeaderSize + 2 + kFunctionSize * 1 + kDataSegmentSize;
+      kModuleHeaderSize + kFunctionSize * 1 + kDataSegmentSize;
   static const byte kCodeEndOffset0 = kCodeStartOffset0 + 5;
   static const byte kDataSegmentOffset0 = kCodeEndOffset0;
   static const byte kDataSegmentSize0 = 4;
@@ -1565,16 +1565,16 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   static const byte data[] = {
       MODULE_HEADER(0, 1, 1),  // globals, functions, data segments
       // func#0 -----------------------------------------
-      2, kAstInt32, kAstInt32, kAstInt32,  // signature: int,int -> int
-      0, 0, 0, 0,                          // name offset
-      kCodeStartOffset0, 0, 0, 0,          // code start offset
-      kCodeEndOffset0, 0, 0, 0,            // code end offset
-      0, 0,                                // local int32 count
-      0, 0,                                // local int64 count
-      0, 0,                                // local float32 count
-      0, 0,                                // local float64 count
-      1,                                   // exported
-      0,                                   // external
+      0, kAstInt32,                // signature: void -> int
+      0, 0, 0, 0,                  // name offset
+      kCodeStartOffset0, 0, 0, 0,  // code start offset
+      kCodeEndOffset0, 0, 0, 0,    // code end offset
+      0, 0,                        // local int32 count
+      0, 0,                        // local int64 count
+      0, 0,                        // local float32 count
+      0, 0,                        // local float64 count
+      1,                           // exported
+      0,                           // external
       // segment#0 -------------------------------------------------
       kDataSegmentDest0, 0, 0, 0,    // dest addr
       kDataSegmentOffset0, 0, 0, 0,  // source offset
@@ -1594,6 +1594,40 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   int32_t result =
       CompileAndRunWasmModule(isolate, data, data + arraysize(data));
   CHECK_EQ(0xddccbbaa, result);
+}
+
+
+TEST(Run_WasmModule_CheckMemoryIsZero) {
+  static const int kCheckSize = 16 * 1024;
+  static const int kModuleHeaderSize = 6;
+  static const int kFunctionSize = 24;
+  static const byte kCodeStartOffset0 = kModuleHeaderSize + kFunctionSize * 1;
+  static const byte kCodeEndOffset0 = kCodeStartOffset0 + 31;
+  static const byte data[] = {
+      MODULE_HEADER(0, 1, 0),  // globals, functions, data segments
+      // func#0 -----------------------------------------
+      0, kAstInt32,                // signature: void -> int
+      0, 0, 0, 0,                  // name offset
+      kCodeStartOffset0, 0, 0, 0,  // code start offset
+      kCodeEndOffset0, 0, 0, 0,    // code end offset
+      1, 0,                        // local int32 count
+      0, 0,                        // local int64 count
+      0, 0,                        // local float32 count
+      0, 0,                        // local float64 count
+      1,                           // exported
+      0,                           // external
+      // body#0 -----------------------------------------
+      WASM_WHILE(
+          WASM_INT32_SLT(WASM_GET_LOCAL(0), WASM_INT32(kCheckSize)),
+          WASM_IF_THEN(WASM_LOAD_MEM(kMemInt32, WASM_GET_LOCAL(0)),
+                       WASM_RETURN(WASM_INT8(-1)), WASM_INC_LOCAL_BY(0, 4))),
+      WASM_INT8(11),
+  };
+
+  Isolate* isolate = CcTest::InitIsolateOnce();
+  int32_t result =
+      CompileAndRunWasmModule(isolate, data, data + arraysize(data));
+  CHECK_EQ(11, result);
 }
 
 #endif  // V8_TURBOFAN_TARGET

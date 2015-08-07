@@ -90,11 +90,11 @@
 //------------------------------------------------------------------------------
 #define WASM_WHILE(x, y) \
   kStmtLoop, 2, kStmtIf, kExprBoolNot, x, kStmtBreak, 0, y
-#define WASM_INC_LOCAL(index)                                       \
-  kStmtSetLocal, static_cast<byte>(index), kExprInt32Add, kInt8, 1, \
+#define WASM_INC_LOCAL(index)                                                \
+  kExprSetLocal, static_cast<byte>(index), kExprInt32Add, kExprInt8Const, 1, \
       kExprGetLocal, static_cast<byte>(index)
-#define WASM_INC_LOCAL_BY(index, count)                          \
-  kStmtSetLocal, static_cast<byte>(index), kExprInt32Add, kInt8, \
+#define WASM_INC_LOCAL_BY(index, count)                                   \
+  kExprSetLocal, static_cast<byte>(index), kExprInt32Add, kExprInt8Const, \
       static_cast<int8_t>(count), kExprGetLocal, static_cast<byte>(index)
 
 

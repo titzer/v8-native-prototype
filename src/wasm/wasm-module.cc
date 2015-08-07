@@ -422,12 +422,12 @@ class ModuleDecoder {
   }
 
   void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
-#if DEBUG
-    if (FLAG_wasm_break_on_decoder_error) {
-      base::OS::DebugBreak();
-    }
-#endif
     if (result_.error_code == kSuccess) {
+#if DEBUG
+      if (FLAG_wasm_break_on_decoder_error) {
+        base::OS::DebugBreak();
+      }
+#endif
       result_.error_code = kError;  // TODO(titzer): better error code
       size_t len = strlen(msg) + 1;
       char* result = new char[len];
