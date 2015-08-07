@@ -95,7 +95,7 @@ typedef Signature<LocalType> FunctionSig;
   V(Float32LoadMemL, 0x22, f_i)         \
   V(Float64LoadMemL, 0x23, d_i)         \
   V(Int32LoadMemH, 0x24, i_l)           \
-  V(Int64LoadMemH, 0x25, l_i)           \
+  V(Int64LoadMemH, 0x25, l_l)           \
   V(Float32LoadMemH, 0x26, f_l)         \
   V(Float64LoadMemH, 0x27, d_l)
 

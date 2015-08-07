@@ -452,45 +452,55 @@ class LR_WasmDecoder {
           Shift(type, 1);
           break;
         }
-        // TODO(titzer): factor common code from loads.
-        case kExprInt32LoadMemL: {
-          IntMemAccessTypeOperand(pc_, false);  // check width.
+        case kExprInt32LoadMemL:  // fallthru
+        case kExprInt32LoadMemH: {
+          MemAccessTypeOperand(pc_, kAstInt32);  // check width.
           Shift(kAstInt32, 1);
           len = 2;
           break;
         }
-        case kExprInt64LoadMemL: {
-          IntMemAccessTypeOperand(pc_, true);  // check width.
+        case kExprInt64LoadMemL:  // fallthru.
+        case kExprInt64LoadMemH: {
+          MemAccessTypeOperand(pc_, kAstInt64);  // check width.
           Shift(kAstInt64, 1);
           len = 2;
           break;
         }
-        case kExprFloat32LoadMemL:
+        case kExprFloat32LoadMemL:  // fallthru.
+        case kExprFloat32LoadMemH:
+          MemAccessTypeOperand(pc_, kAstFloat32);  // check width.
           Shift(kAstFloat32, 1);
           len = 2;
           break;
-        case kExprFloat64LoadMemL:
+        case kExprFloat64LoadMemL:  // fallthru.
+        case kExprFloat64LoadMemH:
+          MemAccessTypeOperand(pc_, kAstFloat64);  // check width.
           Shift(kAstFloat64, 1);
           len = 2;
           break;
-        // TODO(titzer): factor common code from stores.
-        case kExprInt32StoreMemL: {
-          IntMemAccessTypeOperand(pc_, false);  // check width.
+        case kExprInt32StoreMemL:  // fallthru.
+        case kExprInt32StoreMemH: {
+          MemAccessTypeOperand(pc_, kAstInt32);  // check width.
           Shift(kAstInt32, 2);
           len = 2;
           break;
         }
-        case kExprInt64StoreMemL: {
-          IntMemAccessTypeOperand(pc_, true);  // check width.
+        case kExprInt64StoreMemL:  // fallthru.
+        case kExprInt64StoreMemH: {
+          MemAccessTypeOperand(pc_, kAstInt64);  // check width.
           Shift(kAstInt64, 2);
           len = 2;
           break;
         }
-        case kExprFloat32StoreMemL:
+        case kExprFloat32StoreMemL:  // fallthru.
+        case kExprFloat32StoreMemH:
+          MemAccessTypeOperand(pc_, kAstFloat32);  // check width.
           Shift(kAstFloat32, 2);
           len = 2;
           break;
-        case kExprFloat64StoreMemL:
+        case kExprFloat64StoreMemL:  // fallthru.
+        case kExprFloat64StoreMemH:
+          MemAccessTypeOperand(pc_, kAstFloat64);  // check width.
           Shift(kAstFloat64, 2);
           len = 2;
           break;
@@ -756,74 +766,41 @@ class LR_WasmDecoder {
         }
         break;
       }
-      // TODO(titzer): factor common code from loads.
-      case kExprInt32LoadMemL: {
-        TypeCheckLast(p, kAstInt32);
-        MemType type = IntMemAccessTypeOperand(p->pc(), false);
-        p->tree->node = builder_.LoadMem(type, p->last()->node);
-        break;
-      }
-      case kExprInt64LoadMemL: {
-        TypeCheckLast(p, kAstInt32);
-        MemType type = IntMemAccessTypeOperand(p->pc(), true);
-        p->tree->node = builder_.LoadMem(type, p->last()->node);
-        break;
-      }
-      case kExprFloat32LoadMemL: {
-        TypeCheckLast(p, kAstInt32);
-        p->tree->node = builder_.LoadMem(kMemFloat32, p->last()->node);
-        break;
-      }
-      case kExprFloat64LoadMemL: {
-        TypeCheckLast(p, kAstInt32);
-        p->tree->node = builder_.LoadMem(kMemFloat64, p->last()->node);
-        break;
-      }
-      // TODO(titzer): factor common code from stores.
-      case kExprInt32StoreMemL: {
-        TypeCheckLast(p, kAstInt32);
-        if (p->index == 2) {
-          Tree* val = p->last();
-          MemType type = IntMemAccessTypeOperand(p->pc(), false);
-          Tree* ival = p->tree->children[0];
-          p->tree->node = builder_.StoreMem(type, ival->node, val->node);
-        }
-        break;
-      }
-      case kExprInt64StoreMemL: {
-        if (p->index == 1) {
-          TypeCheckLast(p, kAstInt32);
-        } else if (p->index == 2) {
-          TypeCheckLast(p, kAstInt64);
-          Tree* val = p->last();
-          MemType type = IntMemAccessTypeOperand(p->pc(), true);
-          Tree* ival = p->tree->children[0];
-          p->tree->node = builder_.StoreMem(type, ival->node, val->node);
-        }
-        break;
-      }
-      case kExprFloat32StoreMemL: {
-        if (p->index == 1) {
-          TypeCheckLast(p, kAstInt32);
-        } else if (p->index == 2) {
-          TypeCheckLast(p, kAstFloat32);
-          Tree* val = p->last();
-          Tree* ival = p->tree->children[0];
-          p->tree->node = builder_.StoreMem(kMemFloat32, ival->node, val->node);
-        }
-        break;
-      }
-      case kExprFloat64StoreMemL: {
-        if (p->index == 1) {
-          TypeCheckLast(p, kAstInt32);
-        } else if (p->index == 2) {
-          TypeCheckLast(p, kAstFloat64);
-          Tree* val = p->last();
-          Tree* ival = p->tree->children[0];
-          p->tree->node = builder_.StoreMem(kMemFloat64, ival->node, val->node);
-        }
-        break;
-      }
+
+      case kExprInt32LoadMemL:
+        return ReduceLoadMem(p, false, kAstInt32);
+      case kExprInt32LoadMemH:
+        return ReduceLoadMem(p, true, kAstInt32);
+      case kExprInt64LoadMemL:
+        return ReduceLoadMem(p, false, kAstInt64);
+      case kExprInt64LoadMemH:
+        return ReduceLoadMem(p, true, kAstInt64);
+      case kExprFloat32LoadMemL:
+        return ReduceLoadMem(p, false, kAstFloat32);
+      case kExprFloat32LoadMemH:
+        return ReduceLoadMem(p, true, kAstFloat32);
+      case kExprFloat64LoadMemL:
+        return ReduceLoadMem(p, false, kAstFloat64);
+      case kExprFloat64LoadMemH:
+        return ReduceLoadMem(p, true, kAstFloat64);
+
+      case kExprInt32StoreMemL:
+        return ReduceStoreMem(p, false, kAstInt32);
+      case kExprInt32StoreMemH:
+        return ReduceStoreMem(p, true, kAstInt32);
+      case kExprInt64StoreMemL:
+        return ReduceStoreMem(p, false, kAstInt64);
+      case kExprInt64StoreMemH:
+        return ReduceStoreMem(p, true, kAstInt64);
+      case kExprFloat32StoreMemL:
+        return ReduceStoreMem(p, false, kAstFloat32);
+      case kExprFloat32StoreMemH:
+        return ReduceStoreMem(p, true, kAstFloat32);
+      case kExprFloat64StoreMemL:
+        return ReduceStoreMem(p, false, kAstFloat64);
+      case kExprFloat64StoreMemH:
+        return ReduceStoreMem(p, true, kAstFloat64);
+
       case kExprCallFunction: {
         int unused = 0;
         FunctionSig* sig = FunctionSigOperand(p->pc(), &unused);
@@ -923,6 +900,23 @@ class LR_WasmDecoder {
       }
       default:
         break;
+    }
+  }
+
+  void ReduceLoadMem(Production* p, bool high, LocalType type) {
+    TypeCheckLast(p, high ? kAstInt64 : kAstInt32);  // index
+    MemType mem_type = MemAccessTypeOperand(p->pc(), type);
+    p->tree->node = builder_.LoadMem(mem_type, p->last()->node);
+  }
+
+  void ReduceStoreMem(Production* p, bool high, LocalType type) {
+    if (p->index == 1) {
+      TypeCheckLast(p, high ? kAstInt64 : kAstInt32);  // index
+    } else if (p->index == 2) {
+      TypeCheckLast(p, type);
+      MemType mem_type = MemAccessTypeOperand(p->pc(), type);
+      p->tree->node = builder_.StoreMem(mem_type, p->tree->children[0]->node,
+                                        p->tree->children[1]->node);
     }
   }
 
@@ -1151,8 +1145,11 @@ class LR_WasmDecoder {
     return result;
   }
 
-  MemType IntMemAccessTypeOperand(const byte* pc, bool is64) {
+  MemType MemAccessTypeOperand(const byte* pc, LocalType type) {
     byte operand = Operand<uint8_t>(pc);
+    if (type == kAstFloat32) return kMemFloat32;
+    if (type == kAstFloat64) return kMemFloat64;
+    bool is64 = type == kAstInt64;
     bool signext = MemoryAccess::SignExtendField::decode(operand);
     if (operand &
         ~(MemoryAccess::SignExtendField::kMask |
@@ -1176,6 +1173,11 @@ class LR_WasmDecoder {
   }
 
   void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
+#if DEBUG
+    if (FLAG_wasm_break_on_decoder_error) {
+      base::OS::DebugBreak();
+    }
+#endif
     limit_ = start_;  // terminates the decoding loop
     if (result_.error_code == kSuccess) {
       result_.error_code = kError;  // TODO(titzer): error code

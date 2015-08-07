@@ -974,6 +974,46 @@ TEST_F(DecoderTest, AllStoreMemCombinations) {
 }
 
 
+TEST_F(DecoderTest, LoadMemHigh) {
+  WasmOpcode opcodes[] = {kExprInt32LoadMemH, kExprInt64LoadMemH,
+                          kExprFloat32LoadMemH, kExprFloat64LoadMemH};
+  LocalType local_types[] = {kAstInt32, kAstInt64, kAstFloat32, kAstFloat64};
+  MemType mem_types[] = {kMemInt32, kMemInt64, kMemFloat32, kMemFloat64};
+  // Check that all Expr<T>LoadMemH instructions take an int64 index.
+  for (size_t i = 0; i < arraysize(local_types); i++) {
+    LocalType type = local_types[i];
+    LocalType sig_types[] = {type, kAstInt64};
+    FunctionSig sig(1, 1, sig_types);
+    FunctionEnv env;
+    init_env(&env, &sig);
+    byte code[] = {static_cast<byte>(opcodes[i]),
+                   WasmOpcodes::LoadStoreAccessOf(mem_types[i]), kExprGetLocal,
+                   0};
+    EXPECT_VERIFIES(&env, code);
+  }
+}
+
+
+TEST_F(DecoderTest, StoreMemHigh) {
+  WasmOpcode opcodes[] = {kExprInt32StoreMemH, kExprInt64StoreMemH,
+                          kExprFloat32StoreMemH, kExprFloat64LoadMemH};
+  LocalType local_types[] = {kAstInt32, kAstInt64, kAstFloat32, kAstFloat64};
+  MemType mem_types[] = {kMemInt32, kMemInt64, kMemFloat32, kMemFloat64};
+  // Check that all Expr<T>StoreMemH instructions take an int64 index.
+  for (size_t i = 0; i < arraysize(local_types); i++) {
+    LocalType type = local_types[i];
+    LocalType sig_types[] = {type, kAstInt64, type};
+    FunctionSig sig(1, 2, sig_types);
+    FunctionEnv env;
+    init_env(&env, &sig);
+    byte code[] = {static_cast<byte>(opcodes[i]),
+                   WasmOpcodes::LoadStoreAccessOf(mem_types[i]), kExprGetLocal,
+                   0, kExprGetLocal, 1};
+    EXPECT_VERIFIES(&env, code);
+  }
+}
+
+
 namespace {
 // A helper for tests that require a module environment for functions and
 // globals.
