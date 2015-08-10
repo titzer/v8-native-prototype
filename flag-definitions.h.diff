@@ -1,13 +1,16 @@
 diff --git a/src/flag-definitions.h b/src/flag-definitions.h
-index 42b567d..89756e3 100644
+index 43365dd..66c50c6 100644
 --- a/src/flag-definitions.h
 +++ b/src/flag-definitions.h
-@@ -447,6 +447,8 @@ DEFINE_INT(typed_array_max_size_in_heap, 64,
+@@ -445,6 +445,11 @@ DEFINE_BOOL(turbo_preserve_shared_code, false, "keep context-independent code")
+ DEFINE_INT(typed_array_max_size_in_heap, 64,
+            "threshold for in-heap typed array")
  
- // Flags for native WebAssembly.
- DEFINE_BOOL(trace_wasm_decoder, false, "trace decoding of wasm code")
++// Flags for native WebAssembly.
++DEFINE_BOOL(trace_wasm_decoder, false, "trace decoding of wasm code")
 +DEFINE_BOOL(wasm_break_on_decoder_error, false,
 +            "debug break when wasm decoder encounters an error")
- 
++
  // Profiler flags.
  DEFINE_INT(frame_count, 1, "number of stack frames inspected by the profiler")
+ // 0x1800 fits in the immediate field of an ARM instruction.
