@@ -10,6 +10,14 @@
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"
 
+
+// TODO(titzer): pull WASM_64 up to a common header.
+#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+#define WASM_64 1
+#else
+#define WASM_64 0
+#endif
+
 namespace v8 {
 namespace internal {
 namespace wasm {
@@ -268,7 +276,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       op = m->Uint32LessThanOrEqual();
       std::swap(left, right);
       break;
-#if V8_TURBOFAN_BACKEND_64
+#if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
     case kExprInt64Add:
@@ -460,7 +468,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprFloat64ConvertFloat32:
       op = m->ChangeFloat32ToFloat64();
       break;
-#if V8_TURBOFAN_BACKEND_64
+#if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
     case kExprInt32ConvertInt64:

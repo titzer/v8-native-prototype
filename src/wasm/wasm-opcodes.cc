@@ -114,9 +114,17 @@ FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
 }
 
 
+// TODO(titzer): pull WASM_64 up to a common header.
+#if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
+#define WASM_64 1
+#else
+#define WASM_64 0
+#endif
+
+
 bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {
-#if !V8_TURBOFAN_BACKEND_64
+#if !WASM_64
     // Opcodes not supported on 32-bit platforms.
     case kExprInt64LoadMemL:
     case kExprInt32LoadMemH:

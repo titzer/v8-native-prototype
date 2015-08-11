@@ -1023,6 +1023,7 @@ class TestModuleEnv : public ModuleEnv {
     mem_start = 0;
     mem_end = 0;
     module = &mod;
+    linker = nullptr;
     function_code = nullptr;
     mod.functions = &functions;
     mod.globals = &globals;

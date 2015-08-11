@@ -60,7 +60,6 @@ struct SsaEnv {
   TFNode** locals;
 
   bool go() { return state == kReached || state == kMerged; }
-  //  bool end() { return state == kControlEnd; }
   void Kill() {
     state = kControlEnd;
     locals = nullptr;

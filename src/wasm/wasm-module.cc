@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "src/v8.h"
+#include "src/macro-assembler.h"
 
 #include "src/compiler/common-operator.h"
 #include "src/compiler/js-graph.h"
@@ -16,6 +17,16 @@
 namespace v8 {
 namespace internal {
 namespace wasm {
+
+#if DEBUG
+#define TRACE(...)                                     \
+  do {                                                 \
+    if (FLAG_trace_wasm_compiler) PrintF(__VA_ARGS__); \
+  } while (false)
+#else
+#define TRACE(...)
+#endif
+
 
 std::ostream& operator<<(std::ostream& os, const WasmModule& module) {
   os << "WASM module with ";
@@ -56,6 +67,83 @@ std::ostream& operator<<(std::ostream& os, const WasmFunction& function) {
 }
 
 
+// A helper class for compiling multiple wasm functions that offers
+// placeholder code objects for calling functions that are not yet compiled.
+class WasmLinker {
+ public:
+  WasmLinker(Isolate* isolate, size_t size)
+      : isolate_(isolate), placeholder_code_(size), function_code_(size) {}
+
+  // Get the code object for a function, allocating a placeholder if it has
+  // not yet been compiled.
+  Handle<Code> GetFunctionCode(uint32_t index) {
+    DCHECK(index < function_code_.size());
+    if (function_code_[index].is_null()) {
+      // Create a placeholder code object and encode the corresponding index in
+      // the {constant_pool_offset} field of the code object.
+      // TODO(titzer): placeholder code objects are somewhat dangerous.
+      Handle<Code> self(nullptr, isolate_);
+      byte buffer[] = {0, 0, 0, 0, 0, 0, 0, 0};  // fake instructions.
+      CodeDesc desc = {buffer, 8, 8, 0, 0, nullptr};
+      Handle<Code> code = isolate_->factory()->NewCode(desc, 0, self);
+      code->set_constant_pool_offset(kPlaceholderMarker - index);
+      placeholder_code_[index] = code;
+      function_code_[index] = code;
+    }
+    return function_code_[index];
+  }
+
+  void Finish(uint32_t index, Handle<Code> code) {
+    DCHECK(index < function_code_.size());
+    function_code_[index] = code;
+  }
+
+  void Link() {
+    for (size_t i = 0; i < function_code_.size(); i++) {
+      LinkFunction(function_code_[i]);
+    }
+  }
+
+ private:
+  static const int kPlaceholderMarker = -100;
+
+  Isolate* isolate_;
+  std::vector<Handle<Code>> placeholder_code_;
+  std::vector<Handle<Code>> function_code_;
+
+  void LinkFunction(Handle<Code> code) {
+    bool modified = false;
+    int mode_mask = RelocInfo::kCodeTargetMask;
+    AllowDeferredHandleDereference embedding_raw_address;
+    for (RelocIterator it(*code, mode_mask); !it.done(); it.next()) {
+      RelocInfo::Mode mode = it.rinfo()->rmode();
+      if (RelocInfo::IsCodeTarget(mode)) {
+        Code* target =
+            Code::GetCodeFromTargetAddress(it.rinfo()->target_address());
+        if (target->constant_pool_offset() <= kPlaceholderMarker) {
+          // Patch direct calls to placeholder code objects.
+          uint32_t index = static_cast<uint32_t>(
+              kPlaceholderMarker - target->constant_pool_offset());
+          CHECK(index < function_code_.size());
+          Handle<Code> new_target = function_code_[index];
+          if (target != *new_target) {
+            CHECK_EQ(*placeholder_code_[index], target);
+            it.rinfo()->set_target_address(new_target->instruction_start(),
+                                           SKIP_WRITE_BARRIER,
+                                           SKIP_ICACHE_FLUSH);
+            modified = true;
+          }
+        }
+      }
+    }
+    if (modified) {
+      CpuFeatures::FlushICache(code->instruction_start(),
+                               code->instruction_size());
+    }
+  }
+};
+
+
 namespace {
 // Internal constants for the layout of the module object.
 const int kWasmModuleInternalFieldCount = 4;
@@ -64,16 +152,20 @@ const int kWasmModuleCodeTable = 1;
 const int kWasmMemArrayBuffer = 2;
 const int kWasmGlobalsArrayBuffer = 3;
 
-// Helper function to allocate a placeholder code object that will be the
-// target of direct calls until the function is compiled.
-Handle<Code> CreatePlaceholderCode(Isolate* isolate, uint32_t index) {
-  return Handle<Code>::null();  // TODO(titzer)
-}
-
 
 // Helper function to compile a single function.
 Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
                              const WasmFunction& function, int index) {
+  if (FLAG_trace_wasm_compiler) {
+    // TODO(titzer): clean me up a bit.
+    OFStream os(stdout);
+    os << "Compiling WASM function #" << index << ":";
+    if (function.name_offset > 0) {
+      const byte* ptr = module_env->module->module_start + function.name_offset;
+      os << reinterpret_cast<const char*>(ptr);
+    }
+    os << std::endl;
+  }
   // Initialize the function environment for decoding.
   FunctionEnv env;
   env.module = module_env;
@@ -96,7 +188,11 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
       module_env->module->module_start + function.code_end_offset);   // --
 
   if (result.failed()) {
-    // TODO(titzer): render an appropriate error message and throw.
+    if (FLAG_trace_wasm_compiler) {
+      OFStream os(stdout);
+      os << "Compilation failed: " << result << std::endl;
+    }
+    // TODO(titzer): throw an exception in the isolate.
     return Handle<Code>::null();
   }
 
@@ -105,6 +201,10 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
       module_env->GetWasmCallDescriptor(&zone, function.sig));
   Handle<Code> code =
       compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor, &graph);
+
+  if (!code.is_null()) {
+    if (code->constant_pool_offset() < 0) code->set_constant_pool_offset(0);
+  }
 
 #ifdef ENABLE_DISASSEMBLER
   // Disassemble the code for debugging.
@@ -122,14 +222,6 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
   }
 #endif
   return code;
-}
-
-
-// Patch the direct calls in a function to other functions.
-void PatchDirectCalls(ModuleEnv* module_env, const WasmFunction& function,
-                      Handle<Code> code) {
-  if (function.external) return;
-  // TODO
 }
 
 
@@ -550,13 +642,14 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   // Compile all functions in the module.
   //-------------------------------------------------------------------------
   int index = 0;
+  WasmLinker linker(isolate, functions->size());
   ModuleEnv module_env;
   module_env.module = this;
   module_env.mem_start = reinterpret_cast<uintptr_t>(mem_addr);
   module_env.mem_end = reinterpret_cast<uintptr_t>(mem_addr) + mem_size;
   module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr);
-  std::vector<Handle<Code>> function_code(functions->size());
-  module_env.function_code = &function_code;
+  module_env.linker = &linker;
+  module_env.function_code = nullptr;
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
@@ -570,7 +663,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
       // Compile the function and install it in the code table.
       Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
       if (!code.is_null()) {
-        function_code[index] = code;
+        linker.Finish(index, code);
         code_table->set(index, *code);
       }
     }
@@ -584,9 +677,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   }
 
   // Second pass: patch all direct call sites.
-  for (index = 0; index < functions->size(); index++) {
-    PatchDirectCalls(&module_env, functions->at(index), function_code[index]);
-  }
+  linker.Link();
 
   module->SetInternalField(kWasmModuleFunctionTable, Smi::FromInt(0));
   module->SetInternalField(kWasmModuleCodeTable, *code_table);
@@ -596,16 +687,9 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
 
 Handle<Code> ModuleEnv::GetFunctionCode(uint32_t index) {
   DCHECK(IsValidFunction(index));
-  Handle<Code> result = Handle<Code>::null();
-  if (function_code) {
-    result = function_code->at(index);
-    if (result.is_null()) {
-      // Allocate placeholder code that will be patched later.
-      result = CreatePlaceholderCode(module->shared_isolate, index);
-      function_code->at(index) = result;
-    }
-  }
-  return result;
+  if (linker) return linker->GetFunctionCode(index);
+  if (function_code) return function_code->at(index);
+  return Handle<Code>::null();
 }
 
 
@@ -719,13 +803,14 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   memset(globals_addr.get(), 0, globals_size);
 
   // Create module environment.
+  WasmLinker linker(isolate, module->functions->size());
   ModuleEnv module_env;
   module_env.module = module;
   module_env.mem_start = reinterpret_cast<uintptr_t>(mem_addr.get());
   module_env.mem_end = reinterpret_cast<uintptr_t>(mem_addr.get()) + mem_size;
   module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr.get());
-  std::vector<Handle<Code>> function_code(module->functions->size());
-  module_env.function_code = &function_code;
+  module_env.linker = &linker;
+  module_env.function_code = nullptr;
 
   // Load data segments.
   // TODO(titzer): throw instead of crashing if segments don't fit in memory?
@@ -738,13 +823,16 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
     if (!func.external) {
       // Compile the function and install it in the code table.
       Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
-      function_code[index] = code;
-      if (!code.is_null() && func.exported) main_code = code;
+      if (!code.is_null()) {
+        if (func.exported) main_code = code;
+        linker.Finish(index, code);
+      }
     }
     index++;
   }
 
   if (!main_code.is_null()) {
+    linker.Link();
     // Run the main code.
     int32_t (*raw_func)() = reinterpret_cast<int (*)()>(main_code->entry());
     return raw_func();

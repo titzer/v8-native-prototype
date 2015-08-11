@@ -19,8 +19,7 @@
 
 #include "test/cctest/wasm/test-signatures.h"
 
-#if V8_TURBOFAN_TARGET
-
+// TODO(titzer): pull WASM_64 up to a common header.
 #if !V8_TARGET_ARCH_32_BIT || V8_TARGET_ARCH_X64
 #define WASM_64 1
 #else
@@ -53,6 +52,7 @@ class TestingModule : public ModuleEnv {
     mem_start = 0;
     mem_end = 0;
     module = nullptr;
+    linker = nullptr;
     function_code = nullptr;
   }
 
@@ -1522,7 +1522,7 @@ TEST(Run_WasmModule_CallAdd) {
       0, 0,                                // local float64 count
       0,                                   // exported
       0,                                   // external
-      // func#1 -----------------------------------------
+      // func#1 (main) ----------------------------------
       0, kAstInt32,                // signature: void -> int
       0, 0, 0, 0,                  // name offset
       kCodeStartOffset1, 0, 0, 0,  // code start offset
@@ -1541,6 +1541,57 @@ TEST(Run_WasmModule_CallAdd) {
       // body#1 -----------------------------------------
       kStmtReturn,           // --
       kExprCallFunction, 0,  // --
+      kExprInt8Const, 77,    // --
+      kExprInt8Const, 22     // --
+  };
+
+  Isolate* isolate = CcTest::InitIsolateOnce();
+  int32_t result =
+      CompileAndRunWasmModule(isolate, data, data + arraysize(data));
+  CHECK_EQ(99, result);
+}
+
+
+TEST(Run_WasmModule_CallAdd_rev) {
+  static const int kModuleHeaderSize = 6;
+  static const int kFunctionSize = 24;
+  static const byte kCodeStartOffset0 =
+      kModuleHeaderSize + 2 + kFunctionSize * 2;
+  static const byte kCodeEndOffset0 = kCodeStartOffset0 + 6;
+  static const byte kCodeStartOffset1 = kCodeEndOffset0;
+  static const byte kCodeEndOffset1 = kCodeEndOffset0 + 7;
+  static const byte data[] = {
+      MODULE_HEADER(0, 2, 0),  // globals, functions, data segments
+      // func#0 (main) ----------------------------------
+      0, kAstInt32,                // signature: void -> int
+      0, 0, 0, 0,                  // name offset
+      kCodeStartOffset1, 0, 0, 0,  // code start offset
+      kCodeEndOffset1, 0, 0, 0,    // code end offset
+      0, 0,                        // local int32 count
+      0, 0,                        // local int64 count
+      0, 0,                        // local float32 count
+      0, 0,                        // local float64 count
+      1,                           // exported
+      0,                           // external
+      // func#1 -----------------------------------------
+      2, kAstInt32, kAstInt32, kAstInt32,  // signature: int,int -> int
+      0, 0, 0, 0,                          // name offset
+      kCodeStartOffset0, 0, 0, 0,          // code start offset
+      kCodeEndOffset0, 0, 0, 0,            // code end offset
+      0, 0,                                // local int32 count
+      0, 0,                                // local int64 count
+      0, 0,                                // local float32 count
+      0, 0,                                // local float64 count
+      0,                                   // exported
+      0,                                   // external
+      // body#0 -----------------------------------------
+      kStmtReturn,       // --
+      kExprInt32Add,     // --
+      kExprGetLocal, 0,  // --
+      kExprGetLocal, 1,  // --
+      // body#1 -----------------------------------------
+      kStmtReturn,           // --
+      kExprCallFunction, 1,  // --
       kExprInt8Const, 77,    // --
       kExprInt8Const, 22     // --
   };
@@ -1630,4 +1681,42 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
   CHECK_EQ(11, result);
 }
 
-#endif  // V8_TURBOFAN_TARGET
+
+TEST(Run_WasmModule_CallMain_recursive) {
+  static const int kModuleHeaderSize = 6;
+  static const int kFunctionSize = 24;
+  static const byte kCodeStartOffset0 = kModuleHeaderSize + kFunctionSize;
+  static const byte kCodeEndOffset0 = kCodeStartOffset0 + 33;
+  static const byte data[] = {
+      MODULE_HEADER(0, 1, 0),  // globals, functions, data segments
+      // func#0 (main) ----------------------------------
+      0, kAstInt32,                // signature: void -> int
+      0, 0, 0, 0,                  // name offset
+      kCodeStartOffset0, 0, 0, 0,  // code start offset
+      kCodeEndOffset0, 0, 0, 0,    // code end offset
+      1, 0,                        // local int32 count
+      0, 0,                        // local int64 count
+      0, 0,                        // local float32 count
+      0, 0,                        // local float64 count
+      1,                           // exported
+      0,                           // external
+      // body#0 -----------------------------------------
+      WASM_BLOCK(
+          2,                                                             //--
+          WASM_SET_LOCAL(0, WASM_LOAD_MEM(kMemInt32, WASM_ZERO)),        // --
+          WASM_IF_THEN(WASM_INT32_SLT(WASM_GET_LOCAL(0), WASM_INT8(5)),  // --
+                       WASM_BLOCK(2,                                     // --
+                                  WASM_STORE_MEM(kMemInt32, WASM_ZERO,   // --
+                                                 WASM_INC_LOCAL(0)),     // --
+                                  WASM_RETURN(WASM_CALL_FUNCTION0(0))),  // --
+                       WASM_RETURN(WASM_INT8(55))))                      // --
+  };
+
+  CHECK_EQ(kCodeEndOffset0 - kCodeStartOffset0,
+           arraysize(data) - kCodeStartOffset0);
+
+  Isolate* isolate = CcTest::InitIsolateOnce();
+  int32_t result =
+      CompileAndRunWasmModule(isolate, data, data + arraysize(data));
+  CHECK_EQ(55, result);
+}

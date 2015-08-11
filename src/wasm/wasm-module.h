@@ -85,6 +85,8 @@ struct WasmModule {
   MaybeHandle<JSObject> Instantiate(Isolate* isolate);
 };
 
+// forward declaration.
+class WasmLinker;
 
 // Interface provided to the decoder/graph builder which contains only
 // minimal information about the globals, functions, and function tables.
@@ -94,6 +96,7 @@ struct ModuleEnv {
   uintptr_t mem_end;       // address of the end of linear memory.
 
   WasmModule* module;
+  WasmLinker* linker;
   std::vector<Handle<Code>>* function_code;
 
   bool IsValidGlobal(uint32_t index) {
