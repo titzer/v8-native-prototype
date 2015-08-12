@@ -5,6 +5,8 @@
 #include "src/v8.h"
 #include "src/macro-assembler.h"
 
+#include "src/simulator.h"
+
 #include "src/compiler/common-operator.h"
 #include "src/compiler/js-graph.h"
 #include "src/compiler/machine-operator.h"
@@ -833,9 +835,22 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
 
   if (!main_code.is_null()) {
     linker.Link();
-    // Run the main code.
+#if USE_SIMULATOR && V8_TARGET_ARCH_ARM64
+    // Run the main code on arm64 simulator.
+    Simulator* simulator = Simulator::current(isolate);
+    Simulator::CallArgument args[] = {Simulator::CallArgument(0),
+                                      Simulator::CallArgument::End()};
+    return static_cast<int32_t>(simulator->CallInt64(main_code->entry(), args));
+#elif USE_SIMULATOR
+    // Run the main code on simulator.
+    Simulator* simulator = Simulator::current(isolate);
+    return static_cast<int32_t>(
+        simulator->Call(main_code->entry(), 4, 0, 0, 0, 0));
+#else
+    // Run the main code as raw machine code.
     int32_t (*raw_func)() = reinterpret_cast<int (*)()>(main_code->entry());
     return raw_func();
+#endif
   } else {
     // No main code was found.
     isolate->Throw(*isolate->factory()->NewStringFromStaticChars(

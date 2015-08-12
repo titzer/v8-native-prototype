@@ -71,6 +71,7 @@ LinkageLocation stackloc(int i) {
 #define GP_PARAM_REGISTERS rax, rdx, rcx, rbx, rsi, rdi
 #define GP_RETURN_REGISTERS rax, rdx
 #define FP_PARAM_REGISTERS xmm1, xmm2, xmm3, xmm4, xmm5, xmm6
+#define FP_RETURN_REGISTERS xmm1, xmm2
 
 #elif V8_TARGET_ARCH_X87
 // ===========================================================================
@@ -85,7 +86,8 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 #define GP_PARAM_REGISTERS r0, r1, r2, r3
 #define GP_RETURN_REGISTERS r0, r1
-
+#define FP_PARAM_REGISTERS d0, d1, d2, d3, d4, d5, d6, d7
+#define FP_RETURN_REGISTERS d0, d1
 
 #elif V8_TARGET_ARCH_ARM64
 // ===========================================================================
@@ -93,6 +95,8 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 #define GP_PARAM_REGISTERS x0, x1, x2, x3, x4, x5, x6, x7
 #define GP_RETURN_REGISTERS x0, x1
+#define FP_PARAM_REGISTERS d0, d1, d2, d3, d4, d5, d6, d7
+#define FP_RETURN_REGISTERS d0, d1
 
 #elif V8_TARGET_ARCH_MIPS
 // ===========================================================================
@@ -100,6 +104,8 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 #define GP_PARAM_REGISTERS a0, a1, a2, a3
 #define GP_RETURN_REGISTERS v0, v1
+#define FP_PARAM_REGISTERS f2, f4, f6, f8, f10, f12, f14
+#define FP_RETURN_REGISTERS f2, f4
 
 #elif V8_TARGET_ARCH_MIPS64
 // ===========================================================================
@@ -107,6 +113,8 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 #define GP_PARAM_REGISTERS a0, a1, a2, a3, a4, a5, a6, a7
 #define GP_RETURN_REGISTERS v0, v1
+#define FP_PARAM_REGISTERS f2, f4, f6, f8, f10, f12, f14
+#define FP_RETURN_REGISTERS f2, f4
 
 #elif V8_TARGET_ARCH_PPC || V8_TARGET_ARCH_PPC64
 // ===========================================================================
@@ -114,6 +122,8 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 #define GP_PARAM_REGISTERS r3, r4, r5, r6, r7, r8, r9, r10
 #define GP_RETURN_REGISTERS r3, r4
+#define FP_PARAM_REGISTERS d0, d1, d2, d3, d4, d5, d6, d7
+#define FP_RETURN_REGISTERS d0, d1
 
 #else
 // ===========================================================================
