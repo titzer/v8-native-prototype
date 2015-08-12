@@ -34,12 +34,20 @@ RawBuffer GetRawBufferArgument(
 
   const byte* start = reinterpret_cast<const byte*>(contents.Data());
   const byte* end = start + contents.ByteLength();
+
+  if (start == nullptr) {
+    args.GetIsolate()->ThrowException(
+        String::NewFromUtf8(args.GetIsolate(), "ArrayBuffer argument is empty",
+                            NewStringType::kNormal).ToLocalChecked());
+  }
   return {start, end};
 }
 
 void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
   RawBuffer buffer = GetRawBufferArgument("WASM.verifyModule()", args);
+  if (buffer.start == nullptr) return;
+
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
 
   i::Zone zone;
@@ -62,6 +70,8 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
   // TODO(titzer): no need to externalize to get the bytes for verification.
   RawBuffer buffer = GetRawBufferArgument("WASM.verifyFunction()", args);
+  if (buffer.start == nullptr) return;
+
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
 
   internal::wasm::FunctionResult result;
@@ -88,6 +98,8 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
 void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
   RawBuffer buffer = GetRawBufferArgument("WASM.compileRun()", args);
+  if (buffer.start == nullptr) return;
+
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
 
   // TODO(titzer): remove pre-verification of the whole module once
@@ -110,12 +122,45 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   if (result.val) delete result.val;
 }
+
+
+void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  HandleScope scope(args.GetIsolate());
+  RawBuffer buffer = GetRawBufferArgument("WASM.instantiateModule()", args);
+  if (buffer.start == nullptr) return;
+
+  i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
+
+  // TODO(titzer): remove pre-verification of the whole module once
+  // the compileRun() method produces a decent per-function error.
+  i::Zone zone;
+  internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
+      isolate, &zone, buffer.start, buffer.end);
+
+  if (result.failed()) {
+    std::ostringstream str;
+    str << "WASM.instantiateModule() failed: " << result;
+    args.GetIsolate()->ThrowException(
+        String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
+                            NewStringType::kNormal).ToLocalChecked());
+  } else {
+    // Success. Instantiate the module and return the object.
+    i::MaybeHandle<i::JSObject> object = result.val->Instantiate(isolate);
+    args.GetReturnValue().Set(v8::Utils::ToLocal(object.ToHandleChecked()));
+  }
+
+  if (result.val) delete result.val;
+}
 }
 
 
 void WasmJs::Install(Isolate* isolate, Local<ObjectTemplate> global_template) {
   // Bind the WASM object.
   Local<ObjectTemplate> wasm_template = ObjectTemplate::New(isolate);
+  wasm_template->Set(
+      String::NewFromUtf8(isolate, "instantiateModule", NewStringType::kNormal)
+          .ToLocalChecked(),
+      FunctionTemplate::New(isolate, InstantiateModule));
   wasm_template->Set(
       String::NewFromUtf8(isolate, "verifyModule", NewStringType::kNormal)
           .ToLocalChecked(),

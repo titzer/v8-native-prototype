@@ -615,7 +615,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
 
   module->SetInternalField(kWasmMemArrayBuffer, *mem_buffer);
 
-  if (mem_export) {
+  if (true || mem_export) {
     // Export the memory as a named property.
     Handle<String> name = factory->InternalizeUtf8String("memory");
     JSObject::AddProperty(module, name, mem_buffer, READ_ONLY);
@@ -655,8 +655,8 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
-    Handle<String> name =
-        factory->InternalizeUtf8String(GetName(func.name_offset));
+    const char* cstr = GetName(func.name_offset);
+    Handle<String> name = factory->InternalizeUtf8String(cstr);
     if (func.external) {
       // External functions are read-write properties on this object.
       Handle<Object> undefined = factory->undefined_value();
