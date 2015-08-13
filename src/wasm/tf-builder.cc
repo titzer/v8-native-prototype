@@ -5,6 +5,9 @@
 #include "src/compiler/common-operator.h"
 #include "src/compiler/js-graph.h"
 #include "src/compiler/machine-operator.h"
+#include "src/compiler/simplified-operator.h"
+
+#include "src/compiler/linkage.h"
 
 #include "src/wasm/tf-builder.h"
 #include "src/wasm/wasm-module.h"
@@ -578,6 +581,79 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   DCHECK_NULL(args[0]);
   UNIMPLEMENTED();
   return nullptr;
+}
+
+
+TFNode* TFBuilder::ToJS(TFNode* node, LocalType type) {
+  if (!graph) return nullptr;
+  if (type == kAstStmt) return graph->UndefinedConstant();
+  return node;  // TODO
+}
+
+
+TFNode* TFBuilder::FromJS(TFNode* node, LocalType type) {
+  if (!graph) return nullptr;
+  compiler::Graph* g = graph->graph();
+  compiler::SimplifiedOperatorBuilder simplified(zone);
+  TFNode* num =
+      g->NewNode(graph->javascript()->ToNumber(), node, *effect, *control);
+  *control = num;
+  *effect = num;
+
+  // Convert JS values to numbers and then further truncate them
+  // as dictated by the local type.
+  switch (type) {
+    case kAstInt32:
+      num = g->NewNode(simplified.NumberToInt32(), num);
+      break;
+    case kAstInt64:
+      UNIMPLEMENTED();
+      break;
+    case kAstFloat32:
+      num = g->NewNode(graph->machine()->TruncateFloat64ToFloat32(), num);
+      break;
+    case kAstFloat64:
+      break;
+    case kAstStmt:
+      UNREACHABLE();
+      break;
+  }
+  return num;
+}
+
+
+void TFBuilder::BuildJSAdapterGraph(uint32_t index) {
+  CHECK_NOT_NULL(graph);
+
+  FunctionSig* sig = module->GetFunctionSignature(index);
+  int params = static_cast<int>(sig->parameter_count());
+
+  compiler::Graph* g = graph->graph();
+
+  int count = params + 3;
+  TFNode** args = Buffer(count);
+
+  // Build the start and the JS parameter nodes.
+  TFNode* start = Start(params + 3);
+  *control = start;
+  *effect = start;
+  for (int i = 1; i < params; i++) {  // skip the receiver; don't need it.
+    args[i] = g->NewNode(graph->common()->Parameter(i), start);
+  }
+
+  args[0] = nullptr;
+
+  // Convert JS parameters to WASM numbers.
+  for (int i = 0; i < params; i++) {
+    args[i + 1] = FromJS(args[i + 1], sig->GetParam(i));
+  }
+
+  // Call the internally generated code.
+  TFNode* call = CallDirect(index, args);
+  TFNode* jsval = ToJS(call, sig->GetReturn());
+  TFNode* ret = g->NewNode(graph->common()->Return(), jsval, call, start);
+
+  MergeControlToEnd(graph, ret);
 }
 
 

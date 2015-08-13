@@ -18,7 +18,7 @@ var kAstInt32 = 1;
 var kStmtNop = 0;
 var kExprInt8Const = 0x10;
 var kStmtReturn = 0x9;
-var kReturnValue = 97;
+var kReturnValue = 117;
 var kCodeStartOffset = 30;
 var kCodeEndOffset = 33;
 var kNameOffset = kCodeEndOffset;
@@ -69,4 +69,4 @@ assertFalse(module.main === null);
 assertFalse(module.main === 0);
 assertEquals("function", typeof module.main);
 
-// TODO(titzer): assertEquals(kReturnValue, module.main());
+assertEquals(kReturnValue, module.main());

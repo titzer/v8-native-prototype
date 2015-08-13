@@ -7,10 +7,19 @@
 
 #include "src/simulator.h"
 
+// TODO(titzer): wasm-module shouldn't need anything from the compiler.
 #include "src/compiler/common-operator.h"
 #include "src/compiler/js-graph.h"
 #include "src/compiler/machine-operator.h"
 #include "src/compiler/pipeline.h"
+#include "src/compiler/simplified-lowering.h"
+#include "src/compiler/change-lowering.h"
+#include "src/compiler/js-generic-lowering.h"
+#include "src/compiler/linkage.h"
+#include "src/compiler/source-position.h"
+#include "src/compiler/typer.h"
+
+
 #include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
 #include "src/wasm/wasm-module.h"
@@ -568,6 +577,76 @@ void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
            segment.source_size);
   }
 }
+
+// TODO(titzer): move this to a wasm-adapter.cc file.
+void CreateJSAdapterCode(Isolate* isolate, ModuleEnv* module,
+                         Handle<JSFunction> function, uint32_t index) {
+  Zone zone;
+  compiler::Graph graph(&zone);
+  compiler::CommonOperatorBuilder common(&zone);
+  compiler::JSOperatorBuilder javascript(&zone);
+  compiler::MachineOperatorBuilder machine(&zone);
+  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, &machine);
+
+  TFNode* control = nullptr;
+  TFNode* effect = nullptr;
+
+  TFBuilder builder(&zone, &jsgraph);
+  builder.control = &control;
+  builder.effect = &effect;
+  builder.module = module;
+  builder.BuildJSAdapterGraph(index);
+
+  {
+    // Run simplified lowering.
+    compiler::Typer typer(isolate, &graph);
+    compiler::NodeVector roots(&zone);
+    typer.Run(roots);
+    compiler::SourcePositionTable source_positions(&graph);
+    compiler::SimplifiedLowering lowering(&jsgraph, &zone, &source_positions);
+    lowering.LowerAllNodes();
+  }
+
+  {
+    // Run generic and change lowering.
+    compiler::JSGenericLowering generic(false, &jsgraph);
+    compiler::ChangeLowering changes(&jsgraph);
+    compiler::GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
+    graph_reducer.AddReducer(&changes);
+    graph_reducer.AddReducer(&generic);
+    graph_reducer.ReduceGraph();
+  }
+
+  {
+    // Schedule and compile to machine code.
+    int params = static_cast<int>(
+        module->GetFunctionSignature(index)->parameter_count());
+    compiler::CallDescriptor* incoming = compiler::Linkage::GetJSCallDescriptor(
+        &zone, false, params + 1, compiler::CallDescriptor::kNoFlags);
+    Handle<Code> code = compiler::Pipeline::GenerateCodeForTesting(
+        isolate, incoming, &graph, nullptr);
+
+#ifdef ENABLE_DISASSEMBLER
+    // Disassemble the wrapper code for debugging.
+    if (!code.is_null() && FLAG_print_opt_code) {
+      WasmFunction* func = &module->module->functions->at(index);
+      static const int kBufferSize = 128;
+      char buffer[kBufferSize];
+      const char* name = "";
+      if (func->name_offset > 0) {
+        const byte* ptr = module->module->module_start + func->name_offset;
+        name = reinterpret_cast<const char*>(ptr);
+      }
+      snprintf(buffer, kBufferSize, "JS->WASM function wrapper #%d:%s", index,
+               name);
+      OFStream os(stdout);
+      code->Disassemble(buffer, os);
+    }
+#endif
+    // Set the JSFunction's machine code.
+    function->set_code(*code);
+  }
+}
 }  // namespace
 
 
@@ -657,13 +736,14 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
   for (const WasmFunction& func : *functions) {
     const char* cstr = GetName(func.name_offset);
     Handle<String> name = factory->InternalizeUtf8String(cstr);
+    Handle<Code> code = Handle<Code>::null();
     if (func.external) {
       // External functions are read-write properties on this object.
       Handle<Object> undefined = factory->undefined_value();
       JSObject::AddProperty(module, name, undefined, DONT_DELETE);
     } else {
       // Compile the function and install it in the code table.
-      Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
+      code = CompileFunction(isolate, &module_env, func, index);
       if (!code.is_null()) {
         linker.Finish(index, code);
         code_table->set(index, *code);
@@ -671,9 +751,13 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
     }
     if (func.exported) {
       // Export functions are installed as read-only properties on the module.
+      Handle<SharedFunctionInfo> shared =
+          factory->NewSharedFunctionInfo(name, code);
+      shared->set_length(static_cast<int>(func.sig->parameter_count()));
       Handle<JSFunction> function = factory->NewFunction(name);
+      function->set_shared(*shared);
+      CreateJSAdapterCode(isolate, &module_env, function, index);
       JSObject::AddProperty(module, name, function, READ_ONLY);
-      // TODO: create adapter code object for exported functions.
     }
     index++;
   }
