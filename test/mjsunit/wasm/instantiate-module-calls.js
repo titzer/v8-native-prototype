@@ -20,11 +20,12 @@ var kExprInt8Const = 0x10;
 var kExprInt32Sub = 0x41;
 var kExprGetLocal = 0x15;
 var kStmtReturn = 0x9;
-var kCodeStartOffset = 32;
-var kCodeEndOffset = 38;
+var kCodeStartOffset = 34;
+var kCodeEndOffset = 40;
 var kNameOffset = kCodeEndOffset;
 
 var data = bytes(
+  0, 0,                       // memory
   0, 0,                       // globals
   1, 0,                       // functions
   0, 0,                       // data segments

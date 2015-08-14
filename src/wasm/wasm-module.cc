@@ -288,6 +288,9 @@ class ModuleDecoder {
     module->data_segments = new std::vector<WasmDataSegment>();
 
     // Decode the module header.
+    module->mem_size_log2 = u8();    // read the memory size
+    module->mem_export = u8() != 0;  // read memory export option
+
     uint32_t globals_count = u16();        // read number of globals
     uint32_t functions_count = u16();      // read number of functions
     uint32_t data_segments_count = u16();  // read number of data segments

@@ -19,11 +19,12 @@ var kStmtNop = 0;
 var kExprInt8Const = 0x10;
 var kStmtReturn = 0x9;
 var kReturnValue = 117;
-var kCodeStartOffset = 30;
-var kCodeEndOffset = 33;
+var kCodeStartOffset = 32;
+var kCodeEndOffset = 35;
 var kNameOffset = kCodeEndOffset;
 
 var data = bytes(
+  0, 0,                       // memory
   0, 0,                       // globals
   1, 0,                       // functions
   0, 0,                       // data segments

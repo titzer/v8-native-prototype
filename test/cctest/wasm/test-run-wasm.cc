@@ -1468,8 +1468,10 @@ TEST(Run_WasmCall_Float64Sub) {
 //==========================================================
 // TODO(titzer): move me to test-run-wasm-module.cc
 //==========================================================
+static const int kModuleHeaderSize = 8;
+static const int kFunctionSize = 24;
 #define MODULE_HEADER(globals_count, functions_count, data_segments_count) \
-  static_cast<uint8_t>(globals_count),                                     \
+  16, 0, static_cast<uint8_t>(globals_count),                              \
       static_cast<uint8_t>(globals_count >> 8),                            \
       static_cast<uint8_t>(functions_count),                               \
       static_cast<uint8_t>(functions_count >> 8),                          \
@@ -1479,8 +1481,8 @@ TEST(Run_WasmCall_Float64Sub) {
 
 TEST(Run_WasmModule_Return114) {
   static const byte kReturnValue = 114;
-  static const byte kCodeStartOffset = 30;
-  static const byte kCodeEndOffset = 33;
+  static const byte kCodeStartOffset = kModuleHeaderSize + kFunctionSize;
+  static const byte kCodeEndOffset = kCodeStartOffset + 3;
   static const byte data[] = {
       MODULE_HEADER(0, 1, 0),     // globals, functions, data segments
       0, kAstInt32,               // signature: void -> int
@@ -1506,13 +1508,11 @@ TEST(Run_WasmModule_Return114) {
 
 
 TEST(Run_WasmModule_CallAdd) {
-  static const int kModuleHeaderSize = 6;
-  static const int kFunctionSize = 24;
   static const byte kCodeStartOffset0 =
       kModuleHeaderSize + 2 + kFunctionSize * 2;
   static const byte kCodeEndOffset0 = kCodeStartOffset0 + 6;
   static const byte kCodeStartOffset1 = kCodeEndOffset0;
-  static const byte kCodeEndOffset1 = kCodeEndOffset0 + 7;
+  static const byte kCodeEndOffset1 = kCodeStartOffset1 + 7;
   static const byte data[] = {
       MODULE_HEADER(0, 2, 0),  // globals, functions, data segments
       // func#0 -----------------------------------------
@@ -1557,8 +1557,6 @@ TEST(Run_WasmModule_CallAdd) {
 
 
 TEST(Run_WasmModule_CallAdd_rev) {
-  static const int kModuleHeaderSize = 6;
-  static const int kFunctionSize = 24;
   static const byte kCodeStartOffset0 =
       kModuleHeaderSize + 2 + kFunctionSize * 2;
   static const byte kCodeEndOffset0 = kCodeStartOffset0 + 6;
@@ -1608,8 +1606,6 @@ TEST(Run_WasmModule_CallAdd_rev) {
 
 
 TEST(Run_WasmModule_ReadLoadedDataSegment) {
-  static const int kModuleHeaderSize = 6;
-  static const int kFunctionSize = 24;
   static const int kDataSegmentSize = 13;
   static const byte kCodeStartOffset0 =
       kModuleHeaderSize + kFunctionSize * 1 + kDataSegmentSize;
@@ -1654,8 +1650,6 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
 
 TEST(Run_WasmModule_CheckMemoryIsZero) {
   static const int kCheckSize = 16 * 1024;
-  static const int kModuleHeaderSize = 6;
-  static const int kFunctionSize = 24;
   static const byte kCodeStartOffset0 = kModuleHeaderSize + kFunctionSize * 1;
   static const byte kCodeEndOffset0 = kCodeStartOffset0 + 31;
   static const byte data[] = {
@@ -1687,8 +1681,6 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
 
 
 TEST(Run_WasmModule_CallMain_recursive) {
-  static const int kModuleHeaderSize = 6;
-  static const int kFunctionSize = 24;
   static const byte kCodeStartOffset0 = kModuleHeaderSize + kFunctionSize;
   static const byte kCodeEndOffset0 = kCodeStartOffset0 + 33;
   static const byte data[] = {

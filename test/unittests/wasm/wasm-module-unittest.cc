@@ -43,7 +43,7 @@ TEST_F(ModuleVerifyTest, DecodeEmpty) {
 }
 
 #define MODULE_HEADER(globals_count, functions_count, data_segments_count) \
-  static_cast<uint8_t>(globals_count),                                     \
+  0, 0, static_cast<uint8_t>(globals_count),                               \
       static_cast<uint8_t>(globals_count >> 8),                            \
       static_cast<uint8_t>(functions_count),                               \
       static_cast<uint8_t>(functions_count >> 8),                          \
@@ -197,8 +197,8 @@ TEST_F(ModuleVerifyTest, OneEmptyVoidVoidFunction) {
 
 
 TEST_F(ModuleVerifyTest, OneFunctionWithNopBody) {
-  static const byte kCodeStartOffset = 30;
-  static const byte kCodeEndOffset = 31;
+  static const byte kCodeStartOffset = 32;
+  static const byte kCodeEndOffset = 33;
 
   static const byte data[] = {
       MODULE_HEADER(0, 1, 0),     // globals, functions, data segments
@@ -235,8 +235,8 @@ TEST_F(ModuleVerifyTest, OneFunctionWithNopBody) {
 
 
 TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
-  static const byte kCodeStartOffset = 49;
-  static const byte kCodeEndOffset = 50;
+  static const byte kCodeStartOffset = 51;
+  static const byte kCodeEndOffset = 52;
 
   static const byte data[] = {
       MODULE_HEADER(1, 1, 1),  // globals, functions, data segments
@@ -262,7 +262,6 @@ TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
       1,                    // init
       // rest ------------------------------------------------------
       kStmtNop,  // func#0 body
-
   };
 
   {
