@@ -427,17 +427,23 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprBoolNot:
       op = m->Word32Equal();
       return graph->graph()->NewNode(op, input, graph->ZeroConstant());
+    case kExprFloat32Abs:
+      op = m->Float32Abs();
+      break;
     case kExprFloat32Neg:
       op = m->Float32Sub();
       return graph->graph()->NewNode(op, graph->Float32Constant(0), input);
-    case kExprFloat64Neg:
-      op = m->Float64Sub();
-      return graph->graph()->NewNode(op, graph->Float64Constant(0), input);
+    case kExprFloat32Sqrt:
+      op = m->Float32Sqrt();
+      break;
     case kExprFloat64Abs:
       op = m->Float64Abs();
       break;
-    case kExprFloat32Abs:
-      op = m->Float32Abs();
+    case kExprFloat64Neg:
+      op = m->Float64Sub();
+      return graph->graph()->NewNode(op, graph->Float64Constant(0), input);
+    case kExprFloat64Sqrt:
+      op = m->Float64Sqrt();
       break;
     case kExprInt32SConvertFloat64:
       op = m->ChangeFloat64ToInt32();

@@ -180,7 +180,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprFloat32Floor:
     case kExprFloat32Trunc:
     case kExprFloat32NearestInt:
-    case kExprFloat32Sqrt:
 
     case kExprFloat64Min:
     case kExprFloat64Max:
@@ -189,7 +188,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprFloat64Floor:
     case kExprFloat64Trunc:
     case kExprFloat64NearestInt:
-    case kExprFloat64Sqrt:
 
     case kExprInt64SConvertFloat32:
     case kExprInt64SConvertFloat64:
