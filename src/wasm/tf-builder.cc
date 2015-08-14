@@ -584,28 +584,33 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
 }
 
 
-TFNode* TFBuilder::ToJS(TFNode* node, LocalType type) {
+TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
   if (!graph) return nullptr;
   if (type == kAstStmt) return graph->UndefinedConstant();
-  return node;  // TODO
+  // Note: we let simplified-lowering insert the representation change for us.
+  return node;
 }
 
 
-TFNode* TFBuilder::FromJS(TFNode* node, LocalType type) {
+TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
   if (!graph) return nullptr;
   compiler::Graph* g = graph->graph();
-  compiler::SimplifiedOperatorBuilder simplified(zone);
   TFNode* num =
-      g->NewNode(graph->javascript()->ToNumber(), node, *effect, *control);
+      g->NewNode(graph->javascript()->ToNumber(), node, 
+                 context,
+                 graph->EmptyFrameState(),
+                 *effect, *control);
   *control = num;
   *effect = num;
 
   // Convert JS values to numbers and then further truncate them
   // as dictated by the local type.
   switch (type) {
-    case kAstInt32:
+    case kAstInt32: {
+      compiler::SimplifiedOperatorBuilder simplified(graph->zone());
       num = g->NewNode(simplified.NumberToInt32(), num);
       break;
+    }
     case kAstInt64:
       UNIMPLEMENTED();
       break;
@@ -635,22 +640,22 @@ void TFBuilder::BuildJSAdapterGraph(uint32_t index) {
 
   // Build the start and the JS parameter nodes.
   TFNode* start = Start(params + 3);
+  // JS context is the last parameter.
+  TFNode* context = g->NewNode(graph->common()->Parameter(params + 1,
+                                                          "context"), start);
   *control = start;
   *effect = start;
-  for (int i = 1; i < params; i++) {  // skip the receiver; don't need it.
-    args[i] = g->NewNode(graph->common()->Parameter(i), start);
-  }
-
   args[0] = nullptr;
 
   // Convert JS parameters to WASM numbers.
   for (int i = 0; i < params; i++) {
-    args[i + 1] = FromJS(args[i + 1], sig->GetParam(i));
+    TFNode* param = g->NewNode(graph->common()->Parameter(i), start);
+    args[i + 1] = FromJS(param, context, sig->GetParam(i));
   }
 
   // Call the internally generated code.
   TFNode* call = CallDirect(index, args);
-  TFNode* jsval = ToJS(call, sig->GetReturn());
+  TFNode* jsval = ToJS(call, context, sig->GetReturn());
   TFNode* ret = g->NewNode(graph->common()->Return(), jsval, call, start);
 
   MergeControlToEnd(graph, ret);

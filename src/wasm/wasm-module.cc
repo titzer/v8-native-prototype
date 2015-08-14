@@ -253,7 +253,7 @@ Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate, int size,
   isolate->heap()->RegisterNewArrayBuffer(isolate->heap()->InNewSpace(*buffer),
                                           memory, size);
   buffer->set_backing_store(memory);
-  buffer->set_is_external(false);
+  buffer->set_is_external(true);
   buffer->set_is_neuterable(false);
   buffer->set_byte_length(Smi::FromInt(size));
   return buffer;
@@ -601,13 +601,12 @@ void CreateJSAdapterCode(Isolate* isolate, ModuleEnv* module,
     // Run simplified lowering.
     compiler::Typer typer(isolate, &graph);
     compiler::NodeVector roots(&zone);
+    jsgraph.GetCachedNodes(&roots);
     typer.Run(roots);
     compiler::SourcePositionTable source_positions(&graph);
     compiler::SimplifiedLowering lowering(&jsgraph, &zone, &source_positions);
     lowering.LowerAllNodes();
-  }
 
-  {
     // Run generic and change lowering.
     compiler::JSGenericLowering generic(false, &jsgraph);
     compiler::ChangeLowering changes(&jsgraph);
@@ -615,9 +614,7 @@ void CreateJSAdapterCode(Isolate* isolate, ModuleEnv* module,
     graph_reducer.AddReducer(&changes);
     graph_reducer.AddReducer(&generic);
     graph_reducer.ReduceGraph();
-  }
 
-  {
     // Schedule and compile to machine code.
     int params = static_cast<int>(
         module->GetFunctionSignature(index)->parameter_count());
@@ -753,7 +750,9 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
       // Export functions are installed as read-only properties on the module.
       Handle<SharedFunctionInfo> shared =
           factory->NewSharedFunctionInfo(name, code);
-      shared->set_length(static_cast<int>(func.sig->parameter_count()));
+      int params = static_cast<int>(func.sig->parameter_count());
+      shared->set_length(params);
+      shared->set_internal_formal_parameter_count(1 + params);
       Handle<JSFunction> function = factory->NewFunction(name);
       function->set_shared(*shared);
       CreateJSAdapterCode(isolate, &module_env, function, index);
