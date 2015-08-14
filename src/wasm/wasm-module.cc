@@ -694,7 +694,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
 
   module->SetInternalField(kWasmMemArrayBuffer, *mem_buffer);
 
-  if (true || mem_export) {
+  if (mem_export) {
     // Export the memory as a named property.
     Handle<String> name = factory->InternalizeUtf8String("memory");
     JSObject::AddProperty(module, name, mem_buffer, READ_ONLY);

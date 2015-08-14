@@ -664,7 +664,8 @@ void TFBuilder::BuildJSAdapterGraph(uint32_t index) {
 
   // Call the internally generated code.
   TFNode* call = CallDirect(index, args);
-  TFNode* jsval = ToJS(call, context, sig->GetReturn());
+  TFNode* jsval = ToJS(call, context,
+                       sig->return_count() == 0 ? kAstStmt : sig->GetReturn());
   TFNode* ret = g->NewNode(graph->common()->Return(), jsval, call, start);
 
   MergeControlToEnd(graph, ret);

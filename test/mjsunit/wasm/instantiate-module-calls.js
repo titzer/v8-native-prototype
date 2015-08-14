@@ -25,7 +25,7 @@ var kCodeEndOffset = 40;
 var kNameOffset = kCodeEndOffset;
 
 var data = bytes(
-  0, 0,                       // memory
+  12, 1,                      // memory
   0, 0,                       // globals
   1, 0,                       // functions
   0, 0,                       // data segments
@@ -67,6 +67,8 @@ for (var i = 0; i < 4; i++) {
   module.memory = 0;  // should be ignored
   assertEquals(mem, module.memory);
 }
+
+assertEquals(4096, module.memory.byteLength);
 
 // Check the properties of the sub function.
 assertFalse(module.sub === undefined);
