@@ -175,7 +175,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
 
     case kExprFloat32Min:
     case kExprFloat32Max:
-    case kExprFloat32Neg:
     case kExprFloat32CopySign:
     case kExprFloat32Ceil:
     case kExprFloat32Floor:
@@ -185,7 +184,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
 
     case kExprFloat64Min:
     case kExprFloat64Max:
-    case kExprFloat64Neg:
     case kExprFloat64CopySign:
     case kExprFloat64Ceil:
     case kExprFloat64Floor:

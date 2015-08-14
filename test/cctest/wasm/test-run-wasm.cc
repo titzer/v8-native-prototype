@@ -640,6 +640,7 @@ TEST(Run_WasmFloat32Binops) {
 TEST(Run_WasmFloat32Unops) {
   TestFloat32UnopWithConvert(kExprFloat32Abs, 8, 8.125);
   TestFloat32UnopWithConvert(kExprFloat32Abs, 9, -9.125);
+  TestFloat32UnopWithConvert(kExprFloat32Neg, -213, 213.125);
 }
 
 
@@ -660,6 +661,7 @@ TEST(Run_WasmFloat64Binops) {
 TEST(Run_WasmFloat64Unops) {
   TestFloat64UnopWithConvert(kExprFloat64Abs, 108, 108.125);
   TestFloat64UnopWithConvert(kExprFloat64Abs, 209, -209.125);
+  TestFloat64UnopWithConvert(kExprFloat64Neg, -209, 209.125);
 }
 
 

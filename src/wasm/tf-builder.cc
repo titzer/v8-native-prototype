@@ -427,6 +427,12 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprBoolNot:
       op = m->Word32Equal();
       return graph->graph()->NewNode(op, input, graph->ZeroConstant());
+    case kExprFloat32Neg:
+      op = m->Float32Sub();
+      return graph->graph()->NewNode(op, graph->Float32Constant(0), input);
+    case kExprFloat64Neg:
+      op = m->Float64Sub();
+      return graph->graph()->NewNode(op, graph->Float64Constant(0), input);
     case kExprFloat64Abs:
       op = m->Float64Abs();
       break;
@@ -595,11 +601,8 @@ TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
 TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
   if (!graph) return nullptr;
   compiler::Graph* g = graph->graph();
-  TFNode* num =
-      g->NewNode(graph->javascript()->ToNumber(), node, 
-                 context,
-                 graph->EmptyFrameState(),
-                 *effect, *control);
+  TFNode* num = g->NewNode(graph->javascript()->ToNumber(), node, context,
+                           graph->EmptyFrameState(), *effect, *control);
   *control = num;
   *effect = num;
 
@@ -641,8 +644,8 @@ void TFBuilder::BuildJSAdapterGraph(uint32_t index) {
   // Build the start and the JS parameter nodes.
   TFNode* start = Start(params + 3);
   // JS context is the last parameter.
-  TFNode* context = g->NewNode(graph->common()->Parameter(params + 1,
-                                                          "context"), start);
+  TFNode* context =
+      g->NewNode(graph->common()->Parameter(params + 1, "context"), start);
   *control = start;
   *effect = start;
   args[0] = nullptr;
