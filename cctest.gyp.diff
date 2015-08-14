@@ -1,12 +1,12 @@
 diff --git a/test/cctest/cctest.gyp b/test/cctest/cctest.gyp
-index de1ad4f..40ea88b 100644
+index b58aee9..9df6b4a 100644
 --- a/test/cctest/cctest.gyp
 +++ b/test/cctest/cctest.gyp
-@@ -162,6 +162,7 @@
+@@ -164,6 +164,7 @@
          'test-weakmaps.cc',
          'test-weaksets.cc',
          'trace-extension.cc',
 +        'wasm/test-run-wasm.cc',
-         '../../src/startup-data-util.h',
-         '../../src/startup-data-util.cc'
        ],
+       'conditions': [
+         ['v8_target_arch=="ia32"', {

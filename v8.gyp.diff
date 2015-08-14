@@ -1,8 +1,8 @@
 diff --git a/tools/gyp/v8.gyp b/tools/gyp/v8.gyp
-index 4879107..7990620 100644
+index 0ac43de..cbb5481 100644
 --- a/tools/gyp/v8.gyp
 +++ b/tools/gyp/v8.gyp
-@@ -976,6 +976,20 @@
+@@ -988,6 +988,20 @@
          '../../src/version.h',
          '../../src/vm-state-inl.h',
          '../../src/vm-state.h',

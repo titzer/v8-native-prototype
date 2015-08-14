@@ -1,14 +1,14 @@
 diff --git a/test/unittests/unittests.gyp b/test/unittests/unittests.gyp
-index d933165..1aef22a 100644
+index 1b7112e..d8ba226 100644
 --- a/test/unittests/unittests.gyp
 +++ b/test/unittests/unittests.gyp
-@@ -103,6 +103,9 @@
+@@ -104,6 +104,9 @@
          'run-all-unittests.cc',
          'test-utils.h',
          'test-utils.cc',
 +        'wasm/decoder-unittest.cc',
 +        'wasm/wasm-macro-gen-unittest.cc',
 +        'wasm/wasm-module-unittest.cc',
-         '../../src/startup-data-util.h',
-         '../../src/startup-data-util.cc'
        ],
+       'conditions': [
+         ['v8_target_arch=="arm"', {
