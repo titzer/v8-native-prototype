@@ -177,6 +177,7 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
     init_env(&env_i_ii, sigs.i_ii());
     init_env(&env_v_v, sigs.v_v());
     init_env(&env_l_ll, sigs.l_ll());
+    init_env(&env_i_ll, sigs.i_ll());
 
     if (p1 != kMachNone) {
       function_env = &env_i_ii;
@@ -194,6 +195,7 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
   FunctionEnv env_i_ii;
   FunctionEnv env_v_v;
   FunctionEnv env_l_ll;
+  FunctionEnv env_i_ll;
   FunctionEnv* function_env;
 
   void Build(const byte* start, const byte* end) {
@@ -503,6 +505,7 @@ TEST(Run_WasmInt32Binops) {
   TestInt32Binop(kExprInt32Shr, 0x07000010, 0x70000100, 4);
   TestInt32Binop(kExprInt32Sar, 0xFF000000, 0x80000000, 7);
   TestInt32Binop(kExprInt32Eq, 1, -99, -99);
+  TestInt32Binop(kExprInt32Ne, 0, -97, -97);
 
   TestInt32Binop(kExprInt32Slt, 1, -4, 4);
   TestInt32Binop(kExprInt32Sle, 0, -2, -3);
@@ -517,18 +520,19 @@ TEST(Run_WasmInt32Binops) {
 
 
 #if WASM_64
-void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b) {
+void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b,
+                    bool int32_ret = false) {
   if (!WasmOpcodes::IsSupported(opcode)) return;
   {
     WasmRunner<int64_t> r;
-    r.function_env = &r.env_l_ll;
+    r.function_env = int32_ret ? &r.env_i_ll : &r.env_l_ll;
     // return K op K
     BUILD(r, WASM_RETURN(WASM_BINOP(opcode, WASM_INT64(a), WASM_INT64(b))));
     CHECK_EQ(expected, r.Call());
   }
   {
     WasmRunner<int64_t> r(kMachInt64, kMachInt64);
-    r.function_env = &r.env_l_ll;
+    r.function_env = int32_ret ? &r.env_i_ll : &r.env_l_ll;
     // return a op b
     BUILD(r, WASM_RETURN(
                  WASM_BINOP(opcode, WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
@@ -554,11 +558,12 @@ TEST(Run_WasmInt64Binops) {
   TestInt64Binop(kExprInt64Shl, 0xA0000000, 0xA, 28);
   TestInt64Binop(kExprInt64Shr, 0x0700001000123456LL, 0x7000010001234567LL, 4);
   TestInt64Binop(kExprInt64Sar, 0xFF00000000000000LL, 0x8000000000000000LL, 7);
-  TestInt64Binop(kExprInt64Eq, 1, -99, -99);
-  TestInt64Binop(kExprInt64Slt, 1, -4, 4);
-  TestInt64Binop(kExprInt64Sle, 0, -2, -3);
-  TestInt64Binop(kExprInt64Ult, 1, 0, -6);
-  TestInt64Binop(kExprInt64Ule, 1, 98978, 0xF0000000);
+  TestInt64Binop(kExprInt64Eq, 1, -9999, -9999, true);
+  TestInt64Binop(kExprInt64Ne, 1, -9199, -9999, true);
+  TestInt64Binop(kExprInt64Slt, 1, -4, 4, true);
+  TestInt64Binop(kExprInt64Sle, 0, -2, -3, true);
+  TestInt64Binop(kExprInt64Ult, 1, 0, -6, true);
+  TestInt64Binop(kExprInt64Ule, 1, 98978, 0xF0000000, true);
 }
 #endif
 
@@ -625,6 +630,7 @@ void TestFloat64UnopWithConvert(WasmOpcode opcode, int32_t expected, double a) {
 
 TEST(Run_WasmFloat32Binops) {
   TestFloat32Binop(kExprFloat32Eq, 1, 8.125, 8.125);
+  TestFloat32Binop(kExprFloat32Ne, 1, 8.125, 8.127);
   TestFloat32Binop(kExprFloat32Lt, 1, -9.5, -9);
   TestFloat32Binop(kExprFloat32Le, 1, -1111, -1111);
   TestFloat32Binop(kExprFloat32Gt, 1, -9, -9.5);
@@ -647,6 +653,7 @@ TEST(Run_WasmFloat32Unops) {
 
 TEST(Run_WasmFloat64Binops) {
   TestFloat64Binop(kExprFloat64Eq, 1, 16.25, 16.25);
+  TestFloat64Binop(kExprFloat64Ne, 1, 16.25, 16.15);
   TestFloat64Binop(kExprFloat64Lt, 1, -32.4, 11.7);
   TestFloat64Binop(kExprFloat64Le, 1, -88.9, -88.9);
   TestFloat64Binop(kExprFloat64Gt, 1, 11.7, -32.4);

@@ -151,6 +151,7 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprInt64Shr:
     case kExprInt64Sar:
     case kExprInt64Eq:
+    case kExprInt64Ne:
     case kExprInt64Slt:
     case kExprInt64Sle:
     case kExprInt64Ult:

@@ -100,6 +100,7 @@ struct TFBuilder {
   void BuildJSAdapterGraph(uint32_t index);
   TFNode* ToJS(TFNode* node, TFNode* context, LocalType type);
   TFNode* FromJS(TFNode* node, TFNode* context, LocalType type);
+  TFNode* Invert(TFNode* node);
 
   //-----------------------------------------------------------------------
   // Operations that access the mem.

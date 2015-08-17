@@ -41,20 +41,15 @@ TEST(Run_WasmModule_CallAdd) {
   f1.ReturnType(kAstInt32);
   f1.AddParam(kAstInt32);
   f1.AddParam(kAstInt32);
-  byte code1[] = {WASM_RETURN(
-                    WASM_INT32_ADD(
-                      WASM_GET_LOCAL(0),
-                      WASM_GET_LOCAL(1)))};
+  byte code1[] = {
+      WASM_RETURN(WASM_INT32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)))};
   f1.AddBody(code1, sizeof(code1));
   builder.AddFunction(f1.Build());
   WasmFunctionBuilder f2(&zone);
   f2.ReturnType(kAstInt32);
   f2.Exported(1);
-  byte code2[] = {WASM_RETURN(
-                    WASM_CALL_FUNCTION(
-                      0,
-                      WASM_INT8(77),
-                      WASM_INT8(22)))};
+  byte code2[] = {
+      WASM_RETURN(WASM_CALL_FUNCTION(0, WASM_INT8(77), WASM_INT8(22)))};
   f2.AddBody(code2, sizeof(code2));
   builder.AddFunction(f2.Build());
   WasmModuleIndex module = builder.WriteAndBuild(&zone);

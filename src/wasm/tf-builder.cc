@@ -251,6 +251,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt32Eq:
       op = m->Word32Equal();
       break;
+    case kExprInt32Ne:
+      return Invert(Binop(kExprInt32Eq, left, right));
     case kExprInt32Slt:
       op = m->Int32LessThan();
       break;
@@ -324,6 +326,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprInt64Eq:
       op = m->Word64Equal();
       break;
+    case kExprInt64Ne:
+      return Invert(Binop(kExprInt64Eq, left, right));
     case kExprInt64Slt:
       op = m->Int64LessThan();
       break;
@@ -369,6 +373,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprFloat32Eq:
       op = m->Float32Equal();
       break;
+    case kExprFloat32Ne:
+      return Invert(Binop(kExprFloat32Eq, left, right));
     case kExprFloat32Lt:
       op = m->Float32LessThan();
       break;
@@ -398,6 +404,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprFloat64Eq:
       op = m->Float64Equal();
       break;
+    case kExprFloat64Ne:
+      return Invert(Binop(kExprFloat64Eq, left, right));
     case kExprFloat64Lt:
       op = m->Float64LessThan();
       break;
@@ -633,6 +641,12 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
       break;
   }
   return num;
+}
+
+
+TFNode* TFBuilder::Invert(TFNode* node) {
+  if (!graph) return nullptr;
+  return Unop(kExprBoolNot, node);
 }
 
 

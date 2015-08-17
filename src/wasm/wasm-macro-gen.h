@@ -118,6 +118,7 @@
 #define WASM_INT32_SHR(x, y) kExprInt32Shr, x, y
 #define WASM_INT32_SAR(x, y) kExprInt32Sar, x, y
 #define WASM_INT32_EQ(x, y) kExprInt32Eq, x, y
+#define WASM_INT32_NE(x, y) kExprInt32Ne, x, y
 #define WASM_INT32_SLT(x, y) kExprInt32Slt, x, y
 #define WASM_INT32_SLE(x, y) kExprInt32Sle, x, y
 #define WASM_INT32_ULT(x, y) kExprInt32Ult, x, y
@@ -147,6 +148,7 @@
 #define WASM_INT64_SHR(x, y) kExprInt64Shr, x, y
 #define WASM_INT64_SAR(x, y) kExprInt64Sar, x, y
 #define WASM_INT64_EQ(x, y) kExprInt64Eq, x, y
+#define WASM_INT64_NE(x, y) kExprInt64Ne, x, y
 #define WASM_INT64_SLT(x, y) kExprInt64Slt, x, y
 #define WASM_INT64_SLE(x, y) kExprInt64Sle, x, y
 #define WASM_INT64_ULT(x, y) kExprInt64Ult, x, y
@@ -177,6 +179,7 @@
 #define WASM_FLOAT32_NEARESTINT(x) kExprFloat32NearestInt, x
 #define WASM_FLOAT32_SQRT(x) kExprFloat32Sqrt, x
 #define WASM_FLOAT32_EQ(x, y) kExprFloat32Eq, x, y
+#define WASM_FLOAT32_NE(x, y) kExprFloat32Ne, x, y
 #define WASM_FLOAT32_LT(x, y) kExprFloat32Lt, x, y
 #define WASM_FLOAT32_LE(x, y) kExprFloat32Le, x, y
 #define WASM_FLOAT32_GT(x, y) kExprFloat32Gt, x, y
@@ -201,6 +204,7 @@
 #define WASM_FLOAT64_NEARESTINT(x) kExprFloat64NearestInt, x
 #define WASM_FLOAT64_SQRT(x) kExprFloat64Sqrt, x
 #define WASM_FLOAT64_EQ(x, y) kExprFloat64Eq, x, y
+#define WASM_FLOAT64_NE(x, y) kExprFloat64Ne, x, y
 #define WASM_FLOAT64_LT(x, y) kExprFloat64Lt, x, y
 #define WASM_FLOAT64_LE(x, y) kExprFloat64Le, x, y
 #define WASM_FLOAT64_GT(x, y) kExprFloat64Gt, x, y
