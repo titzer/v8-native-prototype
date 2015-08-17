@@ -79,3 +79,57 @@ assertEquals("function", typeof module.sub);
 assertEquals(-55, module.sub(33, 88));
 assertEquals(-55555, module.sub(33333, 88888));
 assertEquals(-5555555, module.sub(3333333, 8888888));
+
+
+var kCodeStartOffset2 = 32;
+var kCodeEndOffset2 = 33;
+var kNameOffset2 = kCodeEndOffset2;
+
+var data = bytes(
+  12, 1,                      // memory
+  0, 0,                       // globals
+  1, 0,                       // functions
+  0, 0,                       // data segments
+  0, kAstStmt,                // signature: void -> void
+  kNameOffset2, 0, 0, 0,      // name offset
+  kCodeStartOffset2, 0, 0, 0, // code start offset
+  kCodeEndOffset2, 0, 0, 0,   // code end offset
+  0, 0,                       // local int32 count
+  0, 0,                       // local int64 count
+  0, 0,                       // local float32 count
+  0, 0,                       // local float64 count
+  1,                          // exported
+  0,                          // external
+  kStmtNop,                   // body
+  'n', 'o', 'p', 0            // name
+);
+
+var module = WASM.instantiateModule(data);
+
+// Check the module exists.
+assertFalse(module === undefined);
+assertFalse(module === null);
+assertFalse(module === 0);
+assertEquals("object", typeof module);
+
+// Check the memory is an ArrayBuffer.
+var mem = module.memory;
+assertFalse(mem === undefined);
+assertFalse(mem === null);
+assertFalse(mem === 0);
+assertEquals("object", typeof mem);
+assertTrue(mem instanceof ArrayBuffer);
+for (var i = 0; i < 4; i++) {
+  module.memory = 0;  // should be ignored
+  assertEquals(mem, module.memory);
+}
+
+assertEquals(4096, module.memory.byteLength);
+
+// Check the properties of the sub function.
+assertFalse(module.nop === undefined);
+assertFalse(module.nop === null);
+assertFalse(module.nop === 0);
+assertEquals("function", typeof module.nop);
+
+assertEquals(undefined, module.nop());
