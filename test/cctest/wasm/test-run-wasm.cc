@@ -274,10 +274,12 @@ class WasmFunctionCompiler : public HandleAndZoneScope,
     CallDescriptor* desc = module->GetWasmCallDescriptor(this->zone(), env.sig);
     Handle<Code> result =
         Pipeline::GenerateCodeForTesting(this->isolate(), desc, this->graph());
+#if DEBUG
     if (!result.is_null() && FLAG_print_opt_code) {
       OFStream os(stdout);
       result->Disassemble("wasm code", os);
     }
+#endif
 
     return result;
   }
