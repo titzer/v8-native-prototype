@@ -18,7 +18,7 @@
 #include "src/compiler/linkage.h"
 #include "src/compiler/source-position.h"
 #include "src/compiler/typer.h"
-
+#include "src/compiler/graph-visualizer.h"
 
 #include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
@@ -610,8 +610,14 @@ void CreateJSAdapterCode(Isolate* isolate, ModuleEnv* module,
     compiler::SimplifiedLowering lowering(&jsgraph, &zone, &source_positions);
     lowering.LowerAllNodes();
 
+    if (FLAG_trace_turbo_graph) {  // Simple textual RPO.
+      OFStream os(stdout);
+      os << "-- Graph after simplified lowering -- " << std::endl;
+      os << compiler::AsRPO(graph);
+    }
+
     // Run generic and change lowering.
-    compiler::JSGenericLowering generic(false, &jsgraph);
+    compiler::JSGenericLowering generic(true, &jsgraph);
     compiler::ChangeLowering changes(&jsgraph);
     compiler::GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
     graph_reducer.AddReducer(&changes);

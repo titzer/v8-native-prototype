@@ -15,10 +15,15 @@ function bytes() {
 
 var kAstStmt = 0;
 var kAstInt32 = 1;
+var kAstInt64 = 2;
+var kAstFloat32 = 3;
+var kAstFloat64 = 4;
 var kStmtNop = 0;
+var kStmtBlock = 3;
 var kExprInt8Const = 0x10;
 var kExprInt32Sub = 0x41;
 var kExprGetLocal = 0x15;
+var kExprFloat64Lt = 0x99;
 var kStmtReturn = 0x9;
 var kCodeStartOffset = 34;
 var kCodeEndOffset = 40;
@@ -133,3 +138,40 @@ assertFalse(module.nop === 0);
 assertEquals("function", typeof module.nop);
 
 assertEquals(undefined, module.nop());
+
+(function testLt() {
+  var kCodeStartOffset3 = 34;
+  var kCodeSize3 = 8;
+  var kCodeEndOffset3 = kCodeStartOffset3 + kCodeSize3;
+  var kNameOffset3 = kCodeEndOffset3;
+
+  var data = bytes(
+    12, 1,                      // memory
+    0, 0,                       // globals
+    1, 0,                       // functions
+    0, 0,                       // data segments
+    2, kAstInt32, kAstFloat64, kAstFloat64, // signature: (f64,f64)->int
+    kNameOffset3, 0, 0, 0,      // name offset
+    kCodeStartOffset3, 0, 0, 0, // code start offset
+    kCodeEndOffset3, 0, 0, 0,   // code end offset
+    0, 0,                       // local int32 count
+    0, 0,                       // local int64 count
+    0, 0,                       // local float32 count
+    0, 0,                       // local float64 count
+    1,                          // exported
+    0,                          // external
+    kStmtBlock, 1,              // body
+    kStmtReturn,                // --       
+    kExprFloat64Lt,             // --
+    kExprGetLocal, 0,           // --
+    kExprGetLocal, 1,           // --
+    'f', 'l', 't', 0            // name
+  );
+
+  var module = WASM.instantiateModule(data);
+
+  assertEquals("function", typeof module.flt);
+  assertEquals(1, module.flt(-2, -1));
+  assertEquals(0, module.flt(7.3, 7.1));
+  assertEquals(1, module.flt(7.1, 7.3));
+})();
