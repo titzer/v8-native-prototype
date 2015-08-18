@@ -58,3 +58,23 @@ TEST(Run_WasmModule_CallAdd) {
       CompileAndRunWasmModule(isolate, module.Begin(), module.End());
   CHECK_EQ(99, result);
 }
+
+TEST(Run_WasmModule_ReadLoadedDataSegment) {
+  static const byte kDataSegmentDest0 = 12;
+  Zone zone;
+  WasmModuleBuilder builder(&zone);
+  WasmFunctionBuilder f(&zone);
+  f.ReturnType(kAstInt32);
+  f.Exported(1);
+  byte code[] = {WASM_RETURN(WASM_LOAD_MEM(kMemInt32,WASM_INT8(kDataSegmentDest0)))};
+  f.AddBody(code, sizeof(code));
+  builder.AddFunction(f.Build());
+  byte data[] = {0xaa, 0xbb, 0xcc, 0xdd};
+  builder.AddDataSegment(
+      WasmDataSegmentEncoder(&zone, data, sizeof(data), kDataSegmentDest0));
+  WasmModuleIndex module = builder.WriteAndBuild(&zone);
+  Isolate* isolate = CcTest::InitIsolateOnce();
+  int32_t result =
+      CompileAndRunWasmModule(isolate, module.Begin(), module.End());
+  CHECK_EQ(0xddccbbaa, result);
+}
