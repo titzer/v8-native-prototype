@@ -17,8 +17,10 @@ using namespace v8::internal;
 using namespace v8::internal::compiler;
 using namespace v8::internal::wasm;
 
+void TestModule(const WasmModuleIndex& module, int32_t expected_result);
+
 TEST(Run_WasmModule_Return114) {
-  static const byte kReturnValue = 114;
+  static const int32_t kReturnValue = 114;
   Zone zone;
   WasmModuleBuilder builder(&zone);
   WasmFunctionBuilder f(&zone);
@@ -27,11 +29,7 @@ TEST(Run_WasmModule_Return114) {
   byte code[] = {WASM_RETURN(WASM_INT8(kReturnValue))};
   f.AddBody(code, sizeof(code));
   builder.AddFunction(f.Build());
-  WasmModuleIndex module = builder.WriteAndBuild(&zone);
-  Isolate* isolate = CcTest::InitIsolateOnce();
-  int32_t result =
-      CompileAndRunWasmModule(isolate, module.Begin(), module.End());
-  CHECK_EQ(kReturnValue, result);
+  TestModule(builder.WriteAndBuild(&zone), kReturnValue);
 }
 
 TEST(Run_WasmModule_CallAdd) {
@@ -52,11 +50,7 @@ TEST(Run_WasmModule_CallAdd) {
       WASM_RETURN(WASM_CALL_FUNCTION(0, WASM_INT8(77), WASM_INT8(22)))};
   f2.AddBody(code2, sizeof(code2));
   builder.AddFunction(f2.Build());
-  WasmModuleIndex module = builder.WriteAndBuild(&zone);
-  Isolate* isolate = CcTest::InitIsolateOnce();
-  int32_t result =
-      CompileAndRunWasmModule(isolate, module.Begin(), module.End());
-  CHECK_EQ(99, result);
+  TestModule(builder.WriteAndBuild(&zone), 99);
 }
 
 TEST(Run_WasmModule_ReadLoadedDataSegment) {
@@ -66,15 +60,61 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   WasmFunctionBuilder f(&zone);
   f.ReturnType(kAstInt32);
   f.Exported(1);
-  byte code[] = {WASM_RETURN(WASM_LOAD_MEM(kMemInt32,WASM_INT8(kDataSegmentDest0)))};
+  byte code[] = {
+      WASM_RETURN(WASM_LOAD_MEM(kMemInt32,WASM_INT8(kDataSegmentDest0)))};
   f.AddBody(code, sizeof(code));
   builder.AddFunction(f.Build());
   byte data[] = {0xaa, 0xbb, 0xcc, 0xdd};
   builder.AddDataSegment(
       WasmDataSegmentEncoder(&zone, data, sizeof(data), kDataSegmentDest0));
-  WasmModuleIndex module = builder.WriteAndBuild(&zone);
+  TestModule(builder.WriteAndBuild(&zone), 0xddccbbaa);
+}
+
+TEST(Run_WasmModule_CheckMemoryIsZero) {
+  static const int kCheckSize = 16 * 1024;
+  Zone zone;
+  WasmModuleBuilder builder(&zone);
+  WasmFunctionBuilder f(&zone);
+  f.ReturnType(kAstInt32);
+  f.LocalInt32Count(1);
+  f.Exported(1);
+  byte code[] = {
+      WASM_WHILE(
+          WASM_INT32_SLT(WASM_GET_LOCAL(0), WASM_INT32(kCheckSize)),
+          WASM_IF_THEN(WASM_LOAD_MEM(kMemInt32, WASM_GET_LOCAL(0)),
+                       WASM_RETURN(WASM_INT8(-1)), WASM_INC_LOCAL_BY(0, 4))),
+      WASM_INT8(11)};
+  f.AddBody(code, sizeof(code));
+  builder.AddFunction(f.Build());
+  TestModule(builder.WriteAndBuild(&zone), 11);
+}
+
+TEST(Run_WasmModule_CallMain_recursive) {
+  Zone zone;
+  WasmModuleBuilder builder(&zone);
+  WasmFunctionBuilder f(&zone);
+  f.ReturnType(kAstInt32);
+  f.LocalInt32Count(1);
+  f.Exported(1);
+  byte code[] = {
+      WASM_BLOCK(
+          2,                                                             // --
+          WASM_SET_LOCAL(0, WASM_LOAD_MEM(kMemInt32, WASM_ZERO)),        // --
+          WASM_IF_THEN(WASM_INT32_SLT(WASM_GET_LOCAL(0), WASM_INT8(5)),  // --
+                       WASM_BLOCK(2,                                     // --
+                                  WASM_STORE_MEM(kMemInt32, WASM_ZERO,   // --
+                                                 WASM_INC_LOCAL(0)),     // --
+                                  WASM_RETURN(WASM_CALL_FUNCTION0(0))),  // --
+                       WASM_RETURN(WASM_INT8(55))))                      // --
+    };
+  f.AddBody(code, sizeof(code));
+  builder.AddFunction(f.Build());
+  TestModule(builder.WriteAndBuild(&zone), 55);
+}
+
+void TestModule(const WasmModuleIndex& module, int32_t expected_result) {
   Isolate* isolate = CcTest::InitIsolateOnce();
   int32_t result =
       CompileAndRunWasmModule(isolate, module.Begin(), module.End());
-  CHECK_EQ(0xddccbbaa, result);
+  CHECK_EQ(expected_result, result);
 }

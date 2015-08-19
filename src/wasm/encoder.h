@@ -53,6 +53,7 @@ class WasmFunctionBuilder {
   void AddBody(const byte*, uint32_t);
   void Exported(uint8_t);
   void External(uint8_t);
+  void LocalInt32Count(uint16_t);
   WasmFunctionEncoder Build(void) const;
 
  private:
