@@ -59,7 +59,7 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 // == ia32 ===================================================================
 // ===========================================================================
-#define GP_PARAM_REGISTERS eax, edx, ecx, edx, esi, edi
+#define GP_PARAM_REGISTERS eax, edx, ecx, ebx, esi, edi
 #define GP_RETURN_REGISTERS eax, edx
 #define FP_PARAM_REGISTERS xmm1, xmm2, xmm3, xmm4, xmm5, xmm6
 #define FP_RETURN_REGISTERS xmm1, xmm2
@@ -77,7 +77,7 @@ LinkageLocation stackloc(int i) {
 // ===========================================================================
 // == x87 ====================================================================
 // ===========================================================================
-#define GP_PARAM_REGISTERS eax, edx, ecx, edx, esi, edi
+#define GP_PARAM_REGISTERS eax, edx, ecx, ebx, esi, edi
 #define GP_RETURN_REGISTERS eax, edx
 
 #elif V8_TARGET_ARCH_ARM
