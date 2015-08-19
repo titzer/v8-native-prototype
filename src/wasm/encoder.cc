@@ -49,7 +49,7 @@ void WasmFunctionBuilder::AddParam(uint8_t param) { params_.push_back(param); }
 
 void WasmFunctionBuilder::ReturnType(uint8_t type) { return_type_ = type; }
 
-void WasmFunctionBuilder::AddBody(const byte* code, size_t size) {
+void WasmFunctionBuilder::AddBody(const byte* code, uint32_t size) {
   for (size_t i = 0; i < size; i++) {
     body_.push_back(code[i]);
   }
@@ -92,7 +92,7 @@ uint32_t WasmFunctionEncoder::BodySize(void) const {
 void WasmFunctionEncoder::Serialize(byte* buffer, uint32_t header_begin,
                                     uint32_t body_begin) const {
   SerializeFunctionHeader(buffer, header_begin, body_begin);
-  SerializeFunctionBody(buffer, header_begin, body_begin);
+  SerializeFunctionBody(buffer, body_begin);
 }
 
 void WasmFunctionEncoder::SerializeFunctionHeader(byte* buffer,
@@ -101,7 +101,7 @@ void WasmFunctionEncoder::SerializeFunctionHeader(byte* buffer,
   byte* header = buffer + header_begin;
   // signature
   EmitUint8(&header, static_cast<uint8_t>(params_.size()));
-  for (size_t i = 0; i < static_cast<size_t>(params_.size()); i++) {
+  for (size_t i = 0; i < params_.size(); i++) {
     EmitUint8(&header, params_[i]);
   }
   EmitUint8(&header, return_type_);
@@ -117,26 +117,64 @@ void WasmFunctionEncoder::SerializeFunctionHeader(byte* buffer,
 }
 
 void WasmFunctionEncoder::SerializeFunctionBody(byte* buffer,
-                                                uint32_t header_begin,
                                                 uint32_t body_begin) const {
   byte* body = buffer + body_begin;
   std::memcpy(body, body_.data(), body_.size());
 }
 
-WasmModuleBuilder::WasmModuleBuilder(Zone* z) : functions_(z) {}
+WasmDataSegmentEncoder::WasmDataSegmentEncoder(Zone* z, const byte* data,
+    uint32_t size, uint32_t dest) : data_(z), dest_(dest) {
+  for (size_t i = 0; i < size; i++) {
+    data_.push_back(data[i]);
+  }
+}
+
+uint32_t WasmDataSegmentEncoder::HeaderSize() const {
+  static const int kDataSegmentSize = 13;
+  return kDataSegmentSize;
+}
+
+uint32_t WasmDataSegmentEncoder::BodySize() const {
+  return static_cast<uint32_t>(data_.size());
+}
+
+void WasmDataSegmentEncoder::Serialize(byte* buffer, uint32_t header_begin,
+                                       uint32_t body_begin) const {
+  /* Header */
+  byte* header = buffer + header_begin;
+  EmitUint32(&header, dest_);
+  EmitUint32(&header, body_begin);
+  EmitUint32(&header, static_cast<uint32_t>(data_.size()));
+  EmitUint8(&header, 1);  //init
+  /* Body */
+  byte* body = buffer + body_begin;
+  std::memcpy(body, data_.data(), data_.size());
+}
+
+WasmModuleBuilder::WasmModuleBuilder(Zone* z)
+    : functions_(z), data_segments_(z) {}
 
 void WasmModuleBuilder::AddFunction(const WasmFunctionEncoder& f) {
   functions_.push_back(f);
+}
+
+void WasmModuleBuilder::AddDataSegment(const WasmDataSegmentEncoder& d) {
+  data_segments_.push_back(d);
 }
 
 WasmModuleIndex WasmModuleBuilder::WriteAndBuild(Zone* z) const {
   static const uint32_t kHeaderSize = 8;
   uint32_t total_size = kHeaderSize;
   uint32_t body_begin = kHeaderSize;
-  for (size_t i = 0; i < static_cast<size_t>(functions_.size()); i++) {
+  for (size_t i = 0; i < functions_.size(); i++) {
     total_size += functions_[i].HeaderSize();
     total_size += functions_[i].BodySize();
     body_begin += functions_[i].HeaderSize();
+  }
+  for (size_t i = 0; i < data_segments_.size(); i++) {
+    total_size += data_segments_[i].HeaderSize();
+    total_size += data_segments_[i].BodySize();
+    body_begin += data_segments_[i].HeaderSize();
   }
   ZoneVector<uint8_t> buffer_vector(total_size, z);
   byte* buffer = buffer_vector.data();
@@ -145,12 +183,17 @@ WasmModuleIndex WasmModuleBuilder::WriteAndBuild(Zone* z) const {
   EmitUint8(&temp, 0);
   EmitUint16(&temp, 0);  // globals
   EmitUint16(&temp, static_cast<uint16_t>(functions_.size()));
-  EmitUint16(&temp, 0);  // data segments
+  EmitUint16(&temp, static_cast<uint16_t>(data_segments_.size()));
   uint32_t header_begin = kHeaderSize;
-  for (size_t i = 0; i < static_cast<size_t>(functions_.size()); i++) {
+  for (size_t i = 0; i < functions_.size(); i++) {
     functions_[i].Serialize(buffer, header_begin, body_begin);
     header_begin += functions_[i].HeaderSize();
     body_begin += functions_[i].BodySize();
+  }
+  for (size_t i = 0; i < data_segments_.size(); i++) {
+    data_segments_[i].Serialize(buffer, header_begin, body_begin);
+    header_begin += data_segments_[i].HeaderSize();
+    body_begin += data_segments_[i].BodySize();
   }
   return WasmModuleIndex::WasmModuleIndex(buffer, buffer + total_size);
 }
