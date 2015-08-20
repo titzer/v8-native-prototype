@@ -59,6 +59,10 @@ void WasmFunctionBuilder::Exported(uint8_t flag) { exported_ = flag; }
 
 void WasmFunctionBuilder::External(uint8_t flag) { external_ = flag; }
 
+void WasmFunctionBuilder::LocalInt32Count(uint16_t count) {
+  local_int32_count_ = count;
+}
+
 WasmFunctionEncoder WasmFunctionBuilder::Build() const {
   return WasmFunctionEncoder::WasmFunctionEncoder(
       return_type_, params_, local_int32_count_, local_int64_count_,
