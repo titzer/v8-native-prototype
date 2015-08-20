@@ -4,8 +4,9 @@
 
 #include "src/signature.h"
 
-#include "src/v8.h"
 #include "src/zone-containers.h"
+#include "src/flags.h"
+#include "src/handles.h"
 
 #include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
@@ -1233,39 +1234,6 @@ TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
   LR_WasmDecoder decoder(&zone, graph);
   TreeResult result = decoder.Decode(env, start, end);
   return result;
-}
-
-
-void TestWasmDecodingSpeed() {
-  byte code[] = {kExprSetLocal, 0, kExprInt32Add, kExprGetLocal, 0,
-                 kExprInt8Const, 5};
-
-  Zone zone;
-  LR_WasmDecoder decoder(&zone, nullptr);
-  FunctionSig::Builder builder(&zone, 1, 1);
-  builder.AddReturn(kAstInt32);
-  builder.AddParam(kAstInt32);
-  FunctionEnv env = {nullptr, builder.Build(), 0, 0, 0, 0};
-
-  // Make COUNT copies of the above code.
-  const int TRIALS = 10;
-  const int COUNT = (4 * 1024) / sizeof(code);
-  const int TOTAL = COUNT * sizeof(code);
-  byte* big_code = reinterpret_cast<byte*>(zone.New(TOTAL));
-  for (int i = 0; i < COUNT; i++) {
-    memcpy(big_code + i * sizeof(code), code, sizeof(code));
-  }
-
-  for (int i = 0; i < TRIALS; i++) {
-    base::ElapsedTimer timer;
-    timer.Start();
-    TreeResult result = decoder.Decode(&env, big_code, big_code + TOTAL);
-    int64_t us = timer.Elapsed().InMicroseconds();
-    OFStream os(stdout);
-    double rate = ((TOTAL * 1000000.0) / us) / 1048576;
-    os << result << TOTAL << " bytes, us: " << us << " (" << rate << " MB/sec)"
-       << std::endl;
-  }
 }
 
 

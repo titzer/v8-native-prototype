@@ -1420,16 +1420,6 @@ TEST_F(DecoderTest, ContinueNesting_6_levels) {
     }
   }
 }
-
-//--------------------------------------------------------------------------
-// TODO(titzer): not a real test.
-//--------------------------------------------------------------------------
-void TestWasmDecodingSpeed();
-
-
-TEST_F(DecoderTest, Speed) {
-  //  TestWasmDecodingSpeed();
-}
 }
 }
 }
