@@ -438,27 +438,62 @@ class ModuleDecoder {
     }
   }
 
-  // Reads a single 8-bit unsigned integer (byte).
-  uint8_t u8() { return read<uint8_t>(); }
+  // Reads a single 8-bit unsigned integer (byte) and advances.
+  uint8_t u8() {
+    return checkAvailable(1) ? *(cur_++) : 0;
+  }
 
-  // Reads a single 16-bit unsigned integer (little endian).
-  uint16_t u16() { return read<uint16_t>(); }
+  // Reads a single 16-bit unsigned integer (little endian) and advances.
+  uint16_t u16() {
+    if (checkAvailable(2)) {
+#ifdef V8_TARGET_LITTLE_ENDIAN
+      // TODO(titzer): lift endianness out to a utility (none found so far).
+      byte b0 = cur_[0];
+      byte b1 = cur_[1];
+#else
+      byte b1 = cur_[0];
+      byte b0 = cur_[1];
+#endif
+      cur_ += 2;
+      return static_cast<uint16_t>(b1 << 8) | b0;
+    }
+    return 0;
+  }
 
-  // Reads a single 32-bit unsigned integer (little endian).
-  uint32_t u32() { return read<uint32_t>(); }
+  // Reads a single 32-bit unsigned integer (little endian) and advances.
+  uint32_t u32() {
+    if (checkAvailable(4)) {
+#ifdef V8_TARGET_LITTLE_ENDIAN
+      // TODO(titzer): lift endianness out to a utility (none found so far).
+      byte b0 = cur_[0];
+      byte b1 = cur_[1];
+      byte b2 = cur_[2];
+      byte b3 = cur_[3];
+#else
+      byte b3 = cur_[0];
+      byte b2 = cur_[1];
+      byte b1 = cur_[2];
+      byte b0 = cur_[3];
+#endif
+      cur_ += 4;
+      return static_cast<uint32_t>(b3 << 24) | static_cast<uint32_t>(b2 << 16) |
+          static_cast<uint32_t>(b1 << 8) | b0;
+    }
+    return 0;
+  }
 
   // Reads a single 32-bit unsigned integer interpreted as an offset, checking
-  // the offset is within bounds.
+  // the offset is within bounds and advances.
   uint32_t offset() {
-    uint32_t offset = read<uint32_t>();
+    uint32_t offset = u32();
     if (offset > (end_ - start_)) {
-      error(cur_ - sizeof(uint32_t), "offset out of bounds");
+      error(cur_ - sizeof(uint32_t), "offset out of bounds of module");
     }
     return offset;
   }
 
   // Reads a single 32-bit unsigned integer interpreted as an offset into the
-  // data and validating the string there.
+  // data and validating the string there and advances.
   uint32_t string() { return offset(); }  // TODO: validate string
 
   // Reads a single 8-bit integer, interpreting it as a local type.
@@ -515,16 +550,15 @@ class ModuleDecoder {
     return builder.Build();
   }
 
-  template <typename T>
-  T read() {
-    if (cur_ < start_ || cur_ + sizeof(T) > end_) {
-      error(cur_, "fell of end of module bytes");
-      T val = 0;
-      return val;
+  bool checkAvailable(int size) {
+    if (cur_ < start_ || cur_ + size > end_) {
+      char buf[128];
+      snprintf(buf, 128, "expected %d bytes, fell off end", size);
+      error(cur_, buf);
+      return false;
+    } else {
+      return true;
     }
-    T val = *reinterpret_cast<const T*>(cur_);
-    cur_ += sizeof(T);
-    return val;
   }
 
   void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
