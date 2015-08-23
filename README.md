@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/WebAssembly/v8-native-prototype.svg?branch=master)](https://travis-ci.org/WebAssembly/v8-native-prototype)
+
 # WebAssembly V8 Native Prototype
 
 This repository contains additional source code needed to build a prototype
