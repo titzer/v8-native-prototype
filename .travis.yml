@@ -1,0 +1,15 @@
+language: c++
+
+sudo: off
+
+install: ./install-dependencies.sh
+
+script:
+  - cd v8/v8 && make x64.release wasm=on werror=no
+
+compiler:
+  - clang
+
+os:
+  - linux
+  - osx
