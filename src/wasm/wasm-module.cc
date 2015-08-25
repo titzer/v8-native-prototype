@@ -10,20 +10,14 @@
 // TODO(titzer): wasm-module shouldn't need anything from the compiler.
 #include "src/compiler/common-operator.h"
 #include "src/compiler/js-graph.h"
-#include "src/compiler/machine-operator.h"
 #include "src/compiler/pipeline.h"
-#include "src/compiler/simplified-lowering.h"
-#include "src/compiler/change-lowering.h"
-#include "src/compiler/js-generic-lowering.h"
-#include "src/compiler/linkage.h"
-#include "src/compiler/source-position.h"
-#include "src/compiler/typer.h"
-#include "src/compiler/graph-visualizer.h"
+#include "src/compiler/machine-operator.h"
 
 #include "src/wasm/decoder.h"
 #include "src/wasm/tf-builder.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-result.h"
+#include "src/wasm/wasm-wrapper.h"
 
 namespace v8 {
 namespace internal {
@@ -96,8 +90,9 @@ class WasmLinker {
       Handle<Code> self(nullptr, isolate_);
       byte buffer[] = {0, 0, 0, 0, 0, 0, 0, 0};  // fake instructions.
       CodeDesc desc = {buffer, 8, 8, 0, 0, nullptr};
-      Handle<Code> code = isolate_->factory()->NewCode(desc, 0, self);
-      code->set_constant_pool_offset(kPlaceholderMarker - index);
+      Handle<Code> code = isolate_->factory()->NewCode(
+          desc, Code::KindField::encode(Code::PLACEHOLDER), self);
+      code->set_constant_pool_offset(index);
       placeholder_code_[index] = code;
       function_code_[index] = code;
     }
@@ -131,10 +126,9 @@ class WasmLinker {
       if (RelocInfo::IsCodeTarget(mode)) {
         Code* target =
             Code::GetCodeFromTargetAddress(it.rinfo()->target_address());
-        if (target->constant_pool_offset() <= kPlaceholderMarker) {
+        if (target->kind() == Code::PLACEHOLDER) {
           // Patch direct calls to placeholder code objects.
-          uint32_t index = static_cast<uint32_t>(
-              kPlaceholderMarker - target->constant_pool_offset());
+          uint32_t index = target->constant_pool_offset();
           CHECK(index < function_code_.size());
           Handle<Code> new_target = function_code_[index];
           if (target != *new_target) {
@@ -212,10 +206,6 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
       module_env->GetWasmCallDescriptor(&zone, function.sig));
   Handle<Code> code =
       compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor, &graph);
-
-  if (!code.is_null()) {
-    if (code->constant_pool_offset() < 0) code->set_constant_pool_offset(0);
-  }
 
 #ifdef ENABLE_DISASSEMBLER
   // Disassemble the code for debugging.
@@ -439,9 +429,7 @@ class ModuleDecoder {
   }
 
   // Reads a single 8-bit unsigned integer (byte) and advances.
-  uint8_t u8() {
-    return checkAvailable(1) ? *(cur_++) : 0;
-  }
+  uint8_t u8() { return checkAvailable(1) ? *(cur_++) : 0; }
 
   // Reads a single 16-bit unsigned integer (little endian) and advances.
   uint16_t u16() {
@@ -477,7 +465,7 @@ class ModuleDecoder {
 #endif
       cur_ += 4;
       return static_cast<uint32_t>(b3 << 24) | static_cast<uint32_t>(b2 << 16) |
-          static_cast<uint32_t>(b1 << 8) | b0;
+             static_cast<uint32_t>(b1 << 8) | b0;
     }
     return 0;
   }
@@ -614,79 +602,6 @@ void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
            segment.source_size);
   }
 }
-
-// TODO(titzer): move this to a wasm-adapter.cc file.
-void CreateJSAdapterCode(Isolate* isolate, ModuleEnv* module,
-                         Handle<JSFunction> function, uint32_t index) {
-  Zone zone;
-  compiler::Graph graph(&zone);
-  compiler::CommonOperatorBuilder common(&zone);
-  compiler::JSOperatorBuilder javascript(&zone);
-  compiler::MachineOperatorBuilder machine(&zone);
-  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, &machine);
-
-  TFNode* control = nullptr;
-  TFNode* effect = nullptr;
-
-  TFBuilder builder(&zone, &jsgraph);
-  builder.control = &control;
-  builder.effect = &effect;
-  builder.module = module;
-  builder.BuildJSAdapterGraph(index);
-
-  {
-    // Run simplified lowering.
-    compiler::Typer typer(isolate, &graph);
-    compiler::NodeVector roots(&zone);
-    jsgraph.GetCachedNodes(&roots);
-    typer.Run(roots);
-    compiler::SourcePositionTable source_positions(&graph);
-    compiler::SimplifiedLowering lowering(&jsgraph, &zone, &source_positions);
-    lowering.LowerAllNodes();
-
-    if (FLAG_trace_turbo_graph) {  // Simple textual RPO.
-      OFStream os(stdout);
-      os << "-- Graph after simplified lowering -- " << std::endl;
-      os << compiler::AsRPO(graph);
-    }
-
-    // Run generic and change lowering.
-    compiler::JSGenericLowering generic(true, &jsgraph);
-    compiler::ChangeLowering changes(&jsgraph);
-    compiler::GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
-    graph_reducer.AddReducer(&changes);
-    graph_reducer.AddReducer(&generic);
-    graph_reducer.ReduceGraph();
-
-    // Schedule and compile to machine code.
-    int params = static_cast<int>(
-        module->GetFunctionSignature(index)->parameter_count());
-    compiler::CallDescriptor* incoming = compiler::Linkage::GetJSCallDescriptor(
-        &zone, false, params + 1, compiler::CallDescriptor::kNoFlags);
-    Handle<Code> code = compiler::Pipeline::GenerateCodeForTesting(
-        isolate, incoming, &graph, nullptr);
-
-#ifdef ENABLE_DISASSEMBLER
-    // Disassemble the wrapper code for debugging.
-    if (!code.is_null() && FLAG_print_opt_code) {
-      WasmFunction* func = &module->module->functions->at(index);
-      static const int kBufferSize = 128;
-      char buffer[kBufferSize];
-      const char* name = "";
-      if (func->name_offset > 0) {
-        const byte* ptr = module->module->module_start + func->name_offset;
-        name = reinterpret_cast<const char*>(ptr);
-      }
-      snprintf(buffer, kBufferSize, "JS->WASM function wrapper #%d:%s", index,
-               name);
-      OFStream os(stdout);
-      code->Disassemble(buffer, os);
-    }
-#endif
-    // Set the JSFunction's machine code.
-    function->set_code(*code);
-  }
-}
 }  // namespace
 
 
@@ -695,7 +610,8 @@ void CreateJSAdapterCode(Isolate* isolate, ModuleEnv* module,
 //  * installs a named property "memory" for that buffer if exported
 //  * installs named properties on the object for exported functions
 //  * compiles wasm code to machine code
-MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
+MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
+                                              Handle<JSObject> ffi) {
   this->shared_isolate = isolate;  // TODO: have a real shared isolate.
 
   Factory* factory = isolate->factory();
@@ -777,28 +693,44 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate) {
     const char* cstr = GetName(func.name_offset);
     Handle<String> name = factory->InternalizeUtf8String(cstr);
     Handle<Code> code = Handle<Code>::null();
+    Handle<JSFunction> function = Handle<JSFunction>::null();
     if (func.external) {
-      // External functions are read-write properties on this object.
-      Handle<Object> undefined = factory->undefined_value();
-      JSObject::AddProperty(module, name, undefined, DONT_DELETE);
+      // Lookup external function in FFI object.
+      if (!ffi.is_null()) {
+        MaybeHandle<Object> result = Object::GetProperty(ffi, name);
+        if (!result.is_null()) {
+          Handle<Object> obj = result.ToHandleChecked();
+          if (obj->IsJSFunction()) {
+            function = Handle<JSFunction>::cast(obj);
+            code =
+                CompileWasmToJSWrapper(isolate, &module_env, function, index);
+          } else {
+            // TODO: that's an error.
+            UNREACHABLE();
+          }
+        } else {
+          // TODO: that's an error.
+          UNREACHABLE();
+        }
+      } else {
+        // TODO: that's an error.
+        UNREACHABLE();
+      }
     } else {
-      // Compile the function and install it in the code table.
+      // Compile the function.
       code = CompileFunction(isolate, &module_env, func, index);
-      if (!code.is_null()) {
-        linker.Finish(index, code);
-        code_table->set(index, *code);
+      if (func.exported) {
+        function =
+            CompileJSToWasmWrapper(isolate, &module_env, name, code, index);
       }
     }
+    if (!code.is_null()) {
+      // Install the code into the linker table.
+      linker.Finish(index, code);
+      code_table->set(index, *code);
+    }
     if (func.exported) {
-      // Export functions are installed as read-only properties on the module.
-      Handle<SharedFunctionInfo> shared =
-          factory->NewSharedFunctionInfo(name, code);
-      int params = static_cast<int>(func.sig->parameter_count());
-      shared->set_length(params);
-      shared->set_internal_formal_parameter_count(1 + params);
-      Handle<JSFunction> function = factory->NewFunction(name);
-      function->set_shared(*shared);
-      CreateJSAdapterCode(isolate, &module_env, function, index);
+      // Exported functions are installed as read-only properties on the module.
       JSObject::AddProperty(module, name, function, READ_ONLY);
     }
     index++;
@@ -824,12 +756,10 @@ Handle<Code> ModuleEnv::GetFunctionCode(uint32_t index) {
 compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
                                                        uint32_t index) {
   DCHECK(IsValidFunction(index));
+  // Always make a direct call to whatever is in the table at that location.
+  // A wrapper will be generated for FFI calls.
   WasmFunction* function = &module->functions->at(index);
-  if (!function->external) {
-    // WASM -> WASM direct call.
-    return GetWasmCallDescriptor(zone, function->sig);
-  }
-  return nullptr;  // TODO
+  return GetWasmCallDescriptor(zone, function->sig);
 }
 
 

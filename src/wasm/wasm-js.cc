@@ -28,7 +28,8 @@ RawBuffer GetRawBufferArgument(
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(),
                             "Argument 0 must be an array buffer",
-                            NewStringType::kNormal).ToLocalChecked());
+                            NewStringType::kNormal)
+            .ToLocalChecked());
     return {nullptr, nullptr};
   }
   Local<ArrayBuffer> buffer = Local<ArrayBuffer>::Cast(args[0]);
@@ -43,7 +44,8 @@ RawBuffer GetRawBufferArgument(
   if (start == nullptr) {
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(), "ArrayBuffer argument is empty",
-                            NewStringType::kNormal).ToLocalChecked());
+                            NewStringType::kNormal)
+            .ToLocalChecked());
   }
   return {start, end};
 }
@@ -64,7 +66,8 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
     str << "WASM.verifyModule() failed: " << result;
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
-                            NewStringType::kNormal).ToLocalChecked());
+                            NewStringType::kNormal)
+            .ToLocalChecked());
   }
 
   if (result.val) delete result.val;
@@ -93,7 +96,8 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
     str << "WASM.verifyFunction() failed: " << result;
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
-                            NewStringType::kNormal).ToLocalChecked());
+                            NewStringType::kNormal)
+            .ToLocalChecked());
   }
 
   if (result.val) delete result.val;
@@ -118,7 +122,8 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
     str << "WASM.compileRun() failed: " << result;
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
-                            NewStringType::kNormal).ToLocalChecked());
+                            NewStringType::kNormal)
+            .ToLocalChecked());
   } else {
     // Success. Compile and run!
     int32_t retval = i::wasm::CompileAndRunWasmModule(isolate, result.val);
@@ -147,10 +152,17 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
     str << "WASM.instantiateModule() failed: " << result;
     args.GetIsolate()->ThrowException(
         String::NewFromUtf8(args.GetIsolate(), str.str().c_str(),
-                            NewStringType::kNormal).ToLocalChecked());
+                            NewStringType::kNormal)
+            .ToLocalChecked());
   } else {
     // Success. Instantiate the module and return the object.
-    i::MaybeHandle<i::JSObject> object = result.val->Instantiate(isolate);
+    i::Handle<i::JSObject> ffi = i::Handle<i::JSObject>::null();
+    if (args.Length() > 1 && args[1]->IsObject()) {
+      Local<Object> obj = Local<Object>::Cast(args[1]);
+      ffi = v8::Utils::OpenHandle(*obj);
+    }
+
+    i::MaybeHandle<i::JSObject> object = result.val->Instantiate(isolate, ffi);
     args.GetReturnValue().Set(v8::Utils::ToLocal(object.ToHandleChecked()));
   }
 

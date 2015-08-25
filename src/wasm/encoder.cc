@@ -127,7 +127,8 @@ void WasmFunctionEncoder::SerializeFunctionBody(byte* buffer,
 }
 
 WasmDataSegmentEncoder::WasmDataSegmentEncoder(Zone* z, const byte* data,
-    uint32_t size, uint32_t dest) : data_(z), dest_(dest) {
+                                               uint32_t size, uint32_t dest)
+    : data_(z), dest_(dest) {
   for (size_t i = 0; i < size; i++) {
     data_.push_back(data[i]);
   }
@@ -149,7 +150,7 @@ void WasmDataSegmentEncoder::Serialize(byte* buffer, uint32_t header_begin,
   EmitUint32(&header, dest_);
   EmitUint32(&header, body_begin);
   EmitUint32(&header, static_cast<uint32_t>(data_.size()));
-  EmitUint8(&header, 1);  //init
+  EmitUint8(&header, 1);  // init
   /* Body */
   byte* body = buffer + body_begin;
   std::memcpy(body, data_.data(), data_.size());

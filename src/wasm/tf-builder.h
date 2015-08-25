@@ -97,7 +97,8 @@ struct TFBuilder {
 
   TFNode* CallDirect(uint32_t index, TFNode** args);
   TFNode* CallIndirect(uint32_t table_index, TFNode** args);
-  void BuildJSAdapterGraph(uint32_t index);
+  void BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig* sig);
+  void BuildWasmToJSWrapper(Handle<JSFunction> function, FunctionSig* sig);
   TFNode* ToJS(TFNode* node, TFNode* context, LocalType type);
   TFNode* FromJS(TFNode* node, TFNode* context, LocalType type);
   TFNode* Invert(TFNode* node);

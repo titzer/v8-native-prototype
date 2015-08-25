@@ -74,6 +74,7 @@ class WasmDataSegmentEncoder {
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;
   void Serialize(byte*, uint32_t, uint32_t) const;
+
  private:
   ZoneVector<byte> data_;
   uint32_t dest_;

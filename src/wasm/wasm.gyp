@@ -28,6 +28,8 @@
           'wasm-opcodes.h',
           'wasm-result.cc',
           'wasm-result.h',
+          'wasm-wrapper.cc',
+          'wasm-wrapper.h',
         ],
       },
     },
