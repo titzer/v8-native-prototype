@@ -275,7 +275,7 @@ class LR_WasmDecoder {
 
     while (true) {  // decoding loop.
       if (!ssa_env_->go()) {
-        error(pc_, "unreachable code");
+        error("unreachable code");
         return;
       }
 
@@ -293,7 +293,7 @@ class LR_WasmDecoder {
         if (pc_ >= limit_) {
           // End of code reached or exceeded.
           if (pc_ > limit_ && result_.error_pc != nullptr) {
-            error(pc_, "Beyond end of code");
+            error("Beyond end of code");
           }
           return;
         }
@@ -360,11 +360,11 @@ class LR_WasmDecoder {
             if (block->cont_env) {
               Goto(ssa_env_, block->cont_env);
             } else {
-              error(pc_, "improper continue to block");
+              error("improper continue to block");
             }
             ssa_env_->state = SsaEnv::kControlEnd;
           } else {
-            error(pc_, "improperly nested continue");
+            error("improperly nested continue");
           }
           Leaf(kAstStmt);
           len = 2;
@@ -377,7 +377,7 @@ class LR_WasmDecoder {
             Goto(ssa_env_, block->break_env);
             ssa_env_->state = SsaEnv::kControlEnd;
           } else {
-            error(pc_, "improperly nested break");
+            error("improperly nested break");
           }
           Leaf(kAstStmt);
           len = 2;
@@ -522,7 +522,7 @@ class LR_WasmDecoder {
             if (sig->return_count() == 1) {
               type = sig->GetReturn();
             } else {
-              error(pc_, "function call should return exactly 1 result");
+              error("function call should return exactly 1 result");
             }
             Shift(type, static_cast<int>(1 + sig->parameter_count()));
           } else {
@@ -539,14 +539,14 @@ class LR_WasmDecoder {
           break;
         }
         default:
-          error(pc_, "Invalid opcode");
+          error("Invalid opcode");
           return;
       }
       pc_ += len;
       if (pc_ >= limit_) {
         // End of code reached or exceeded.
         if (pc_ > limit_ && result_.error_pc != nullptr) {
-          error(pc_, "Beyond end of code");
+          error("Beyond end of code");
         }
         return;
       }
@@ -566,11 +566,9 @@ class LR_WasmDecoder {
     if (retcount == 0) return builder_.ReturnVoid();
 
     if (trees_.size() < function_env_->sig->return_count()) {
-      char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
-      snprintf(buffer, kErrorMsgSize,
-               "ImplicitReturn expects %d arguments, only %d remain", retcount,
-               static_cast<int>(trees_.size()));
-      error(limit_, buffer);
+      error(limit_, nullptr,
+            "ImplicitReturn expects %d arguments, only %d remain", retcount,
+            static_cast<int>(trees_.size()));
       return;
     }
 
@@ -582,13 +580,11 @@ class LR_WasmDecoder {
       buffer[index] = tree->node;
       LocalType expected = function_env_->sig->GetReturn(index);
       if (tree->type != expected) {
-        char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
-        snprintf(buffer, kErrorMsgSize,
-                 "ImplicitReturn[%d] expected type %s, found %s of type %s",
-                 index, WasmOpcodes::TypeName(expected),
-                 WasmOpcodes::OpcodeName(tree->opcode()),
-                 WasmOpcodes::TypeName(tree->type));
-        error(limit_, buffer, tree->pc);
+        error(limit_, tree->pc,
+              "ImplicitReturn[%d] expected type %s, found %s of type %s", index,
+              WasmOpcodes::TypeName(expected),
+              WasmOpcodes::OpcodeName(tree->opcode()),
+              WasmOpcodes::TypeName(tree->type));
         return;
       }
     }
@@ -748,7 +744,7 @@ class LR_WasmDecoder {
           if (builder_.graph) ssa_env_->locals[index] = val->node;
           p->tree->node = val->node;
         } else {
-          error(p->pc(), "Typecheck failed in SetLocal", val->pc);
+          error(p->pc(), val->pc, "Typecheck failed in SetLocal");
         }
         break;
       }
@@ -762,7 +758,7 @@ class LR_WasmDecoder {
           builder_.StoreGlobal(index, val->node);
           p->tree->node = val->node;
         } else {
-          error(p->pc(), "Typecheck failed in StoreGlobal", val->pc);
+          error(p->pc(), val->pc, "Typecheck failed in StoreGlobal");
         }
         break;
       }
@@ -855,12 +851,10 @@ class LR_WasmDecoder {
         } else if (p->index == 2) {
           // True expr done. Switch to environment for false branch.
           if (left->type == kAstStmt) {
-            char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
-            snprintf(buffer, kErrorMsgSize,
-                     "%s[%d] expected expression, found %s statement",
-                     WasmOpcodes::OpcodeName(p->opcode()), p->index - 1,
-                     WasmOpcodes::OpcodeName(p->last()->opcode()));
-            error(p->pc(), buffer, p->last()->pc);
+            error(p->pc(), p->last()->pc,
+                  "%s[%d] expected expression, found %s statement",
+                  WasmOpcodes::OpcodeName(p->opcode()), p->index - 1,
+                  WasmOpcodes::OpcodeName(p->last()->opcode()));
           }
           IfEnv* env = &ifs_.back();
           SetEnv(env->false_env);
@@ -922,14 +916,12 @@ class LR_WasmDecoder {
 
   void TypeCheckLast(Production* p, LocalType expected) {
     if (p->last()->type != expected) {
-      char* buffer = reinterpret_cast<char*>(zone_->New(kErrorMsgSize));
-      snprintf(buffer, kErrorMsgSize,
-               "%s[%d] expected type %s, found %s of type %s",
-               WasmOpcodes::OpcodeName(p->opcode()), p->index - 1,
-               WasmOpcodes::TypeName(expected),
-               WasmOpcodes::OpcodeName(p->last()->opcode()),
-               WasmOpcodes::TypeName(p->last()->type));
-      error(p->pc(), buffer, p->last()->pc);
+      error(p->pc(), p->last()->pc,
+            "%s[%d] expected type %s, found %s of type %s",
+            WasmOpcodes::OpcodeName(p->opcode()), p->index - 1,
+            WasmOpcodes::TypeName(expected),
+            WasmOpcodes::OpcodeName(p->last()->opcode()),
+            WasmOpcodes::TypeName(p->last()->type));
     }
   }
 
@@ -1172,7 +1164,11 @@ class LR_WasmDecoder {
     }
   }
 
-  void error(const byte* pc, const char* msg, const byte* pt = nullptr) {
+  void error(const char* msg) { error(pc_, nullptr, msg); }
+
+  void error(const byte* pc, const char* msg) { error(pc, nullptr, msg); }
+
+  void error(const byte* pc, const byte* pt, const char* format, ...) {
     limit_ = start_;  // terminates the decoding loop
     if (result_.error_code == kSuccess) {
 #if DEBUG
@@ -1180,12 +1176,14 @@ class LR_WasmDecoder {
         base::OS::DebugBreak();
       }
 #endif
-      result_.error_code = kError;  // TODO(titzer): error code
-      size_t len = strlen(msg) + 1;
-      char* result = new char[len];
-      strncpy(result, msg, len);
-      result[len - 1] = 0;
-      result_.error_msg.Reset(result);
+      result_.error_code = kError;  // TODO(titzer): better error code
+      const int kMaxErrorMsg = 256;
+      char* buffer = new char[kMaxErrorMsg];
+      va_list arguments;
+      va_start(arguments, format);
+      base::OS::VSNPrintF(buffer, kMaxErrorMsg - 1, format, arguments);
+      va_end(arguments);
+      result_.error_msg.Reset(buffer);
       result_.error_pc = pc;
       result_.error_pt = pt;
 #if DEBUG
