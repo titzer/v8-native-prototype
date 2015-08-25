@@ -99,7 +99,7 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
   if (thrower.error()) return;
 
-  // TODO(titzer): remove pre-verification of the whole module once
+  // TODO(titzer): remove pre-verification of the functions once
   // the compileRun() method produces a decent per-function error.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
@@ -120,12 +120,12 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
-  ErrorThrower thrower(isolate, "WASM.instantiate()");
+  ErrorThrower thrower(isolate, "WASM.instantiateModule()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
   if (buffer.start == nullptr) return;
 
-  // TODO(titzer): remove pre-verification of the whole module once
+  // TODO(titzer): remove pre-verification of the functions once
   // the compileRun() method produces a decent per-function error.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
@@ -142,7 +142,10 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
     }
 
     i::MaybeHandle<i::JSObject> object = result.val->Instantiate(isolate, ffi);
-    args.GetReturnValue().Set(v8::Utils::ToLocal(object.ToHandleChecked()));
+
+    if (!object.is_null()) {
+      args.GetReturnValue().Set(v8::Utils::ToLocal(object.ToHandleChecked()));
+    }
   }
 
   if (result.val) delete result.val;
