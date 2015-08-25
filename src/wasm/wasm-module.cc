@@ -159,7 +159,8 @@ const int kWasmGlobalsArrayBuffer = 3;
 
 
 // Helper function to compile a single function.
-Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
+Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
+                             ModuleEnv* module_env,
                              const WasmFunction& function, int index) {
   if (FLAG_trace_wasm_compiler) {
     // TODO(titzer): clean me up a bit.
@@ -196,7 +197,11 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
       OFStream os(stdout);
       os << "Compilation failed: " << result << std::endl;
     }
-    // TODO(titzer): throw an exception in the isolate.
+    // Add the function as another context for the exception
+    char buffer[256];
+    snprintf(buffer, 256, "Compiling WASM function #%d:%s failed:", index,
+             module_env->module->GetName(function.name_offset));
+    thrower.Failed(buffer, result);
     return Handle<Code>::null();
   }
 
@@ -692,6 +697,8 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
+    if (thrower.error()) break;
+
     const char* cstr = GetName(func.name_offset);
     Handle<String> name = factory->InternalizeUtf8String(cstr);
     Handle<Code> code = Handle<Code>::null();
@@ -721,7 +728,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
       }
     } else {
       // Compile the function.
-      code = CompileFunction(isolate, &module_env, func, index);
+      code = CompileFunction(thrower, isolate, &module_env, func, index);
       if (code.is_null()) {
         thrower.Error("Compilation of #%d:%s failed.", index, cstr);
         return MaybeHandle<JSObject>();
@@ -856,13 +863,12 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
 
 
 int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
+  ErrorThrower thrower(isolate, "CompileAndRunWasmModule");
+
   // Allocate temporary linear memory and globals.
-  // TODO(titzer): 128mb is just a hack until the memory size is encoded.
-  size_t mem_size = module->mem_size_log2 == 0 ? 128 * 1024 * 1024
-                                               : 1 << module->mem_size_log2;
+  size_t mem_size = 1 << module->mem_size_log2;
   size_t globals_size = AllocateGlobalsOffsets(module->globals);
 
-  // TODO(titzer): use embedder API to allocate internal module?
   base::SmartArrayPointer<byte> mem_addr(new byte[mem_size]);
   base::SmartArrayPointer<byte> globals_addr(new byte[globals_size]);
 
@@ -889,11 +895,13 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   for (const WasmFunction& func : *module->functions) {
     if (!func.external) {
       // Compile the function and install it in the code table.
-      Handle<Code> code = CompileFunction(isolate, &module_env, func, index);
+      Handle<Code> code =
+          CompileFunction(thrower, isolate, &module_env, func, index);
       if (!code.is_null()) {
         if (func.exported) main_code = code;
         linker.Finish(index, code);
       }
+      if (thrower.error()) return -1;
     }
     index++;
   }

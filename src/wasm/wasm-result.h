@@ -92,13 +92,8 @@ std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code);
 // A helper for generating error messages that bubble up to JS exceptions.
 class ErrorThrower {
  public:
-  ErrorThrower(Isolate* isolate, const char* context,
-               ErrorThrower* outer = nullptr)
-      : isolate_(isolate),
-        context_(context),
-        outer_(outer),
-        error_(outer == nullptr ? &top_error_ : outer->error_),
-        top_error_(false) {}
+  ErrorThrower(Isolate* isolate, const char* context)
+      : isolate_(isolate), context_(context), error_(false) {}
 
   void Error(const char* fmt, ...);
 
@@ -109,14 +104,12 @@ class ErrorThrower {
     return Error(str.str().c_str());
   }
 
-  bool error() const { return *error_; }
+  bool error() const { return error_; }
 
  private:
   Isolate* isolate_;
   const char* context_;
-  ErrorThrower* outer_;
-  bool* error_;
-  bool top_error_;
+  bool error_;
 };
 }
 }

@@ -28,9 +28,10 @@ std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code) {
   return os;
 }
 
+
 void ErrorThrower::Error(const char* format, ...) {
-  if (*error_) return;  // only report the first error.
-  *error_ = true;
+  if (error_) return;  // only report the first error.
+  error_ = true;
   char buffer[256];
 
   va_list arguments;
@@ -41,8 +42,6 @@ void ErrorThrower::Error(const char* format, ...) {
 
   std::ostringstream str;
   if (context_ != nullptr) {
-    // TODO(titzer): add the outer contexts if any.
-    USE(outer_);
     str << context_ << ": ";
   }
   str << buffer;

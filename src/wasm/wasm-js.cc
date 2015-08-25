@@ -99,11 +99,10 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
   if (thrower.error()) return;
 
-  // TODO(titzer): remove pre-verification of the functions once
-  // the compileRun() method produces a decent per-function error.
+  // Decode and pre-verify the functions before compiling and running.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
-      isolate, &zone, buffer.start, buffer.end);
+      isolate, &zone, buffer.start, buffer.end, true);
 
   if (result.failed()) {
     thrower.Failed("", result);
@@ -125,11 +124,11 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
   if (buffer.start == nullptr) return;
 
-  // TODO(titzer): remove pre-verification of the functions once
-  // the compileRun() method produces a decent per-function error.
+  // Decode but avoid a redundant pass over function bodies for verification.
+  // Verification will happen during compilation.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
-      isolate, &zone, buffer.start, buffer.end);
+      isolate, &zone, buffer.start, buffer.end, false);
 
   if (result.failed()) {
     thrower.Failed("", result);
