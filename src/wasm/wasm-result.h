@@ -11,6 +11,9 @@
 
 namespace v8 {
 namespace internal {
+
+class Isolate;
+
 namespace wasm {
 
 // Error codes for programmatic checking of the decoder's verification.
@@ -84,6 +87,37 @@ std::ostream& operator<<(std::ostream& os, const Result<T>& result) {
 
 
 std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code);
+
+
+// A helper for generating error messages that bubble up to JS exceptions.
+class ErrorThrower {
+ public:
+  ErrorThrower(Isolate* isolate, const char* context,
+               ErrorThrower* outer = nullptr)
+      : isolate_(isolate),
+        context_(context),
+        outer_(outer),
+        error_(outer == nullptr ? &top_error_ : outer->error_),
+        top_error_(false) {}
+
+  void Error(const char* fmt, ...);
+
+  template <typename T>
+  void Failed(const char* error, Result<T>& result) {
+    std::ostringstream str;
+    str << error << result;
+    return Error(str.str().c_str());
+  }
+
+  bool error() const { return *error_; }
+
+ private:
+  Isolate* isolate_;
+  const char* context_;
+  ErrorThrower* outer_;
+  bool* error_;
+  bool top_error_;
+};
 }
 }
 }

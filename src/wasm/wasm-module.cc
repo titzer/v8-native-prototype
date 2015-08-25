@@ -166,8 +166,7 @@ Handle<Code> CompileFunction(Isolate* isolate, ModuleEnv* module_env,
     OFStream os(stdout);
     os << "Compiling WASM function #" << index << ":";
     if (function.name_offset > 0) {
-      const byte* ptr = module_env->module->module_start + function.name_offset;
-      os << reinterpret_cast<const char*>(ptr);
+      os << module_env->module->GetName(function.name_offset);
     }
     os << std::endl;
   }
@@ -421,6 +420,7 @@ class ModuleDecoder {
       size_t len = strlen(raw);
       char* buffer = new char[len];
       strncpy(buffer, raw, len);
+      buffer[len - 1] = 0;
 
       // Copy error code and location.
       result_.CopyFrom(result);
@@ -560,6 +560,7 @@ class ModuleDecoder {
       size_t len = strlen(msg) + 1;
       char* result = new char[len];
       strncpy(result, msg, len);
+      result[len - 1] = 0;
       result_.error_msg.Reset(result);
       result_.error_pc = pc;
       result_.error_pt = pt;
@@ -613,12 +614,13 @@ void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
 MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
                                               Handle<JSObject> ffi) {
   this->shared_isolate = isolate;  // TODO: have a real shared isolate.
+  ErrorThrower thrower(isolate, "WasmModule::Instantiate()");
 
   Factory* factory = isolate->factory();
   // Memory is bigger than maximum supported size.
   if (mem_size_log2 > kMaxMemSize) {
-    return isolate->Throw<JSObject>(
-        factory->InternalizeUtf8String("Out of memory: wasm memory too large"));
+    thrower.Error("Out of memory: wasm memory too large");
+    return MaybeHandle<JSObject>();
   }
 
   Handle<Map> map = factory->NewMap(
@@ -640,9 +642,9 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   Handle<JSArrayBuffer> mem_buffer =
       NewArrayBuffer(isolate, mem_size, &mem_addr);
   if (!mem_addr) {
-    // Not enough space for backing store of mem
-    return isolate->Throw<JSObject>(
-        factory->InternalizeUtf8String("Out of memory: wasm memory"));
+    // Not enough space for backing store of memory
+    thrower.Error("Out of memory: wasm memory");
+    return MaybeHandle<JSObject>();
   }
 
   // Load initialized data segments.
@@ -666,8 +668,8 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
         NewArrayBuffer(isolate, mem_size, &globals_addr);
     if (!globals_addr) {
       // Not enough space for backing store of globals.
-      return isolate->Throw<JSObject>(
-          factory->InternalizeUtf8String("Out of memory: wasm globals"));
+      thrower.Error("Out of memory: wasm globals");
+      return MaybeHandle<JSObject>();
     }
 
     module->SetInternalField(kWasmGlobalsArrayBuffer, *globals_buffer);
@@ -705,20 +707,25 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
             code =
                 CompileWasmToJSWrapper(isolate, &module_env, function, index);
           } else {
-            // TODO: that's an error.
-            UNREACHABLE();
+            thrower.Error("FFI function #%d:%s is not a JSFunction.", index,
+                          cstr);
+            return MaybeHandle<JSObject>();
           }
         } else {
-          // TODO: that's an error.
-          UNREACHABLE();
+          thrower.Error("FFI function #%d:%s not found.", index, cstr);
+          return MaybeHandle<JSObject>();
         }
       } else {
-        // TODO: that's an error.
-        UNREACHABLE();
+        thrower.Error("FFI table is not an object.");
+        return MaybeHandle<JSObject>();
       }
     } else {
       // Compile the function.
       code = CompileFunction(isolate, &module_env, func, index);
+      if (code.is_null()) {
+        thrower.Error("Compilation of #%d:%s failed.", index, cstr);
+        return MaybeHandle<JSObject>();
+      }
       if (func.exported) {
         function =
             CompileJSToWasmWrapper(isolate, &module_env, name, code, index);
@@ -771,6 +778,7 @@ class ModuleError : public ModuleResult {
     size_t len = strlen(msg) + 1;
     char* result = new char[len];
     strncpy(result, msg, len);
+    result[len - 1] = 0;
     error_msg.Reset(result);
   }
 };
@@ -784,6 +792,7 @@ class FunctionError : public FunctionResult {
     size_t len = strlen(msg) + 1;
     char* result = new char[len];
     strncpy(result, msg, len);
+    result[len - 1] = 0;
     error_msg.Reset(result);
   }
 };

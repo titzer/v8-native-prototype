@@ -16,7 +16,6 @@ class CallDescriptor;
 }
 
 namespace wasm {
-
 const size_t kMinModuleSize = 8;
 const size_t kMaxModuleSize = 1024 * 1024 * 1024;
 const size_t kMaxFunctionSize = 128 * 1024;
@@ -69,9 +68,10 @@ struct WasmModule {
   std::vector<WasmGlobal>* globals;             // globals in this module.
   std::vector<WasmDataSegment>* data_segments;  // data segments in this module.
 
-  // Get a pointer to a string stored in the module bytes.
+  // Get a pointer to a string stored in the module bytes representing a name.
   const char* GetName(uint32_t offset) {
-    DCHECK(BoundsCheck(offset, offset + 1));
+    CHECK(BoundsCheck(offset, offset + 1));
+    if (offset == 0) return "<?>";  // no name.
     return reinterpret_cast<const char*>(module_start + offset);
   }
 

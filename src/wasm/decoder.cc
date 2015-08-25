@@ -1184,6 +1184,7 @@ class LR_WasmDecoder {
       size_t len = strlen(msg) + 1;
       char* result = new char[len];
       strncpy(result, msg, len);
+      result[len - 1] = 0;
       result_.error_msg.Reset(result);
       result_.error_pc = pc;
       result_.error_pt = pt;

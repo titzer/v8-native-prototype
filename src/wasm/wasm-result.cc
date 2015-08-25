@@ -4,6 +4,14 @@
 
 #include "src/wasm/wasm-result.h"
 
+#include "src/factory.h"
+#include "src/heap/heap.h"
+#include "src/isolate.h"
+#include "src/objects-inl.h"  // TODO(mstarzinger): Temporary cycle breaker!
+#include "src/objects.h"
+
+#include "src/base/platform/platform.h"
+
 namespace v8 {
 namespace internal {
 namespace wasm {
@@ -18,6 +26,29 @@ std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code) {
       break;
   }
   return os;
+}
+
+void ErrorThrower::Error(const char* format, ...) {
+  if (*error_) return;  // only report the first error.
+  *error_ = true;
+  char buffer[256];
+
+  va_list arguments;
+  va_start(arguments, format);
+  base::OS::VSNPrintF(buffer, 255, format, arguments);
+  va_end(arguments);
+
+
+  std::ostringstream str;
+  if (context_ != nullptr) {
+    // TODO(titzer): add the outer contexts if any.
+    USE(outer_);
+    str << context_ << ": ";
+  }
+  str << buffer;
+
+  isolate_->ScheduleThrow(
+      *isolate_->factory()->NewStringFromAsciiChecked(str.str().c_str()));
 }
 }
 }
