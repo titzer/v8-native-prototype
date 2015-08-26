@@ -96,7 +96,7 @@ class LR_WasmDecoder {
         blocks_(zone),
         ifs_(zone) {}
 
-  TreeResult Decode(FunctionEnv* function_env, const byte* pc,
+  TreeResult Decode(FunctionEnv* function_env, const byte* base, const byte* pc,
                     const byte* end) {
     CHECK(end >= pc);
     trees_.clear();
@@ -110,6 +110,7 @@ class LR_WasmDecoder {
     result_.error_msg.Reset(nullptr);
     result_.error_pt = nullptr;
 
+    base_ = base;
     start_ = pc;
     pc_ = pc;
     limit_ = end;
@@ -132,9 +133,8 @@ class LR_WasmDecoder {
     if (result_.ok()) {
       TRACE("wasm-decode ok\n\n");
     } else {
-      TRACE("wasm-error  @+%d: %s\n\n",
-            static_cast<int>(result_.error_pc - start_),
-            result_.error_msg.get());
+      TRACE("wasm-error module+%-6d func+%d: %s\n\n", baserel(result_.error_pc),
+            startrel(result_.error_pc), result_.error_msg.get());
     }
     return result_;
   }
@@ -144,6 +144,7 @@ class LR_WasmDecoder {
 
   Zone* zone_;
   TFBuilder builder_;
+  const byte* base_;
   const byte* start_;
   const byte* pc_;
   const byte* limit_;
@@ -281,8 +282,8 @@ class LR_WasmDecoder {
 
       int len = 1;
       WasmOpcode opcode = static_cast<WasmOpcode>(*pc_);
-      TRACE("wasm-decode %s@+%d: 0x%02x %s\n", indentation(),
-            static_cast<int>(pc_ - start_), opcode,
+      TRACE("wasm-decode module+%-6d %s func+%d: 0x%02x %s\n", baserel(pc_),
+            indentation(), startrel(pc_), opcode,
             WasmOpcodes::OpcodeName(opcode));
 
       FunctionSig* sig = WasmOpcodes::Signature(opcode);
@@ -592,10 +593,16 @@ class LR_WasmDecoder {
     builder_.Return(retcount, buffer);
   }
 
+  int baserel(const byte* ptr) {
+    return base_ ? static_cast<int>(ptr - base_) : 0;
+  }
+
+  int startrel(const byte* ptr) { return static_cast<int>(ptr - start_); }
+
   void Reduce(Production* p) {
     WasmOpcode opcode = p->opcode();
-    TRACE("-----reduce %s@+%d: 0x%02x %s\n", indentation(),
-          static_cast<int>(p->pc() - start_), opcode,
+    TRACE("-----reduce module+%-6d %s func+%d: 0x%02x %s\n", baserel(p->pc()),
+          indentation(), startrel(p->pc()), opcode,
           WasmOpcodes::OpcodeName(opcode));
     FunctionSig* sig = WasmOpcodes::Signature(opcode);
     if (sig) {
@@ -1218,20 +1225,20 @@ class LR_WasmDecoder {
 };
 
 
-TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
+TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
                           const byte* end) {
   Zone zone;
   LR_WasmDecoder decoder(&zone, nullptr);
-  TreeResult result = decoder.Decode(env, start, end);
+  TreeResult result = decoder.Decode(env, base, start, end);
   return result;
 }
 
 
-TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
-                        const byte* end) {
+TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
+                        const byte* start, const byte* end) {
   Zone zone;
   LR_WasmDecoder decoder(&zone, graph);
-  TreeResult result = decoder.Decode(env, start, end);
+  TreeResult result = decoder.Decode(env, base, start, end);
   return result;
 }
 

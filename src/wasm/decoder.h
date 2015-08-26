@@ -90,9 +90,20 @@ typedef Result<Tree*> TreeResult;
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree);
 
-TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start, const byte* end);
-TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* start,
-                        const byte* end);
+TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
+                          const byte* end);
+TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
+                        const byte* start, const byte* end);
+
+inline TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
+                                 const byte* end) {
+  return VerifyWasmCode(env, nullptr, start, end);
+}
+
+inline TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env,
+                               const byte* start, const byte* end) {
+  return BuildTFGraph(graph, env, nullptr, start, end);
+}
 }
 }
 }

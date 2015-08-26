@@ -190,6 +190,7 @@ Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
   compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, &machine);
   TreeResult result = BuildTFGraph(
       &jsgraph, &env,                                                 // --
+      module_env->module->module_start,                               // --
       module_env->module->module_start + function.code_start_offset,  // --
       module_env->module->module_start + function.code_end_offset);   // --
 
@@ -410,7 +411,7 @@ class ModuleDecoder {
     fenv.SumLocals();
 
     TreeResult result =
-        VerifyWasmCode(&fenv, start_ + function->code_start_offset,
+        VerifyWasmCode(&fenv, start_, start_ + function->code_start_offset,
                        start_ + function->code_end_offset);
     if (result.failed()) {
       // Wrap the error message from the function decoder.

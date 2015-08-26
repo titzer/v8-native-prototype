@@ -88,14 +88,13 @@
 //------------------------------------------------------------------------------
 // Statements and expressions that are composed of multiple bytecodes.
 //------------------------------------------------------------------------------
-#define WASM_WHILE(x, y) \
-  kStmtLoop, 1, kStmtIfThen, x, y, kStmtBreak, 0
-#define WASM_INC_LOCAL(index)                                           \
-  kExprSetLocal, static_cast<byte>(index), kExprInt32Add,               \
-    kExprGetLocal, static_cast<byte>(index), kExprInt8Const, 1
-#define WASM_INC_LOCAL_BY(index, count)                                 \
+#define WASM_WHILE(x, y) kStmtLoop, 1, kStmtIfThen, x, y, kStmtBreak, 0
+#define WASM_INC_LOCAL(index)                                            \
   kExprSetLocal, static_cast<byte>(index), kExprInt32Add, kExprGetLocal, \
-    static_cast<byte>(index), kExprInt8Const, static_cast<int8_t>(count)
+      static_cast<byte>(index), kExprInt8Const, 1
+#define WASM_INC_LOCAL_BY(index, count)                                  \
+  kExprSetLocal, static_cast<byte>(index), kExprInt32Add, kExprGetLocal, \
+      static_cast<byte>(index), kExprInt8Const, static_cast<int8_t>(count)
 
 
 #define WASM_UNOP(opcode, x) static_cast<byte>(opcode), x
