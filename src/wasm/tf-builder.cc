@@ -656,7 +656,7 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
     case kAstFloat64:
       break;
     case kAstStmt:
-      UNREACHABLE();
+      num = graph->Int32Constant(0);
       break;
   }
   return num;

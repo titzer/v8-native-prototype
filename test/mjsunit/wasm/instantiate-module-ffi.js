@@ -200,3 +200,110 @@ testCallFFI(FOREIGN_ARGUMENTS1, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS2, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS3, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS4, check_FOREIGN_ARGUMENTS);
+
+
+function testCallBinopVoid(type, func, check) {
+  var kModuleHeaderSize = 8;
+  var kFunctionSize = 24;
+  var kCodeStart = kModuleHeaderSize + (kFunctionSize + 2) + (kFunctionSize + 2);
+  var kCodeEnd = kCodeStart + 11;
+  var kNameAddOffset = kCodeEnd;
+  var kNameMainOffset = kNameAddOffset + 4;
+
+  var ffi = new Object();
+
+  var passed_length = -1;
+  var passed_a = -1;
+  var passed_b = -1;
+  var args_a = -1;
+  var args_b = -1;
+
+  ffi.fun = function(a, b) {
+    passed_length = arguments.length;
+    passed_a = a;
+    passed_b = b;
+    args_a = arguments[0];
+    args_b = arguments[1];
+  }
+
+  var data = bytes(
+    12, 1,                      // memory
+    0, 0,                       // globals
+    2, 0,                       // functions
+    0, 0,                       // data segments
+    // -- foreign function
+    2, kAstStmt, type, type,    // signature: (type,type)->void
+    kNameAddOffset, 0, 0, 0,    // name offset
+    0, 0, 0, 0,                 // code start offset
+    0, 0, 0, 0,                 // code end offset
+    0, 0,                       // local int32 count
+    0, 0,                       // local int64 count
+    0, 0,                       // local float32 count
+    0, 0,                       // local float64 count
+    0,                          // exported
+    1,                          // external
+    // -- main function
+    2, kAstInt32, type, type,   // signature: (type,type)->int
+    kNameMainOffset, 0, 0, 0,   // name offset
+    kCodeStart, 0, 0, 0,        // code start offset
+    kCodeEnd, 0, 0, 0,          // code end offset
+    0, 0,                       // local int32 count
+    0, 0,                       // local int64 count
+    0, 0,                       // local float32 count
+    0, 0,                       // local float64 count
+    1,                          // exported
+    0,                          // external
+    // main body
+    kStmtBlock, 2,              // --
+    kExprCallFunction, 0,       // --
+    kExprGetLocal, 0,           // --
+    kExprGetLocal, 1,           // --
+    kStmtReturn,                // --
+    kExprInt8Const, 99,         // --
+    // names
+    'f', 'u', 'n', 0,           //  --
+    'm', 'a', 'i', 'n', 0       //  --
+  );
+
+  var module = WASM.instantiateModule(data, ffi);
+
+  assertEquals("function", typeof module.main);
+
+  print("testCallBinopVoid", type);
+
+  for (var i = 0; i < 100000; i += 10003.1) {
+    var a = 22.5 + i, b = 10.5 + i;
+    var r = module.main(a, b);
+    assertEquals(99, r);
+    assertEquals(2, passed_length);
+    var expected_a, expected_b;
+    switch (type) {
+      case kAstInt32: {
+        expected_a = a | 0;
+        expected_b = b | 0;
+        break;
+      }
+      case kAstFloat32: {
+        expected_a = Math.fround(a); 
+        expected_b = Math.fround(b);
+        break;
+      }
+      case kAstFloat64: { 
+        expected_a = a;
+        expected_b = b;
+        break;
+      }
+    }
+
+    assertEquals(expected_a, args_a);
+    assertEquals(expected_b, args_b);
+    assertEquals(expected_a, passed_a);
+    assertEquals(expected_b, passed_b);
+  }
+}
+
+
+testCallBinopVoid(kAstInt32);
+// TODO testCallBinopVoid(kAstInt64);
+testCallBinopVoid(kAstFloat32);
+testCallBinopVoid(kAstFloat64);
