@@ -195,11 +195,33 @@ function check_FOREIGN_ARGUMENTS(r, a, b) {
   was_called = false;
 }
 
+// Check a bunch of uses of the arguments object.
 testCallFFI(FOREIGN_ARGUMENTS0, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS1, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS2, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS3, check_FOREIGN_ARGUMENTS);
 testCallFFI(FOREIGN_ARGUMENTS4, check_FOREIGN_ARGUMENTS);
+
+function returnValue(val) {
+  return function(a, b) {
+    print("RETURN_VALUE ", val);
+    return val;
+  }
+}
+
+function checkReturn(expected) {
+  return function(r, a, b) { assertEquals(expected, r); }
+}
+
+// Check that returning weird values doesn't crash
+testCallFFI(returnValue(undefined), checkReturn(0));
+testCallFFI(returnValue(null), checkReturn(0));
+testCallFFI(returnValue("0"), checkReturn(0));
+testCallFFI(returnValue("-77"), checkReturn(-77));
+
+var objWithValueOf = {valueOf: function() { return 198; }}
+
+testCallFFI(returnValue(objWithValueOf), checkReturn(198));
 
 
 function testCallBinopVoid(type, func, check) {
