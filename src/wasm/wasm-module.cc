@@ -4,6 +4,7 @@
 
 #include "src/v8.h"
 #include "src/macro-assembler.h"
+#include "src/objects.h"
 
 #include "src/simulator.h"
 
@@ -244,12 +245,8 @@ Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate, int size,
 #endif
 
   Handle<JSArrayBuffer> buffer = isolate->factory()->NewJSArrayBuffer();
-  isolate->heap()->RegisterNewArrayBuffer(isolate->heap()->InNewSpace(*buffer),
-                                          memory, size);
-  buffer->set_backing_store(memory);
-  buffer->set_is_external(true);
+  JSArrayBuffer::Setup(buffer, isolate, true, memory, size);
   buffer->set_is_neuterable(false);
-  buffer->set_byte_length(Smi::FromInt(size));
   return buffer;
 }
 
