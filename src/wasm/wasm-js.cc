@@ -5,7 +5,10 @@
 #include "src/assert-scope.h"
 #include "src/handles.h"
 #include "src/objects.h"
+#include "src/isolate.h"
+#include "src/factory.h"
 #include "src/api.h"
+#include "src/api-natives.h"
 
 #include "src/wasm/wasm-js.h"
 #include "src/wasm/wasm-module.h"
@@ -152,28 +155,52 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 
-void WasmJs::Install(Isolate* isolate, Local<ObjectTemplate> global_template) {
+// TODO(titzer): we use the API to create the function template because the
+// internal guts are too ugly to replicate here.
+static i::Handle<i::FunctionTemplateInfo> NewTemplate(i::Isolate* i_isolate,
+                                                      FunctionCallback func) {
+  Isolate* isolate = reinterpret_cast<Isolate*>(i_isolate);
+  Local<FunctionTemplate> local = FunctionTemplate::New(isolate, func);
+  return v8::Utils::OpenHandle(*local);
+}
+
+
+namespace internal {
+static Handle<String> v8_str(Isolate* isolate, const char* str) {
+  return isolate->factory()->NewStringFromAsciiChecked(str);
+}
+
+
+static void InstallFunc(Isolate* isolate, Handle<JSObject> object,
+                        const char* str, FunctionCallback func) {
+  Handle<String> name = v8_str(isolate, str);
+  Handle<FunctionTemplateInfo> temp = NewTemplate(isolate, func);
+  Handle<JSFunction> function =
+      ApiNatives::InstantiateFunction(temp).ToHandleChecked();
+  PropertyAttributes attributes =
+      static_cast<PropertyAttributes>(DONT_DELETE | READ_ONLY);
+  JSObject::AddProperty(object, name, function, attributes);
+}
+
+
+void WasmJs::Install(Isolate* isolate, Handle<JSGlobalObject> global) {
   // Bind the WASM object.
-  Local<ObjectTemplate> wasm_template = ObjectTemplate::New(isolate);
-  wasm_template->Set(
-      String::NewFromUtf8(isolate, "instantiateModule", NewStringType::kNormal)
-          .ToLocalChecked(),
-      FunctionTemplate::New(isolate, InstantiateModule));
-  wasm_template->Set(
-      String::NewFromUtf8(isolate, "verifyModule", NewStringType::kNormal)
-          .ToLocalChecked(),
-      FunctionTemplate::New(isolate, VerifyModule));
-  wasm_template->Set(
-      String::NewFromUtf8(isolate, "verifyFunction", NewStringType::kNormal)
-          .ToLocalChecked(),
-      FunctionTemplate::New(isolate, VerifyFunction));
-  wasm_template->Set(
-      String::NewFromUtf8(isolate, "compileRun", NewStringType::kNormal)
-          .ToLocalChecked(),
-      FunctionTemplate::New(isolate, CompileRun));
-  global_template->Set(
-      String::NewFromUtf8(isolate, "WASM", NewStringType::kNormal)
-          .ToLocalChecked(),
-      wasm_template);
+  Factory* factory = isolate->factory();
+  Handle<String> name = v8_str(isolate, "WASM");
+  Handle<JSFunction> cons = factory->NewFunction(name);
+  JSFunction::SetInstancePrototype(
+      cons, Handle<Object>(global->native_context()->initial_object_prototype(),
+                           isolate));
+  cons->SetInstanceClassName(*name);
+  Handle<JSObject> wasm_object = factory->NewJSObject(cons, TENURED);
+  PropertyAttributes attributes = static_cast<PropertyAttributes>(DONT_ENUM);
+  JSObject::AddProperty(global, name, wasm_object, attributes);
+
+  // Install functions on the WASM object.
+  InstallFunc(isolate, wasm_object, "instantiateModule", InstantiateModule);
+  InstallFunc(isolate, wasm_object, "verifyModule", VerifyModule);
+  InstallFunc(isolate, wasm_object, "verifyFunction", VerifyFunction);
+  InstallFunc(isolate, wasm_object, "compileRun", CompileRun);
 }
-}
+}  // namespace internal
+}  // namespace v8

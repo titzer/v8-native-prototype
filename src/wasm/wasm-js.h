@@ -15,12 +15,13 @@
 #endif  // !V8_SHARED
 
 namespace v8 {
-
+namespace internal {
 // Exposes a WASM API to JavaScript through the V8 API.
 class WasmJs {
  public:
-  static void Install(Isolate* isolate, Local<ObjectTemplate> global_template);
+  static void Install(Isolate* isolate, Handle<JSGlobalObject> global_object);
 };
+}
 }
 
 #endif
