@@ -40,16 +40,7 @@ struct TFBuilder {
   size_t cur_bufsize;
   TFNode* def_buffer[kDefaultBufferSize];
 
-  TFBuilder(Zone* z, TFGraph* g)
-      : zone(z),
-        graph(g),
-        module(nullptr),
-        mem_buffer(nullptr),
-        mem_size(nullptr),
-        control(nullptr),
-        effect(nullptr),
-        cur_buffer(def_buffer),
-        cur_bufsize(kDefaultBufferSize) {}
+  TFBuilder(Zone* z, TFGraph* g);
 
   TFNode** Buffer(size_t count) {
     if (count > cur_bufsize) {

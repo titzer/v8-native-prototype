@@ -82,6 +82,16 @@ static void MergeControlToEnd(TFGraph* graph, TFNode* node) {
   }
 }
 
+TFBuilder::TFBuilder(Zone* z, TFGraph* g)
+    : zone(z),
+      graph(g),
+      module(nullptr),
+      mem_buffer(nullptr),
+      mem_size(nullptr),
+      control(nullptr),
+      effect(nullptr),
+      cur_buffer(def_buffer),
+      cur_bufsize(kDefaultBufferSize) {}
 
 TFNode* TFBuilder::Error() {
   if (!graph) return nullptr;

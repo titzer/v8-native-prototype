@@ -45,6 +45,8 @@ WasmFunctionBuilder::WasmFunctionBuilder(Zone* z)
       external_(0),
       body_(z) {}
 
+WasmFunctionBuilder::~WasmFunctionBuilder() {}
+
 void WasmFunctionBuilder::AddParam(uint8_t param) { params_.push_back(param); }
 
 void WasmFunctionBuilder::ReturnType(uint8_t type) { return_type_ = type; }
@@ -83,6 +85,8 @@ WasmFunctionEncoder::WasmFunctionEncoder(
       exported_(exported),
       external_(external),
       body_(body) {}
+
+WasmFunctionEncoder::~WasmFunctionEncoder() {}
 
 uint32_t WasmFunctionEncoder::HeaderSize() const {
   static const uint32_t kMinFunctionSize = 24;
@@ -134,6 +138,8 @@ WasmDataSegmentEncoder::WasmDataSegmentEncoder(Zone* z, const byte* data,
   }
 }
 
+WasmDataSegmentEncoder::~WasmDataSegmentEncoder() {}
+
 uint32_t WasmDataSegmentEncoder::HeaderSize() const {
   static const int kDataSegmentSize = 13;
   return kDataSegmentSize;
@@ -159,6 +165,8 @@ void WasmDataSegmentEncoder::Serialize(byte* buffer, uint32_t header_begin,
 WasmModuleBuilder::WasmModuleBuilder(Zone* z)
     : functions_(z), data_segments_(z) {}
 
+WasmModuleBuilder::~WasmModuleBuilder() {}
+
 void WasmModuleBuilder::AddFunction(const WasmFunctionEncoder& f) {
   functions_.push_back(f);
 }
@@ -166,6 +174,8 @@ void WasmModuleBuilder::AddFunction(const WasmFunctionEncoder& f) {
 void WasmModuleBuilder::AddDataSegment(const WasmDataSegmentEncoder& d) {
   data_segments_.push_back(d);
 }
+
+WasmModuleIndex::~WasmModuleIndex() {}
 
 WasmModuleIndex WasmModuleBuilder::WriteAndBuild(Zone* z) const {
   static const uint32_t kHeaderSize = 8;

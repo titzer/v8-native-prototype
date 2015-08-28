@@ -24,6 +24,8 @@ class WasmFunctionEncoder {
   uint32_t BodySize(void) const;
   void Serialize(byte*, uint32_t, uint32_t) const;
 
+  ~WasmFunctionEncoder();
+
  private:
   WasmFunctionEncoder(uint8_t return_type, const ZoneVector<uint8_t>& params,
                       uint16_t local_int32_count, uint16_t local_int64_count,
@@ -56,6 +58,8 @@ class WasmFunctionBuilder {
   void LocalInt32Count(uint16_t);
   WasmFunctionEncoder Build(void) const;
 
+  ~WasmFunctionBuilder();
+
  private:
   uint8_t return_type_;
   ZoneVector<uint8_t> params_;
@@ -75,6 +79,8 @@ class WasmDataSegmentEncoder {
   uint32_t BodySize() const;
   void Serialize(byte*, uint32_t, uint32_t) const;
 
+  ~WasmDataSegmentEncoder();
+
  private:
   ZoneVector<byte> data_;
   uint32_t dest_;
@@ -84,6 +90,8 @@ class WasmModuleIndex {
  public:
   const byte* Begin() const { return begin_; }
   const byte* End() const { return end_; }
+
+  ~WasmModuleIndex();
 
  private:
   friend class WasmModuleBuilder;
@@ -99,6 +107,8 @@ class WasmModuleBuilder {
   void AddFunction(const WasmFunctionEncoder&);
   void AddDataSegment(const WasmDataSegmentEncoder&);
   WasmModuleIndex WriteAndBuild(Zone*) const;
+
+  ~WasmModuleBuilder();
 
  private:
   ZoneVector<WasmFunctionEncoder> functions_;
