@@ -210,8 +210,9 @@ Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
   // Run the compiler pipeline to generate machine code.
   compiler::CallDescriptor* descriptor = const_cast<compiler::CallDescriptor*>(
       module_env->GetWasmCallDescriptor(&zone, function.sig));
+  CompilationInfo info("wasm", isolate, &zone);
   Handle<Code> code =
-      compiler::Pipeline::GenerateCodeForTesting(isolate, descriptor, &graph);
+      compiler::Pipeline::GenerateCodeForTesting(&info, descriptor, &graph);
 
 #ifdef ENABLE_DISASSEMBLER
   // Disassemble the code for debugging.

@@ -87,8 +87,9 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
         module->GetFunctionSignature(index)->parameter_count());
     compiler::CallDescriptor* incoming = compiler::Linkage::GetJSCallDescriptor(
         &zone, false, params + 1, compiler::CallDescriptor::kNoFlags);
+    CompilationInfo info("js-to-wasm", isolate, &zone);
     Handle<Code> code = compiler::Pipeline::GenerateCodeForTesting(
-        isolate, incoming, &graph, nullptr);
+        &info, incoming, &graph, nullptr);
 
 #ifdef ENABLE_DISASSEMBLER
     // Disassemble the wrapper code for debugging.
@@ -162,7 +163,8 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
     // Schedule and compile to machine code.
     compiler::CallDescriptor* incoming =
         module->GetWasmCallDescriptor(&zone, func->sig);
-    code = compiler::Pipeline::GenerateCodeForTesting(isolate, incoming, &graph,
+    CompilationInfo info("wasm-to-js", isolate, &zone);
+    code = compiler::Pipeline::GenerateCodeForTesting(&info, incoming, &graph,
                                                       nullptr);
 
 #ifdef ENABLE_DISASSEMBLER
