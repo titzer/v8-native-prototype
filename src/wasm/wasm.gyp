@@ -12,6 +12,8 @@
       'direct_dependent_settings': {
         'include_dirs': ['../..'],
         'sources': [
+          'asm-wasm-builder.cc',
+          'asm-wasm-builder.h',
           'decoder.cc',
           'decoder.h',
           'encoder.cc',

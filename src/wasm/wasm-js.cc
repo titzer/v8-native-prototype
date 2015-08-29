@@ -2,14 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/assert-scope.h"
-#include "src/handles.h"
-#include "src/objects.h"
-#include "src/isolate.h"
-#include "src/factory.h"
-#include "src/api.h"
 #include "src/api-natives.h"
+#include "src/api.h"
+#include "src/assert-scope.h"
+#include "src/ast.h"
+#include "src/factory.h"
+#include "src/handles.h"
+#include "src/isolate.h"
+#include "src/objects.h"
+#include "src/parser.h"
+#include "src/scopes.h"
 
+#include "src/wasm/asm-wasm-builder.h"
 #include "src/wasm/wasm-js.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-result.h"
@@ -119,6 +123,43 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 
+void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  HandleScope scope(args.GetIsolate());
+  i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
+  ErrorThrower thrower(isolate, "WASM.asmCompileRun()");
+
+  if (args.Length() != 1) {
+    thrower.Error("Invalid argument count");
+  }
+  if (!args[0]->IsString()) {
+    thrower.Error("Invalid argument count");
+  }
+
+  i::Factory* factory = isolate->factory();
+  i::Zone zone;
+  Local<String> source = Local<String>::Cast(args[0]);
+  i::Handle<i::Script> script = factory->NewScript(
+      Utils::OpenHandle(*source));
+
+  i::ParseInfo info(&zone, script);
+  i::Parser parser(&info);
+  parser.set_allow_harmony_arrow_functions(true);
+  parser.set_allow_harmony_sloppy(true);
+  info.set_global();
+  info.set_lazy(false);
+  info.set_allow_lazy_parsing(false);
+  info.set_toplevel(true);
+
+  i::CompilationInfo compilation_info(&info);
+  CHECK(i::Compiler::ParseAndAnalyze(&info));
+  info.set_literal(
+      info.scope()->declarations()->at(0)->AsFunctionDeclaration()->fun());
+
+  v8::internal::wasm::AsmWasmBuilder(&compilation_info).Run();
+  args.GetReturnValue().Set(0);
+}
+
+
 void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
   i::Isolate* isolate = reinterpret_cast<i::Isolate*>(args.GetIsolate());
@@ -201,6 +242,7 @@ void WasmJs::Install(Isolate* isolate, Handle<JSGlobalObject> global) {
   InstallFunc(isolate, wasm_object, "verifyModule", VerifyModule);
   InstallFunc(isolate, wasm_object, "verifyFunction", VerifyFunction);
   InstallFunc(isolate, wasm_object, "compileRun", CompileRun);
+  InstallFunc(isolate, wasm_object, "asmCompileRun", AsmCompileRun);
 }
 }  // namespace internal
 }  // namespace v8
