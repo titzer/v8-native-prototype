@@ -90,6 +90,14 @@ void WasmFunctionBuilder::AddBody(
   }
 }
 
+void WasmFunctionBuilder::AppendCode(
+    const byte opcode, bool add_local_operand) {
+  body_.push_back(opcode);
+  if (add_local_operand) {
+    local_indices_.push_back(static_cast<uint32_t>(body_.size()) - 1);
+  }
+}
+
 void WasmFunctionBuilder::Exported(uint8_t flag) { exported_ = flag; }
 
 void WasmFunctionBuilder::External(uint8_t flag) { external_ = flag; }

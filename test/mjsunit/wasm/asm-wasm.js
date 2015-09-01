@@ -3,6 +3,18 @@
 // found in the LICENSE file.
 
 function foo() {
+  "use asm";
+  function sum(a, b) {
+    a = a|0;
+    c = b|0 + 1;
+    return a + c + 1;
+  }
+
+  function caller() {
+    return sum(77, 22);
+  }
+
+  return {caller: caller};
 }
 
-assertEquals(0, WASM.asmCompileRun(foo.toString()));
+assertEquals(101, WASM.asmCompileRun(foo.toString()));

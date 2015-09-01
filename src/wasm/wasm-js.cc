@@ -14,6 +14,7 @@
 #include "src/scopes.h"
 
 #include "src/wasm/asm-wasm-builder.h"
+#include "src/wasm/encoder.h"
 #include "src/wasm/wasm-js.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-result.h"
@@ -143,7 +144,7 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   i::ParseInfo info(&zone, script);
   i::Parser parser(&info);
-  parser.set_allow_harmony_arrow_functions(true);
+  //parser.set_allow_harmony_arrow_functions(true);
   parser.set_allow_harmony_sloppy(true);
   info.set_global();
   info.set_lazy(false);
@@ -155,8 +156,12 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   info.set_literal(
       info.scope()->declarations()->at(0)->AsFunctionDeclaration()->fun());
 
-  v8::internal::wasm::AsmWasmBuilder(&compilation_info).Run();
-  args.GetReturnValue().Set(0);
+  v8::internal::wasm::WasmModuleIndex* module =
+      v8::internal::wasm::AsmWasmBuilder(&compilation_info).Run();
+  int32_t result =
+      v8::internal::wasm::CompileAndRunWasmModule(
+          isolate, module->Begin(), module->End());
+  args.GetReturnValue().Set(result);
 }
 
 

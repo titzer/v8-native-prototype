@@ -12,32 +12,21 @@
 #include "src/type-info.h"
 #include "src/types.h"
 #include "src/zone.h"
+#include "third_party/wasm/src/wasm/encoder.h"
 
 namespace v8 {
 namespace internal {
 namespace wasm {
 
-// A Visitor over a CompilationInfo's AST that generates WASM.
-
-class AsmWasmBuilder : public AstVisitor {
+class AsmWasmBuilder {
  public:
   explicit AsmWasmBuilder(CompilationInfo* info);
-  void Run();
+  WasmModuleIndex* Run();
 
  private:
-  void VisitDeclarations(ZoneList<Declaration*>* d) override;
-  void VisitStatements(ZoneList<Statement*>* s) override;
-
-  DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
-
-#define DECLARE_VISIT(type) virtual void Visit##type(type* node) override;
-  AST_NODE_LIST(DECLARE_VISIT)
-#undef DECLARE_VISIT
-
-  CompilationInfo* compilation_info_;
-
-  DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilder);
+  CompilationInfo* info_;
 };
+
 }
 }
 }
