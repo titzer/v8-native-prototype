@@ -177,7 +177,7 @@ void WasmModuleBuilder::AddDataSegment(const WasmDataSegmentEncoder& d) {
 
 WasmModuleIndex::~WasmModuleIndex() {}
 
-WasmModuleIndex WasmModuleBuilder::WriteAndBuild(Zone* z) const {
+WasmModuleIndex WasmModuleBuilder::BuildAndWrite(Zone* z) const {
   static const uint32_t kHeaderSize = 8;
   uint32_t total_size = kHeaderSize;
   uint32_t body_begin = kHeaderSize;

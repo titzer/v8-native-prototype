@@ -379,6 +379,14 @@ class WasmOpcodes {
         return static_cast<byte>(
             MemoryAccess::IntWidthField::encode(MemoryAccess::kInt32) |
             MemoryAccess::SignExtendField::encode(false));
+      case kMemInt64:
+        return static_cast<byte>(
+            MemoryAccess::IntWidthField::encode(MemoryAccess::kInt64) |
+            MemoryAccess::SignExtendField::encode(true));
+      case kMemUint64:
+        return static_cast<byte>(
+            MemoryAccess::IntWidthField::encode(MemoryAccess::kInt64) |
+            MemoryAccess::SignExtendField::encode(false));
       default:
         return 0;
     }

@@ -859,6 +859,31 @@ TEST(Run_Wasm_LoadMemInt32) {
 }
 
 
+#if WASM_64
+TEST(Run_Wasm_LoadMemInt64) {
+  WasmRunner<int64_t> r;
+  FunctionEnv env;
+  init_env(&env, r.sigs.l_v());
+  r.function_env = &env;
+  TestingModule module;
+  int64_t* memory = module.AddMemoryElems<int64_t>(8);
+  module.RandomizeMemory(1111);
+  r.function_env->module = &module;
+
+  BUILD(r, WASM_RETURN(WASM_LOAD_MEM(kMemInt64, WASM_INT8(0))));
+
+  memory[0] = 0xaabbccdd00112233LL;
+  CHECK_EQ(0xaabbccdd00112233LL, r.Call());
+
+  memory[0] = 0x33aabbccdd001122LL;
+  CHECK_EQ(0x33aabbccdd001122LL, r.Call());
+
+  memory[0] = 77777777;
+  CHECK_EQ(77777777, r.Call());
+}
+#endif
+
+
 TEST(Run_Wasm_LoadMemInt32_P) {
   const int kNumElems = 8;
   WasmRunner<int32_t> r(kMachInt32);
@@ -939,6 +964,48 @@ TEST(Run_Wasm_MemFloat32_Sum) {
   CHECK_NE(-99.25, buffer[0]);
   CHECK_EQ(71256.0f, buffer[0]);
 }
+
+
+#if WASM_64
+TEST(Run_Wasm_MemInt64_Sum) {
+  WasmRunner<uint64_t> r(kMachInt32);
+  FunctionEnv env;
+  LocalType types[] = {kAstInt64, kAstInt32};
+  FunctionSig sig(1, 1, types);
+  init_env(&env, &sig);
+  r.function_env = &env;
+  const int kNumElems = 20;
+  const byte kSum = r.AllocateLocal(kAstInt64);
+  TestingModule module;
+  uint64_t* memory = module.AddMemoryElems<uint64_t>(kNumElems);
+  r.function_env->module = &module;
+
+  BUILD(
+      r,
+      WASM_BLOCK(
+          2, WASM_WHILE(
+                 WASM_GET_LOCAL(0),
+                 WASM_BLOCK(2, WASM_SET_LOCAL(
+                                   kSum, WASM_INT64_ADD(
+                                             WASM_GET_LOCAL(kSum),
+                                             WASM_LOAD_MEM(kMemInt64,
+                                                           WASM_GET_LOCAL(0)))),
+                            WASM_SET_LOCAL(0, WASM_INT32_SUB(WASM_GET_LOCAL(0),
+                                                             WASM_INT8(8))))),
+          WASM_RETURN(WASM_GET_LOCAL(1))));
+
+  // Run 4 trials.
+  for (int i = 0; i < 3; i++) {
+    module.RandomizeMemory(i * 33);
+    uint64_t expected = 0;
+    for (size_t j = kNumElems - 1; j > 0; j--) {
+      expected += memory[j];
+    }
+    uint64_t result = r.Call(8 * (kNumElems - 1));
+    CHECK_EQ(expected, result);
+  }
+}
+#endif
 
 
 template <typename T>
@@ -1031,7 +1098,7 @@ TEST(Run_Wasm_Switch4_fallthru) {
 TEST(Run_Wasm_Switch_Ret_N) {
   Zone zone;
   for (int i = 3; i < 256; i += 28) {
-    byte header[] = {kStmtBlock, 2, kStmtSwitch, static_cast<byte>(i),
+    byte header[] = {kStmtBlock,    2, kStmtSwitch, static_cast<byte>(i),
                      kExprGetLocal, 0};
     byte ccase[] = {WASM_RETURN(WASM_INT32(i))};
     byte footer[] = {WASM_RETURN(WASM_GET_LOCAL(0))};
@@ -1062,7 +1129,7 @@ TEST(Run_Wasm_Switch_Ret_N) {
 TEST(Run_Wasm_Switch_Nf_N) {
   Zone zone;
   for (int i = 3; i < 256; i += 28) {
-    byte header[] = {kStmtBlock, 2, kStmtSwitchNf, static_cast<byte>(i),
+    byte header[] = {kStmtBlock,    2, kStmtSwitchNf, static_cast<byte>(i),
                      kExprGetLocal, 0};
     byte ccase[] = {WASM_SET_LOCAL(0, WASM_INT32(i))};
     byte footer[] = {WASM_RETURN(WASM_GET_LOCAL(0))};
@@ -1449,6 +1516,64 @@ TEST(Run_WasmCall_Int32Add) {
 }
 
 
+#if WASM_64
+TEST(Run_WasmCall_Int64Sub) {
+  // Build the target function.
+  TestSignatures sigs;
+  TestingModule module;
+  WasmFunctionCompiler t(sigs.l_ll());
+  BUILD(t, WASM_RETURN(WASM_INT64_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+  unsigned index = t.CompileAndAdd(&module);
+
+  // Build the caller function.
+  WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+  r.function_env = &r.env_l_ll;  // TODO: provide real signature
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_CALL_FUNCTION(index, WASM_GET_LOCAL(0),
+                                          WASM_GET_LOCAL(1))));
+
+  FOR_INT32_INPUTS(i) {
+    FOR_INT32_INPUTS(j) {
+      int64_t a = static_cast<int64_t>(*i) << 32 |
+                  (static_cast<int64_t>(*j) | 0xFFFFFFFF);
+      int64_t b = static_cast<int64_t>(*j) << 32 |
+                  (static_cast<int64_t>(*i) | 0xFFFFFFFF);
+
+      int64_t expected = static_cast<int64_t>(static_cast<uint64_t>(a) -
+                                              static_cast<uint64_t>(b));
+      CHECK_EQ(expected, r.Call(a, b));
+    }
+  }
+}
+#endif
+
+
+TEST(Run_WasmCall_Float32Sub) {
+  TestSignatures sigs;
+  WasmFunctionCompiler t(sigs.f_ff());
+
+  // Build the target function.
+  TestingModule module;
+  BUILD(t, WASM_RETURN(WASM_FLOAT32_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+  unsigned index = t.CompileAndAdd(&module);
+
+  // Builder the caller function.
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  r.function_env->module = &module;
+  BUILD(r, WASM_RETURN(WASM_INT32_SCONVERT_FLOAT32(WASM_CALL_FUNCTION(
+               index, WASM_FLOAT32_SCONVERT_INT32(WASM_GET_LOCAL(0)),
+               WASM_FLOAT32_SCONVERT_INT32(WASM_GET_LOCAL(1))))));
+
+  FOR_INT32_INPUTS(i) {
+    FOR_INT32_INPUTS(j) {
+      int32_t expected =
+          static_cast<int32_t>(static_cast<float>(*i) - static_cast<float>(*j));
+      CHECK_EQ(expected, r.Call(*i, *j));
+    }
+  }
+}
+
+
 TEST(Run_WasmCall_Float64Sub) {
   TestSignatures sigs;
   WasmFunctionCompiler t(sigs.d_dd());
@@ -1537,3 +1662,94 @@ TEST(Run_WasmModule_CallAdd_rev) {
   CHECK_EQ(99, result);
 }
 
+
+#define ADD_CODE(vec, ...)                                              \
+  do {                                                                  \
+    byte __buf[] = {__VA_ARGS__};                                       \
+    for (size_t i = 0; i < sizeof(__buf); i++) vec.push_back(__buf[i]); \
+  } while (false)
+
+
+void Run_WasmMixedCall_N(int start) {
+  const int kExpected = 6333;
+  const int kElemSize = 8;
+  TestSignatures sigs;
+
+#if WASM_64
+  static MemType mixed[] = {kMemInt32,   kMemFloat32, kMemInt64, kMemFloat64,
+                            kMemFloat32, kMemInt64,   kMemInt32, kMemFloat64,
+                            kMemFloat32, kMemFloat64, kMemInt32, kMemInt64,
+                            kMemInt32,   kMemInt32};
+#else
+  static MemType mixed[] = {kMemInt32, kMemFloat32, kMemFloat64, kMemFloat32,
+                            kMemInt32, kMemFloat64, kMemFloat32, kMemFloat64,
+                            kMemInt32, kMemInt32,   kMemInt32};
+#endif
+
+  int num_params = static_cast<int>(arraysize(mixed)) - start;
+  for (int which = 0; which < num_params; which++) {
+    Zone zone;
+    TestingModule module;
+    module.AddMemory(1024);
+    MemType* memtypes = &mixed[start];
+    MemType result = memtypes[which];
+
+    // =========================================================================
+    // Build the selector function.
+    // =========================================================================
+    unsigned index;
+    FunctionSig::Builder b(&zone, 1, num_params);
+    b.AddReturn(WasmOpcodes::LocalTypeFor(result));
+    for (int i = 0; i < num_params; i++) {
+      b.AddParam(WasmOpcodes::LocalTypeFor(memtypes[i]));
+    }
+    WasmFunctionCompiler t(b.Build());
+    t.env.module = &module;
+    BUILD(t, WASM_GET_LOCAL(which));
+    index = t.CompileAndAdd(&module);
+
+    // =========================================================================
+    // Build the calling function.
+    // =========================================================================
+    WasmRunner<int32_t> r;
+    r.function_env->module = &module;
+
+    {
+      std::vector<byte> code;
+      ADD_CODE(code, WasmOpcodes::LoadStoreOpcodeOf(result, true),
+               WasmOpcodes::LoadStoreAccessOf(result));
+      ADD_CODE(code, WASM_ZERO);
+      ADD_CODE(code, kExprCallFunction, static_cast<byte>(index));
+
+      for (int i = 0; i < num_params; i++) {
+        int offset = (i + 1) * kElemSize;
+        ADD_CODE(code, WASM_LOAD_MEM(memtypes[i], WASM_INT8(offset)));
+      }
+
+      ADD_CODE(code, WASM_INT32(kExpected));
+      size_t end = code.size();
+      code.push_back(0);
+      r.Build(&code[0], &code[end]);
+    }
+
+    // Run the code.
+    for (int i = 0; i < 10; i++) {
+      module.RandomizeMemory();
+      CHECK_EQ(kExpected, r.Call());
+
+      int size = WasmOpcodes::MemSize(result);
+      for (int i = 0; i < size; i++) {
+        int base = (which + 1) * kElemSize;
+        byte expected = module.raw_mem_at<byte>(base + i);
+        byte result = module.raw_mem_at<byte>(i);
+        CHECK_EQ(expected, result);
+      }
+    }
+  }
+}
+
+
+TEST(Run_WasmMixedCall_0) { Run_WasmMixedCall_N(0); }
+TEST(Run_WasmMixedCall_1) { Run_WasmMixedCall_N(1); }
+TEST(Run_WasmMixedCall_2) { Run_WasmMixedCall_N(2); }
+TEST(Run_WasmMixedCall_3) { Run_WasmMixedCall_N(3); }

@@ -106,7 +106,7 @@ class WasmModuleBuilder {
   WasmModuleBuilder(Zone*);
   void AddFunction(const WasmFunctionEncoder&);
   void AddDataSegment(const WasmDataSegmentEncoder&);
-  WasmModuleIndex WriteAndBuild(Zone*) const;
+  WasmModuleIndex BuildAndWrite(Zone*) const;
 
   ~WasmModuleBuilder();
 
