@@ -10,7 +10,7 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-class MacroGenTest : public TestWithZone {};
+class WasmMacroGenTest : public TestWithZone {};
 
 #define EXPECT_SIZE(size, ...)     \
   do {                             \
@@ -19,7 +19,7 @@ class MacroGenTest : public TestWithZone {};
   } while (false)
 
 
-TEST_F(MacroGenTest, Constants) {
+TEST_F(WasmMacroGenTest, Constants) {
   EXPECT_SIZE(2, WASM_ONE);
   EXPECT_SIZE(2, WASM_ZERO);
 
@@ -45,7 +45,7 @@ TEST_F(MacroGenTest, Constants) {
 }
 
 
-TEST_F(MacroGenTest, Statements) {
+TEST_F(WasmMacroGenTest, Statements) {
   EXPECT_SIZE(4, WASM_SET_LOCAL(0, WASM_ZERO));
 
   EXPECT_SIZE(4, WASM_STORE_GLOBAL(0, WASM_ZERO));
@@ -86,14 +86,14 @@ TEST_F(MacroGenTest, Statements) {
 }
 
 
-TEST_F(MacroGenTest, MacroStatements) {
+TEST_F(WasmMacroGenTest, MacroStatements) {
   EXPECT_SIZE(8, WASM_WHILE(WASM_INT8(0), WASM_NOP));
   EXPECT_SIZE(7, WASM_INC_LOCAL(0));
   EXPECT_SIZE(7, WASM_INC_LOCAL_BY(0, 3));
 }
 
 
-TEST_F(MacroGenTest, Expressions) {
+TEST_F(WasmMacroGenTest, Expressions) {
   EXPECT_SIZE(2, WASM_GET_LOCAL(0));
   EXPECT_SIZE(2, WASM_GET_LOCAL(1));
   EXPECT_SIZE(2, WASM_GET_LOCAL(12));
@@ -110,7 +110,7 @@ TEST_F(MacroGenTest, Expressions) {
 }
 
 
-TEST_F(MacroGenTest, FunctionCalls) {
+TEST_F(WasmMacroGenTest, FunctionCalls) {
   EXPECT_SIZE(2, WASM_CALL_FUNCTION0(0));
   EXPECT_SIZE(2, WASM_CALL_FUNCTION0(1));
   EXPECT_SIZE(2, WASM_CALL_FUNCTION0(11));
@@ -127,7 +127,7 @@ TEST_F(MacroGenTest, FunctionCalls) {
 }
 
 
-TEST_F(MacroGenTest, Int32Ops) {
+TEST_F(WasmMacroGenTest, Int32Ops) {
   EXPECT_SIZE(5, WASM_INT32_ADD(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_INT32_SUB(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_INT32_MUL(WASM_ZERO, WASM_ZERO));
@@ -159,7 +159,7 @@ TEST_F(MacroGenTest, Int32Ops) {
 }
 
 
-TEST_F(MacroGenTest, Int64Ops) {
+TEST_F(WasmMacroGenTest, Int64Ops) {
   EXPECT_SIZE(5, WASM_INT64_ADD(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_INT64_SUB(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_INT64_MUL(WASM_ZERO, WASM_ZERO));
@@ -191,7 +191,7 @@ TEST_F(MacroGenTest, Int64Ops) {
 }
 
 
-TEST_F(MacroGenTest, Float32Ops) {
+TEST_F(WasmMacroGenTest, Float32Ops) {
   EXPECT_SIZE(5, WASM_FLOAT32_ADD(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_FLOAT32_SUB(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_FLOAT32_MUL(WASM_ZERO, WASM_ZERO));
@@ -216,7 +216,7 @@ TEST_F(MacroGenTest, Float32Ops) {
 }
 
 
-TEST_F(MacroGenTest, Float64Ops) {
+TEST_F(WasmMacroGenTest, Float64Ops) {
   EXPECT_SIZE(5, WASM_FLOAT64_ADD(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_FLOAT64_SUB(WASM_ZERO, WASM_ZERO));
   EXPECT_SIZE(5, WASM_FLOAT64_MUL(WASM_ZERO, WASM_ZERO));
@@ -241,7 +241,7 @@ TEST_F(MacroGenTest, Float64Ops) {
 }
 
 
-TEST_F(MacroGenTest, Conversions) {
+TEST_F(WasmMacroGenTest, Conversions) {
   EXPECT_SIZE(3, WASM_INT32_SCONVERT_FLOAT32(WASM_ZERO));
   EXPECT_SIZE(3, WASM_INT32_SCONVERT_FLOAT64(WASM_ZERO));
   EXPECT_SIZE(3, WASM_INT32_UCONVERT_FLOAT32(WASM_ZERO));
@@ -271,7 +271,7 @@ static const MemType kMemTypes[] = {
     kMemInt8,   kMemUint8, kMemInt16,  kMemUint16,  kMemInt32,
     kMemUint32, kMemInt64, kMemUint64, kMemFloat32, kMemFloat64};
 
-TEST_F(MacroGenTest, LoadsAndStores) {
+TEST_F(WasmMacroGenTest, LoadsAndStores) {
   for (size_t i = 0; i < arraysize(kMemTypes); i++) {
     EXPECT_SIZE(4, WASM_LOAD_MEM(kMemTypes[i], WASM_ZERO));
   }

@@ -20,8 +20,9 @@ cd v8
 fetch v8
 cd v8
 ```
-* Add symlink to prototype from v8:
+* Add symlinks to prototype from v8:
 ```
 ln -fs $PWD/../../v8-native-prototype third_party/wasm
+ln -fs $PWD/../../v8-native-prototype test/mjsunit/wasm
 ```
 * make x64.debug wasm=on

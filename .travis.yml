@@ -2,10 +2,10 @@ language: c++
 
 sudo: off
 
-install: ./install-dependencies.sh
+install: ./travis/install-dependencies.sh
 
 script:
-  - cd v8/v8 && make x64.release wasm=on werror=no
+  - ./travis/build-and-test.sh
 
 compiler:
   - clang
