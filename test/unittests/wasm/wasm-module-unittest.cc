@@ -11,7 +11,7 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-class ModuleVerifyTest : public TestWithZone {
+class WasmModuleVerifyTest : public TestWithZone {
  public:
   ModuleResult DecodeModule(const byte* module_start, const byte* module_end) {
     return DecodeWasmModule(nullptr, zone(), module_start, module_end);
@@ -36,7 +36,7 @@ class ModuleVerifyTest : public TestWithZone {
 static const LocalType kLocalTypes[] = {kAstInt32, kAstInt64, kAstFloat32,
                                         kAstFloat64};
 
-TEST_F(ModuleVerifyTest, DecodeEmpty) {
+TEST_F(WasmModuleVerifyTest, DecodeEmpty) {
   static const byte data[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
   EXPECT_VERIFIES(data);
@@ -50,7 +50,7 @@ TEST_F(ModuleVerifyTest, DecodeEmpty) {
       static_cast<uint8_t>(data_segments_count),                           \
       static_cast<uint8_t>(data_segments_count >> 8)
 
-TEST_F(ModuleVerifyTest, OneGlobal) {
+TEST_F(WasmModuleVerifyTest, OneGlobal) {
   const byte data[] = {
       MODULE_HEADER(1, 0, 0),  // globals, functions, data_segments
       0, 0, 0, 0,              // name offset
@@ -82,7 +82,7 @@ TEST_F(ModuleVerifyTest, OneGlobal) {
 }
 
 
-TEST_F(ModuleVerifyTest, GlobalWithInvalidNameOffset) {
+TEST_F(WasmModuleVerifyTest, GlobalWithInvalidNameOffset) {
   const byte data[] = {
       MODULE_HEADER(1, 0, 0),  // globals, functions, data_segments
       0, 3, 0, 0,              // name offset
@@ -95,7 +95,7 @@ TEST_F(ModuleVerifyTest, GlobalWithInvalidNameOffset) {
 }
 
 
-TEST_F(ModuleVerifyTest, GlobalWithInvalidMemoryType) {
+TEST_F(WasmModuleVerifyTest, GlobalWithInvalidMemoryType) {
   const byte data[] = {
       MODULE_HEADER(1, 0, 0),  // globals, functions, data_segments
       0, 0, 0, 0,              // name offset
@@ -109,7 +109,7 @@ TEST_F(ModuleVerifyTest, GlobalWithInvalidMemoryType) {
 }
 
 
-TEST_F(ModuleVerifyTest, TwoGlobals) {
+TEST_F(WasmModuleVerifyTest, TwoGlobals) {
   const byte data[] = {
       MODULE_HEADER(2, 0, 0),  // globals, functions, data_segments
       0, 0, 0, 0,              // #0: name offset
@@ -150,7 +150,7 @@ TEST_F(ModuleVerifyTest, TwoGlobals) {
 }
 
 
-TEST_F(ModuleVerifyTest, OneEmptyVoidVoidFunction) {
+TEST_F(WasmModuleVerifyTest, OneEmptyVoidVoidFunction) {
   static const byte data[] = {
       MODULE_HEADER(0, 1, 0),  // globals, functions, data segments
       0, 0,                    // signature: void -> void
@@ -196,7 +196,7 @@ TEST_F(ModuleVerifyTest, OneEmptyVoidVoidFunction) {
 }
 
 
-TEST_F(ModuleVerifyTest, OneFunctionWithNopBody) {
+TEST_F(WasmModuleVerifyTest, OneFunctionWithNopBody) {
   static const byte kCodeStartOffset = 32;
   static const byte kCodeEndOffset = 33;
 
@@ -234,7 +234,7 @@ TEST_F(ModuleVerifyTest, OneFunctionWithNopBody) {
 }
 
 
-TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
+TEST_F(WasmModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
   static const byte kCodeStartOffset = 51;
   static const byte kCodeEndOffset = 52;
 
@@ -297,7 +297,7 @@ TEST_F(ModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
 }
 
 
-TEST_F(ModuleVerifyTest, OneDataSegment) {
+TEST_F(WasmModuleVerifyTest, OneDataSegment) {
   const byte data[] = {
       MODULE_HEADER(0, 0, 1),  // globals, functions, data_segments
       0xaa, 0xbb, 0x09, 0,     // dest addr
@@ -329,7 +329,7 @@ TEST_F(ModuleVerifyTest, OneDataSegment) {
 }
 
 
-TEST_F(ModuleVerifyTest, TwoDataSegments) {
+TEST_F(WasmModuleVerifyTest, TwoDataSegments) {
   const byte data[] = {
       MODULE_HEADER(0, 0, 2),  // globals, functions, data_segments
       0xee, 0xff, 0x07, 0,     // dest addr
@@ -371,10 +371,10 @@ TEST_F(ModuleVerifyTest, TwoDataSegments) {
 }
 
 
-class SignatureDecodeTest : public TestWithZone {};
+class WasmSignatureDecodeTest : public TestWithZone {};
 
 
-TEST_F(SignatureDecodeTest, Ok_v_v) {
+TEST_F(WasmSignatureDecodeTest, Ok_v_v) {
   static const byte data[] = {0, 0};
   Zone zone;
   FunctionSig* sig =
@@ -386,7 +386,7 @@ TEST_F(SignatureDecodeTest, Ok_v_v) {
 }
 
 
-TEST_F(SignatureDecodeTest, Ok_t_v) {
+TEST_F(WasmSignatureDecodeTest, Ok_t_v) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType ret_type = kLocalTypes[i];
     const byte data[] = {0, static_cast<byte>(ret_type)};
@@ -401,7 +401,7 @@ TEST_F(SignatureDecodeTest, Ok_t_v) {
 }
 
 
-TEST_F(SignatureDecodeTest, Ok_v_t) {
+TEST_F(WasmSignatureDecodeTest, Ok_v_t) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType param_type = kLocalTypes[i];
     const byte data[] = {1, 0, static_cast<byte>(param_type)};
@@ -416,7 +416,7 @@ TEST_F(SignatureDecodeTest, Ok_v_t) {
 }
 
 
-TEST_F(SignatureDecodeTest, Ok_t_t) {
+TEST_F(WasmSignatureDecodeTest, Ok_t_t) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType ret_type = kLocalTypes[i];
     for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
@@ -437,7 +437,7 @@ TEST_F(SignatureDecodeTest, Ok_t_t) {
 }
 
 
-TEST_F(SignatureDecodeTest, Ok_i_tt) {
+TEST_F(WasmSignatureDecodeTest, Ok_i_tt) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType p0_type = kLocalTypes[i];
     for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
@@ -459,7 +459,7 @@ TEST_F(SignatureDecodeTest, Ok_i_tt) {
 }
 
 
-TEST_F(SignatureDecodeTest, Fail_off_end) {
+TEST_F(WasmSignatureDecodeTest, Fail_off_end) {
   byte data[256];
   for (int p = 0; p <= 255; p = p + 1 + p * 3) {
     for (int i = 0; i <= p; i++) data[i] = static_cast<byte>(kAstInt32);
@@ -475,7 +475,7 @@ TEST_F(SignatureDecodeTest, Fail_off_end) {
 }
 
 
-TEST_F(SignatureDecodeTest, Fail_invalid_type) {
+TEST_F(WasmSignatureDecodeTest, Fail_invalid_type) {
   byte kInvalidType = 76;
   for (int i = 1; i < 3; i++) {
     byte data[] = {2, kAstInt32, kAstInt32, kAstInt32};
@@ -487,7 +487,7 @@ TEST_F(SignatureDecodeTest, Fail_invalid_type) {
 }
 
 
-TEST_F(SignatureDecodeTest, Fail_invalid_param_type) {
+TEST_F(WasmSignatureDecodeTest, Fail_invalid_param_type) {
   static const int kParamCount = 3;
   for (int i = 0; i < kParamCount; i++) {
     byte data[] = {kParamCount, kAstInt32, kAstInt32, kAstInt32, kAstInt32};
@@ -499,10 +499,10 @@ TEST_F(SignatureDecodeTest, Fail_invalid_param_type) {
 }
 
 
-class FunctionVerifyTest : public TestWithZone {};
+class WasmFunctionVerifyTest : public TestWithZone {};
 
 
-TEST_F(FunctionVerifyTest, Ok_v_v_empty) {
+TEST_F(WasmFunctionVerifyTest, Ok_v_v_empty) {
   byte data[] = {
       0,       kAstStmt,  // signature
       3,       0,         // local int32 count
