@@ -115,26 +115,26 @@ typedef Signature<LocalType> FunctionSig;
   V(I32Add, 0x40, i_ii)               \
   V(I32Sub, 0x41, i_ii)               \
   V(I32Mul, 0x42, i_ii)               \
-  V(I32SDiv, 0x43, i_ii)              \
-  V(I32UDiv, 0x44, i_ii)              \
-  V(I32SRem, 0x45, i_ii)              \
-  V(I32URem, 0x46, i_ii)              \
+  V(I32DivS, 0x43, i_ii)              \
+  V(I32DivU, 0x44, i_ii)              \
+  V(I32RemS, 0x45, i_ii)              \
+  V(I32RemU, 0x46, i_ii)              \
   V(I32And, 0x47, i_ii)               \
   V(I32Ior, 0x48, i_ii)               \
   V(I32Xor, 0x49, i_ii)               \
   V(I32Shl, 0x4a, i_ii)               \
-  V(I32Shr, 0x4b, i_ii)               \
-  V(I32Sar, 0x4c, i_ii)               \
+  V(I32ShrU, 0x4b, i_ii)              \
+  V(I32ShrS, 0x4c, i_ii)              \
   V(I32Eq, 0x4d, i_ii)                \
   V(I32Ne, 0x4e, i_ii)                \
-  V(I32Slt, 0x4f, i_ii)               \
-  V(I32Sle, 0x50, i_ii)               \
-  V(I32Ult, 0x51, i_ii)               \
-  V(I32Ule, 0x52, i_ii)               \
-  V(I32Sgt, 0x53, i_ii)               \
-  V(I32Sge, 0x54, i_ii)               \
-  V(I32Ugt, 0x55, i_ii)               \
-  V(I32Uge, 0x56, i_ii)               \
+  V(I32LtS, 0x4f, i_ii)               \
+  V(I32LeS, 0x50, i_ii)               \
+  V(I32LtU, 0x51, i_ii)               \
+  V(I32LeU, 0x52, i_ii)               \
+  V(I32GtS, 0x53, i_ii)               \
+  V(I32GeS, 0x54, i_ii)               \
+  V(I32GtU, 0x55, i_ii)               \
+  V(I32GeU, 0x56, i_ii)               \
   V(I32Clz, 0x57, i_i)                \
   V(I32Ctz, 0x58, i_i)                \
   V(I32PopCnt, 0x59, i_i)             \
@@ -142,26 +142,26 @@ typedef Signature<LocalType> FunctionSig;
   V(I64Add, 0x5b, l_ll)               \
   V(I64Sub, 0x5c, l_ll)               \
   V(I64Mul, 0x5d, l_ll)               \
-  V(I64SDiv, 0x5e, l_ll)              \
-  V(I64UDiv, 0x5f, l_ll)              \
-  V(I64SRem, 0x60, l_ll)              \
-  V(I64URem, 0x61, l_ll)              \
+  V(I64DivS, 0x5e, l_ll)              \
+  V(I64DivU, 0x5f, l_ll)              \
+  V(I64RemS, 0x60, l_ll)              \
+  V(I64RemU, 0x61, l_ll)              \
   V(I64And, 0x62, l_ll)               \
   V(I64Ior, 0x63, l_ll)               \
   V(I64Xor, 0x64, l_ll)               \
   V(I64Shl, 0x65, l_ll)               \
-  V(I64Shr, 0x66, l_ll)               \
-  V(I64Sar, 0x67, l_ll)               \
+  V(I64ShrU, 0x66, l_ll)               \
+  V(I64ShrS, 0x67, l_ll)               \
   V(I64Eq, 0x68, i_ll)                \
   V(I64Ne, 0x69, i_ll)                \
-  V(I64Slt, 0x6a, i_ll)               \
-  V(I64Sle, 0x6b, i_ll)               \
-  V(I64Ult, 0x6c, i_ll)               \
-  V(I64Ule, 0x6d, i_ll)               \
-  V(I64Sgt, 0x6e, i_ll)               \
-  V(I64Sge, 0x6f, i_ll)               \
-  V(I64Ugt, 0x70, i_ll)               \
-  V(I64Uge, 0x71, i_ll)               \
+  V(I64LtS, 0x6a, i_ll)               \
+  V(I64LeS, 0x6b, i_ll)               \
+  V(I64LtU, 0x6c, i_ll)               \
+  V(I64LeU, 0x6d, i_ll)               \
+  V(I64GtS, 0x6e, i_ll)               \
+  V(I64GeS, 0x6f, i_ll)               \
+  V(I64GtU, 0x70, i_ll)               \
+  V(I64GeU, 0x71, i_ll)               \
   V(I64Clz, 0x72, i_l)                \
   V(I64Ctz, 0x73, i_l)                \
   V(I64PopCnt, 0x74, i_l)             \

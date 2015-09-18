@@ -497,28 +497,28 @@ TEST(Run_WasmInt32Binops) {
   TestInt32Binop(kExprI32Add, 88888888, 33333333, 55555555);
   TestInt32Binop(kExprI32Sub, -1111111, 7777777, 8888888);
   TestInt32Binop(kExprI32Mul, 65130756, 88734, 734);
-  TestInt32Binop(kExprI32SDiv, -66, -4777344, 72384);
-  TestInt32Binop(kExprI32UDiv, 805306368, 0xF0000000, 5);
-  TestInt32Binop(kExprI32SRem, -3, -3003, 1000);
-  TestInt32Binop(kExprI32URem, 4, 4004, 1000);
+  TestInt32Binop(kExprI32DivS, -66, -4777344, 72384);
+  TestInt32Binop(kExprI32DivU, 805306368, 0xF0000000, 5);
+  TestInt32Binop(kExprI32RemS, -3, -3003, 1000);
+  TestInt32Binop(kExprI32RemU, 4, 4004, 1000);
   TestInt32Binop(kExprI32And, 0xEE, 0xFFEE, 0xFF0000FF);
   TestInt32Binop(kExprI32Ior, 0xF0FF00FF, 0xF0F000EE, 0x000F0011);
   TestInt32Binop(kExprI32Xor, 0xABCDEF01, 0xABCDEFFF, 0xFE);
   TestInt32Binop(kExprI32Shl, 0xA0000000, 0xA, 28);
-  TestInt32Binop(kExprI32Shr, 0x07000010, 0x70000100, 4);
-  TestInt32Binop(kExprI32Sar, 0xFF000000, 0x80000000, 7);
+  TestInt32Binop(kExprI32ShrU, 0x07000010, 0x70000100, 4);
+  TestInt32Binop(kExprI32ShrS, 0xFF000000, 0x80000000, 7);
   TestInt32Binop(kExprI32Eq, 1, -99, -99);
   TestInt32Binop(kExprI32Ne, 0, -97, -97);
 
-  TestInt32Binop(kExprI32Slt, 1, -4, 4);
-  TestInt32Binop(kExprI32Sle, 0, -2, -3);
-  TestInt32Binop(kExprI32Ult, 1, 0, -6);
-  TestInt32Binop(kExprI32Ule, 1, 98978, 0xF0000000);
+  TestInt32Binop(kExprI32LtS, 1, -4, 4);
+  TestInt32Binop(kExprI32LeS, 0, -2, -3);
+  TestInt32Binop(kExprI32LtU, 1, 0, -6);
+  TestInt32Binop(kExprI32LeU, 1, 98978, 0xF0000000);
 
-  TestInt32Binop(kExprI32Sgt, 1, 4, -4);
-  TestInt32Binop(kExprI32Sge, 0, -3, -2);
-  TestInt32Binop(kExprI32Ugt, 1, -6, 0);
-  TestInt32Binop(kExprI32Uge, 1, 0xF0000000, 98978);
+  TestInt32Binop(kExprI32GtS, 1, 4, -4);
+  TestInt32Binop(kExprI32GeS, 0, -3, -2);
+  TestInt32Binop(kExprI32GtU, 1, -6, 0);
+  TestInt32Binop(kExprI32GeU, 1, 0xF0000000, 98978);
 }
 
 
@@ -551,22 +551,22 @@ TEST(Run_WasmInt64Binops) {
   TestInt64Binop(kExprI64Sub, -111111111111LL, 777777777777LL,
                  888888888888LL);
   TestInt64Binop(kExprI64Mul, 65130756, 88734, 734);
-  TestInt64Binop(kExprI64SDiv, -66, -4777344, 72384);
-  TestInt64Binop(kExprI64UDiv, 805306368, 0xF0000000, 5);
-  TestInt64Binop(kExprI64SRem, -3, -3003, 1000);
-  TestInt64Binop(kExprI64URem, 4, 4004, 1000);
+  TestInt64Binop(kExprI64DivS, -66, -4777344, 72384);
+  TestInt64Binop(kExprI64DivU, 805306368, 0xF0000000, 5);
+  TestInt64Binop(kExprI64RemS, -3, -3003, 1000);
+  TestInt64Binop(kExprI64RemU, 4, 4004, 1000);
   TestInt64Binop(kExprI64And, 0xEE, 0xFFEE, 0xFF0000FF);
   TestInt64Binop(kExprI64Ior, 0xF0FF00FF, 0xF0F000EE, 0x000F0011);
   TestInt64Binop(kExprI64Xor, 0xABCDEF01, 0xABCDEFFF, 0xFE);
   TestInt64Binop(kExprI64Shl, 0xA0000000, 0xA, 28);
-  TestInt64Binop(kExprI64Shr, 0x0700001000123456LL, 0x7000010001234567LL, 4);
-  TestInt64Binop(kExprI64Sar, 0xFF00000000000000LL, 0x8000000000000000LL, 7);
+  TestInt64Binop(kExprI64ShrU, 0x0700001000123456LL, 0x7000010001234567LL, 4);
+  TestInt64Binop(kExprI64ShrS, 0xFF00000000000000LL, 0x8000000000000000LL, 7);
   TestInt64Binop(kExprI64Eq, 1, -9999, -9999, true);
   TestInt64Binop(kExprI64Ne, 1, -9199, -9999, true);
-  TestInt64Binop(kExprI64Slt, 1, -4, 4, true);
-  TestInt64Binop(kExprI64Sle, 0, -2, -3, true);
-  TestInt64Binop(kExprI64Ult, 1, 0, -6, true);
-  TestInt64Binop(kExprI64Ule, 1, 98978, 0xF0000000, true);
+  TestInt64Binop(kExprI64LtS, 1, -4, 4, true);
+  TestInt64Binop(kExprI64LeS, 0, -2, -3, true);
+  TestInt64Binop(kExprI64LtU, 1, 0, -6, true);
+  TestInt64Binop(kExprI64LeU, 1, 98978, 0xF0000000, true);
 }
 #endif
 

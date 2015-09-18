@@ -106,26 +106,26 @@
 #define WASM_I32_ADD(x, y) kExprI32Add, x, y
 #define WASM_I32_SUB(x, y) kExprI32Sub, x, y
 #define WASM_I32_MUL(x, y) kExprI32Mul, x, y
-#define WASM_I32_SDIV(x, y) kExprI32SDiv, x, y
-#define WASM_I32_UDIV(x, y) kExprI32UDiv, x, y
-#define WASM_I32_SREM(x, y) kExprI32SRem, x, y
-#define WASM_I32_UREM(x, y) kExprI32URem, x, y
+#define WASM_I32_DIVS(x, y) kExprI32DivS, x, y
+#define WASM_I32_DIVU(x, y) kExprI32DivU, x, y
+#define WASM_I32_REMS(x, y) kExprI32RemS, x, y
+#define WASM_I32_REMU(x, y) kExprI32RemU, x, y
 #define WASM_I32_AND(x, y) kExprI32And, x, y
 #define WASM_I32_IOR(x, y) kExprI32Ior, x, y
 #define WASM_I32_XOR(x, y) kExprI32Xor, x, y
 #define WASM_I32_SHL(x, y) kExprI32Shl, x, y
-#define WASM_I32_SHR(x, y) kExprI32Shr, x, y
-#define WASM_I32_SAR(x, y) kExprI32Sar, x, y
+#define WASM_I32_SHR(x, y) kExprI32ShrU, x, y
+#define WASM_I32_SAR(x, y) kExprI32ShrS, x, y
 #define WASM_I32_EQ(x, y) kExprI32Eq, x, y
 #define WASM_I32_NE(x, y) kExprI32Ne, x, y
-#define WASM_I32_SLT(x, y) kExprI32Slt, x, y
-#define WASM_I32_SLE(x, y) kExprI32Sle, x, y
-#define WASM_I32_ULT(x, y) kExprI32Ult, x, y
-#define WASM_I32_ULE(x, y) kExprI32Ule, x, y
-#define WASM_I32_SGT(x, y) kExprI32Sgt, x, y
-#define WASM_I32_SGE(x, y) kExprI32Sge, x, y
-#define WASM_I32_UGT(x, y) kExprI32Ugt, x, y
-#define WASM_I32_UGE(x, y) kExprI32Uge, x, y
+#define WASM_I32_LTS(x, y) kExprI32LtS, x, y
+#define WASM_I32_LES(x, y) kExprI32LeS, x, y
+#define WASM_I32_LTU(x, y) kExprI32LtU, x, y
+#define WASM_I32_LEU(x, y) kExprI32LeU, x, y
+#define WASM_I32_GTS(x, y) kExprI32GtS, x, y
+#define WASM_I32_GES(x, y) kExprI32GeS, x, y
+#define WASM_I32_GTU(x, y) kExprI32GtU, x, y
+#define WASM_I32_GEU(x, y) kExprI32GeU, x, y
 #define WASM_I32_CLZ(x) kExprI32Clz, x
 #define WASM_I32_CTZ(x) kExprI32Ctz, x
 #define WASM_I32_POPCNT(x) kExprI32PopCnt, x
@@ -136,26 +136,26 @@
 #define WASM_I64_ADD(x, y) kExprI64Add, x, y
 #define WASM_I64_SUB(x, y) kExprI64Sub, x, y
 #define WASM_I64_MUL(x, y) kExprI64Mul, x, y
-#define WASM_I64_SDIV(x, y) kExprI64SDiv, x, y
-#define WASM_I64_UDIV(x, y) kExprI64UDiv, x, y
-#define WASM_I64_SREM(x, y) kExprI64SRem, x, y
-#define WASM_I64_UREM(x, y) kExprI64URem, x, y
+#define WASM_I64_DIVS(x, y) kExprI64DivS, x, y
+#define WASM_I64_DIVU(x, y) kExprI64DivU, x, y
+#define WASM_I64_REMS(x, y) kExprI64RemS, x, y
+#define WASM_I64_REMU(x, y) kExprI64RemU, x, y
 #define WASM_I64_AND(x, y) kExprI64And, x, y
 #define WASM_I64_IOR(x, y) kExprI64Ior, x, y
 #define WASM_I64_XOR(x, y) kExprI64Xor, x, y
 #define WASM_I64_SHL(x, y) kExprI64Shl, x, y
-#define WASM_I64_SHR(x, y) kExprI64Shr, x, y
-#define WASM_I64_SAR(x, y) kExprI64Sar, x, y
+#define WASM_I64_SHR(x, y) kExprI64ShrU, x, y
+#define WASM_I64_SAR(x, y) kExprI64ShrS, x, y
 #define WASM_I64_EQ(x, y) kExprI64Eq, x, y
 #define WASM_I64_NE(x, y) kExprI64Ne, x, y
-#define WASM_I64_SLT(x, y) kExprI64Slt, x, y
-#define WASM_I64_SLE(x, y) kExprI64Sle, x, y
-#define WASM_I64_ULT(x, y) kExprI64Ult, x, y
-#define WASM_I64_ULE(x, y) kExprI64Ule, x, y
-#define WASM_I64_SGT(x, y) kExprI64Sgt, x, y
-#define WASM_I64_SGE(x, y) kExprI64Sge, x, y
-#define WASM_I64_UGT(x, y) kExprI64Ugt, x, y
-#define WASM_I64_UGE(x, y) kExprI64Uge, x, y
+#define WASM_I64_LTS(x, y) kExprI64LtS, x, y
+#define WASM_I64_LES(x, y) kExprI64LeS, x, y
+#define WASM_I64_LTU(x, y) kExprI64LtU, x, y
+#define WASM_I64_LEU(x, y) kExprI64LeU, x, y
+#define WASM_I64_GTS(x, y) kExprI64GtS, x, y
+#define WASM_I64_GES(x, y) kExprI64GeS, x, y
+#define WASM_I64_GTU(x, y) kExprI64GtU, x, y
+#define WASM_I64_GEU(x, y) kExprI64GeU, x, y
 #define WASM_I64_CLZ(x) kExprI64Clz, x
 #define WASM_I64_CTZ(x) kExprI64Ctz, x
 #define WASM_I64_POPCNT(x) kExprI64PopCnt, x

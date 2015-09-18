@@ -140,10 +140,10 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI64Add:
     case kExprI64Sub:
     case kExprI64Mul:
-    case kExprI64SDiv:
-    case kExprI64UDiv:
-    case kExprI64SRem:
-    case kExprI64URem:
+    case kExprI64DivS:
+    case kExprI64DivU:
+    case kExprI64RemS:
+    case kExprI64RemU:
     case kExprI64And:
     case kExprI64Ior:
     case kExprI64Xor:
@@ -152,14 +152,14 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI64Sar:
     case kExprI64Eq:
     case kExprI64Ne:
-    case kExprI64Slt:
-    case kExprI64Sle:
-    case kExprI64Ult:
-    case kExprI64Ule:
-    case kExprI64Sgt:
-    case kExprI64Sge:
-    case kExprI64Ugt:
-    case kExprI64Uge:
+    case kExprI64LtS:
+    case kExprI64LeS:
+    case kExprI64LtU:
+    case kExprI64LeU:
+    case kExprI64GtS:
+    case kExprI64GeS:
+    case kExprI64GtU:
+    case kExprI64GeU:
 
     case kExprI32ConvertI64:
     case kExprI64SConvertI32:

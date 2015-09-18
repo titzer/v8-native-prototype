@@ -92,7 +92,7 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
   f.Exported(1);
   byte code[] = {
       WASM_WHILE(
-          WASM_I32_SLT(WASM_GET_LOCAL(0), WASM_I32(kCheckSize)),
+          WASM_I32_LTS(WASM_GET_LOCAL(0), WASM_I32(kCheckSize)),
           WASM_IF_THEN(WASM_LOAD_MEM(kMemI32, WASM_GET_LOCAL(0)),
                        WASM_RETURN(WASM_I8(-1)), WASM_INC_LOCAL_BY(0, 4))),
       WASM_I8(11)};
@@ -113,7 +113,7 @@ TEST(Run_WasmModule_CallMain_recursive) {
       WASM_BLOCK(
           2,                                                             // --
           WASM_SET_LOCAL(0, WASM_LOAD_MEM(kMemI32, WASM_ZERO)),        // --
-          WASM_IF_THEN(WASM_I32_SLT(WASM_GET_LOCAL(0), WASM_I8(5)),  // --
+          WASM_IF_THEN(WASM_I32_LTS(WASM_GET_LOCAL(0), WASM_I8(5)),  // --
                        WASM_BLOCK(2,                                     // --
                                   WASM_STORE_MEM(kMemI32, WASM_ZERO,   // --
                                                  WASM_INC_LOCAL(0)),     // --

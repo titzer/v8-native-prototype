@@ -230,16 +230,16 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprI32Mul:
       op = m->Int32Mul();
       break;
-    case kExprI32SDiv:
+    case kExprI32DivS:
       op = m->Int32Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI32UDiv:
+    case kExprI32DivU:
       op = m->Uint32Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI32SRem:
+    case kExprI32RemS:
       op = m->Int32Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI32URem:
+    case kExprI32RemU:
       op = m->Uint32Mod();
       return graph->graph()->NewNode(op, left, right, *control);
     case kExprI32And:
@@ -254,10 +254,10 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprI32Shl:
       op = m->Word32Shl();
       break;
-    case kExprI32Shr:
+    case kExprI32ShrU:
       op = m->Word32Shr();
       break;
-    case kExprI32Sar:
+    case kExprI32ShrS:
       op = m->Word32Sar();
       break;
     case kExprI32Eq:
@@ -265,31 +265,31 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprI32Ne:
       return Invert(Binop(kExprI32Eq, left, right));
-    case kExprI32Slt:
+    case kExprI32LtS:
       op = m->Int32LessThan();
       break;
-    case kExprI32Sle:
+    case kExprI32LeS:
       op = m->Int32LessThanOrEqual();
       break;
-    case kExprI32Ult:
+    case kExprI32LtU:
       op = m->Uint32LessThan();
       break;
-    case kExprI32Ule:
+    case kExprI32LeU:
       op = m->Uint32LessThanOrEqual();
       break;
-    case kExprI32Sgt:
+    case kExprI32GtS:
       op = m->Int32LessThan();
       std::swap(left, right);
       break;
-    case kExprI32Sge:
+    case kExprI32GeS:
       op = m->Int32LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprI32Ugt:
+    case kExprI32GtU:
       op = m->Uint32LessThan();
       std::swap(left, right);
       break;
-    case kExprI32Uge:
+    case kExprI32GeU:
       op = m->Uint32LessThanOrEqual();
       std::swap(left, right);
       break;
@@ -305,16 +305,16 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprI64Mul:
       op = m->Int64Mul();
       break;
-    case kExprI64SDiv:
+    case kExprI64DivS:
       op = m->Int64Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI64UDiv:
+    case kExprI64DivU:
       op = m->Uint64Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI64SRem:
+    case kExprI64RemS:
       op = m->Int64Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI64URem:
+    case kExprI64RemU:
       op = m->Uint64Mod();
       return graph->graph()->NewNode(op, left, right, *control);
     case kExprI64And:
@@ -329,10 +329,10 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprI64Shl:
       op = m->Word64Shl();
       break;
-    case kExprI64Shr:
+    case kExprI64ShrU:
       op = m->Word64Shr();
       break;
-    case kExprI64Sar:
+    case kExprI64ShrS:
       op = m->Word64Sar();
       break;
     case kExprI64Eq:
@@ -340,31 +340,31 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
     case kExprI64Ne:
       return Invert(Binop(kExprI64Eq, left, right));
-    case kExprI64Slt:
+    case kExprI64LtS:
       op = m->Int64LessThan();
       break;
-    case kExprI64Sle:
+    case kExprI64LeS:
       op = m->Int64LessThanOrEqual();
       break;
-    case kExprI64Ult:
+    case kExprI64LtU:
       op = m->Uint64LessThan();
       break;
-    case kExprI64Ule:
+    case kExprI64LeU:
       op = m->Uint64LessThanOrEqual();
       break;
-    case kExprI64Sgt:
+    case kExprI64GtS:
       op = m->Int64LessThan();
       std::swap(left, right);
       break;
-    case kExprI64Sge:
+    case kExprI64GeS:
       op = m->Int64LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprI64Ugt:
+    case kExprI64GtU:
       op = m->Uint64LessThan();
       std::swap(left, right);
       break;
-    case kExprI64Uge:
+    case kExprI64GeU:
       op = m->Uint64LessThanOrEqual();
       std::swap(left, right);
       break;
