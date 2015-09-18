@@ -236,5 +236,7 @@
 #define WASM_F64_UCONVERT_I64(x) kExprF64UConvertI64, x
 #define WASM_F64_CONVERT_F32(x) kExprF64ConvertF32, x
 #define WASM_F64_REINTERPRET_I64(x) kExprF64ReinterpretI64, x
+#define WASM_I32_REINTERPRET_F32(x) kExprI32ReinterpretF32, x
+#define WASM_I64_REINTERPRET_F64(x) kExprI64ReinterpretF64, x
 
 #endif  // V8_WASM_MACRO_GEN_H_
