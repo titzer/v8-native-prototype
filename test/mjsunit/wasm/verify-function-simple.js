@@ -13,7 +13,7 @@ function bytes() {
 
 var kAstStmt = 0;
 var kStmtNop = 0;
-var kExprInt8Const = 0x10;
+var kExprI8Const = 0x10;
 var kStmtReturn = 0x9;
 
 try {

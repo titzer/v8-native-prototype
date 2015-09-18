@@ -37,16 +37,16 @@ class TestSignatures {
         sig_v_ii(0, 2, kIntTypes4),
         sig_v_iii(0, 3, kIntTypes4) {
     // I used C++ and you won't believe what happened next....
-    for (int i = 0; i < 4; i++) kIntTypes4[i] = kAstInt32;
-    for (int i = 0; i < 4; i++) kLongTypes4[i] = kAstInt64;
-    for (int i = 0; i < 4; i++) kFloatTypes4[i] = kAstFloat32;
-    for (int i = 0; i < 4; i++) kDoubleTypes4[i] = kAstFloat64;
-    for (int i = 0; i < 4; i++) kIntLongTypes4[i] = kAstInt64;
-    for (int i = 0; i < 4; i++) kIntFloatTypes4[i] = kAstFloat32;
-    for (int i = 0; i < 4; i++) kIntDoubleTypes4[i] = kAstFloat64;
-    kIntLongTypes4[0] = kAstInt32;
-    kIntFloatTypes4[0] = kAstInt32;
-    kIntDoubleTypes4[0] = kAstInt32;
+    for (int i = 0; i < 4; i++) kIntTypes4[i] = kAstI32;
+    for (int i = 0; i < 4; i++) kLongTypes4[i] = kAstI64;
+    for (int i = 0; i < 4; i++) kFloatTypes4[i] = kAstF32;
+    for (int i = 0; i < 4; i++) kDoubleTypes4[i] = kAstF64;
+    for (int i = 0; i < 4; i++) kIntLongTypes4[i] = kAstI64;
+    for (int i = 0; i < 4; i++) kIntFloatTypes4[i] = kAstF32;
+    for (int i = 0; i < 4; i++) kIntDoubleTypes4[i] = kAstF64;
+    kIntLongTypes4[0] = kAstI32;
+    kIntFloatTypes4[0] = kAstI32;
+    kIntDoubleTypes4[0] = kAstI32;
   }
 
   FunctionSig* i_v() { return &sig_i_v; }

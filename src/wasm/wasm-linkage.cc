@@ -24,13 +24,13 @@ using compiler::LinkageLocation;
 namespace {
 MachineType MachineTypeFor(LocalType type) {
   switch (type) {
-    case kAstInt32:
+    case kAstI32:
       return compiler::kMachInt32;
-    case kAstInt64:
+    case kAstI64:
       return compiler::kMachInt64;
-    case kAstFloat64:
+    case kAstF64:
       return compiler::kMachFloat64;
-    case kAstFloat32:
+    case kAstF32:
       return compiler::kMachFloat32;
     default:
       UNREACHABLE();
@@ -175,10 +175,10 @@ struct Allocator {
     }
   }
   bool IsFloatingPoint(LocalType type) {
-    return type == kAstFloat32 || type == kAstFloat64;
+    return type == kAstF32 || type == kAstF64;
   }
   int Words(LocalType type) {
-    if (kPointerSize < 8 && (type == kAstInt64 || type == kAstFloat64)) {
+    if (kPointerSize < 8 && (type == kAstI64 || type == kAstF64)) {
       return 2;
     }
     return 1;

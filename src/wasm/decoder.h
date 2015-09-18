@@ -45,28 +45,28 @@ struct FunctionEnv {
   LocalType GetLocalType(uint32_t index) {
     if (index < sig->parameter_count()) return sig->GetParam(index);
     index -= sig->parameter_count();
-    if (index < local_int32_count) return kAstInt32;
+    if (index < local_int32_count) return kAstI32;
     index -= local_int32_count;
-    if (index < local_int64_count) return kAstInt64;
+    if (index < local_int64_count) return kAstI64;
     index -= local_int64_count;
-    if (index < local_float32_count) return kAstFloat32;
+    if (index < local_float32_count) return kAstF32;
     index -= local_float32_count;
-    if (index < local_float64_count) return kAstFloat64;
+    if (index < local_float64_count) return kAstF64;
     return kAstStmt;
   }
 
   void AddLocals(LocalType type, uint32_t count) {
     switch (type) {
-      case kAstInt32:
+      case kAstI32:
         local_int32_count += count;
         break;
-      case kAstInt64:
+      case kAstI64:
         local_int64_count += count;
         break;
-      case kAstFloat32:
+      case kAstF32:
         local_float32_count += count;
         break;
-      case kAstFloat64:
+      case kAstF64:
         local_float64_count += count;
         break;
       default:

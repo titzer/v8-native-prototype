@@ -14,14 +14,14 @@ function bytes() {
 }
 
 var kAstStmt = 0;
-var kAstInt32 = 1;
-var kAstInt64 = 2;
-var kAstFloat32 = 3;
-var kAstFloat64 = 4;
+var kAstI32 = 1;
+var kAstI64 = 2;
+var kAstF32 = 3;
+var kAstF64 = 4;
 var kStmtNop = 0;
 var kStmtBlock = 3;
-var kExprInt8Const = 0x10;
-var kExprInt32Sub = 0x41;
+var kExprI8Const = 0x10;
+var kExprI32Sub = 0x41;
 var kExprGetLocal = 0x15;
 var kStmtReturn = 0x9;
 
@@ -64,7 +64,7 @@ function testSelect2(type) {
     runSelect2(module, which, 99, 97);
     runSelect2(module, which, -99, -97);
 
-    if (type != kAstFloat32) {
+    if (type != kAstF32) {
       runSelect2(module, which, 0x80000000 | 0, 0x7fffffff | 0);
       runSelect2(module, which, 0x80000001 | 0, 0x7ffffffe | 0);
       runSelect2(module, which, 0xffffffff | 0, 0xfffffffe | 0);
@@ -73,7 +73,7 @@ function testSelect2(type) {
       runSelect2(module, which, -2147483648, 2147483647);
     }
 
-    if (type != kAstInt32 && type != kAstInt64) {
+    if (type != kAstI32 && type != kAstI64) {
       runSelect2(module, which, -1.25, 5.25);
       runSelect2(module, which, Infinity, -Infinity);
     }
@@ -81,9 +81,9 @@ function testSelect2(type) {
 }
 
 
-testSelect2(kAstInt32);
-testSelect2(kAstFloat32);
-testSelect2(kAstFloat64);
+testSelect2(kAstI32);
+testSelect2(kAstF32);
+testSelect2(kAstF64);
 
 
 function runSelect10(module, which, a, b) {
@@ -145,7 +145,7 @@ function testSelect10(type) {
     runSelect10(module, which, 99, 97);
     runSelect10(module, which, -99, -97);
 
-    if (type != kAstFloat32) {
+    if (type != kAstF32) {
       runSelect10(module, which, 0x80000000 | 0, 0x7fffffff | 0);
       runSelect10(module, which, 0x80000001 | 0, 0x7ffffffe | 0);
       runSelect10(module, which, 0xffffffff | 0, 0xfffffffe | 0);
@@ -154,7 +154,7 @@ function testSelect10(type) {
       runSelect10(module, which, -2147483648, 2147483647);
     }
 
-    if (type != kAstInt32 && type != kAstInt64) {
+    if (type != kAstI32 && type != kAstI64) {
       runSelect10(module, which, -1.25, 5.25);
       runSelect10(module, which, Infinity, -Infinity);
     }
@@ -162,8 +162,8 @@ function testSelect10(type) {
 }
 
 
-testSelect10(kAstInt32);
-testSelect10(kAstFloat32);
-testSelect10(kAstFloat64);
+testSelect10(kAstI32);
+testSelect10(kAstF32);
+testSelect10(kAstF64);
 
 

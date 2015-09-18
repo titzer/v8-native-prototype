@@ -33,8 +33,8 @@ class WasmModuleVerifyTest : public TestWithZone {
   } while (false)
 
 
-static const LocalType kLocalTypes[] = {kAstInt32, kAstInt64, kAstFloat32,
-                                        kAstFloat64};
+static const LocalType kLocalTypes[] = {kAstI32, kAstI64, kAstF32,
+                                        kAstF64};
 
 TEST_F(WasmModuleVerifyTest, DecodeEmpty) {
   static const byte data[] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -54,7 +54,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobal) {
   const byte data[] = {
       MODULE_HEADER(1, 0, 0),  // globals, functions, data_segments
       0, 0, 0, 0,              // name offset
-      kMemInt32,               // memory type
+      kMemI32,               // memory type
       0,                       // exported
   };
 
@@ -69,7 +69,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobal) {
     WasmGlobal* global = &result.val->globals->back();
 
     EXPECT_EQ(0, global->name_offset);
-    EXPECT_EQ(kMemInt32, global->type);
+    EXPECT_EQ(kMemI32, global->type);
     EXPECT_EQ(0, global->offset);
     EXPECT_EQ(false, global->exported);
   }
@@ -86,7 +86,7 @@ TEST_F(WasmModuleVerifyTest, GlobalWithInvalidNameOffset) {
   const byte data[] = {
       MODULE_HEADER(1, 0, 0),  // globals, functions, data_segments
       0, 3, 0, 0,              // name offset
-      kMemInt32,               // memory type
+      kMemI32,               // memory type
       0,                       // exported
   };
 
@@ -113,10 +113,10 @@ TEST_F(WasmModuleVerifyTest, TwoGlobals) {
   const byte data[] = {
       MODULE_HEADER(2, 0, 0),  // globals, functions, data_segments
       0, 0, 0, 0,              // #0: name offset
-      kMemFloat32,             // memory type
+      kMemF32,             // memory type
       0,                       // exported
       0, 0, 0, 0,              // #1: name offset
-      kMemFloat64,             // memory type
+      kMemF64,             // memory type
       1,                       // exported
   };
 
@@ -132,12 +132,12 @@ TEST_F(WasmModuleVerifyTest, TwoGlobals) {
     WasmGlobal* g1 = &result.val->globals->at(1);
 
     EXPECT_EQ(0, g0->name_offset);
-    EXPECT_EQ(kMemFloat32, g0->type);
+    EXPECT_EQ(kMemF32, g0->type);
     EXPECT_EQ(0, g0->offset);
     EXPECT_EQ(false, g0->exported);
 
     EXPECT_EQ(0, g1->name_offset);
-    EXPECT_EQ(kMemFloat64, g1->type);
+    EXPECT_EQ(kMemF64, g1->type);
     EXPECT_EQ(0, g1->offset);
     EXPECT_EQ(true, g1->exported);
   }
@@ -242,7 +242,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
       MODULE_HEADER(1, 1, 1),  // globals, functions, data segments
       // global#0 --------------------------------------------------
       0, 0, 0, 0,  // name offset
-      kMemUint8,   // memory type
+      kMemU8,   // memory type
       0,           // exported
       // func#0 ----------------------------------------------------
       0, 0,                       // signature: void -> void
@@ -274,7 +274,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
     WasmGlobal* global = &result.val->globals->back();
 
     EXPECT_EQ(0, global->name_offset);
-    EXPECT_EQ(kMemUint8, global->type);
+    EXPECT_EQ(kMemU8, global->type);
     EXPECT_EQ(0, global->offset);
     EXPECT_EQ(false, global->exported);
 
@@ -443,7 +443,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_i_tt) {
     for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
       LocalType p1_type = kLocalTypes[j];
       const byte data[] = {2,                             // param count
-                           static_cast<byte>(kAstInt32),  // ret
+                           static_cast<byte>(kAstI32),  // ret
                            static_cast<byte>(p0_type),    // p0
                            static_cast<byte>(p1_type)};   // p1
       FunctionSig* sig = DecodeFunctionSignatureForTesting(
@@ -462,7 +462,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_i_tt) {
 TEST_F(WasmSignatureDecodeTest, Fail_off_end) {
   byte data[256];
   for (int p = 0; p <= 255; p = p + 1 + p * 3) {
-    for (int i = 0; i <= p; i++) data[i] = static_cast<byte>(kAstInt32);
+    for (int i = 0; i <= p; i++) data[i] = static_cast<byte>(kAstI32);
     data[0] = static_cast<byte>(p);
 
     for (int i = 0; i < p + 1; i++) {
@@ -478,7 +478,7 @@ TEST_F(WasmSignatureDecodeTest, Fail_off_end) {
 TEST_F(WasmSignatureDecodeTest, Fail_invalid_type) {
   byte kInvalidType = 76;
   for (int i = 1; i < 3; i++) {
-    byte data[] = {2, kAstInt32, kAstInt32, kAstInt32};
+    byte data[] = {2, kAstI32, kAstI32, kAstI32};
     data[i] = kInvalidType;
     FunctionSig* sig =
         DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));
@@ -490,7 +490,7 @@ TEST_F(WasmSignatureDecodeTest, Fail_invalid_type) {
 TEST_F(WasmSignatureDecodeTest, Fail_invalid_param_type) {
   static const int kParamCount = 3;
   for (int i = 0; i < kParamCount; i++) {
-    byte data[] = {kParamCount, kAstInt32, kAstInt32, kAstInt32, kAstInt32};
+    byte data[] = {kParamCount, kAstI32, kAstI32, kAstI32, kAstI32};
     data[i + 2] = kAstStmt;
     FunctionSig* sig =
         DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));

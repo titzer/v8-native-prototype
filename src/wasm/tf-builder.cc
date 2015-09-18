@@ -29,13 +29,13 @@ namespace wasm {
 
 static compiler::MachineType MachineTypeFor(LocalType type) {
   switch (type) {
-    case kAstInt32:
+    case kAstI32:
       return compiler::kMachInt32;
-    case kAstInt64:
+    case kAstI64:
       return compiler::kMachInt64;
-    case kAstFloat64:
+    case kAstF64:
       return compiler::kMachFloat64;
-    case kAstFloat32:
+    case kAstF32:
       return compiler::kMachFloat32;
     default:
       UNREACHABLE();
@@ -46,25 +46,25 @@ static compiler::MachineType MachineTypeFor(LocalType type) {
 
 static compiler::MachineType MachineTypeFor(MemType type) {
   switch (type) {
-    case kMemInt8:
+    case kMemI8:
       return compiler::kMachInt8;
-    case kMemInt16:
+    case kMemI16:
       return compiler::kMachInt16;
-    case kMemInt32:
+    case kMemI32:
       return compiler::kMachInt32;
-    case kMemInt64:
+    case kMemI64:
       return compiler::kMachInt64;
-    case kMemUint8:
+    case kMemU8:
       return compiler::kMachUint8;
-    case kMemUint16:
+    case kMemU16:
       return compiler::kMachUint16;
-    case kMemUint32:
+    case kMemU32:
       return compiler::kMachUint32;
-    case kMemUint64:
+    case kMemU64:
       return compiler::kMachUint64;
-    case kMemFloat64:
+    case kMemF64:
       return compiler::kMachFloat64;
-    case kMemFloat32:
+    case kMemF32:
       return compiler::kMachFloat32;
     default:
       UNREACHABLE();
@@ -221,214 +221,214 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
-    case kExprInt32Add:
+    case kExprI32Add:
       op = m->Int32Add();
       break;
-    case kExprInt32Sub:
+    case kExprI32Sub:
       op = m->Int32Sub();
       break;
-    case kExprInt32Mul:
+    case kExprI32Mul:
       op = m->Int32Mul();
       break;
-    case kExprInt32SDiv:
+    case kExprI32SDiv:
       op = m->Int32Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt32UDiv:
+    case kExprI32UDiv:
       op = m->Uint32Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt32SRem:
+    case kExprI32SRem:
       op = m->Int32Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt32URem:
+    case kExprI32URem:
       op = m->Uint32Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt32And:
+    case kExprI32And:
       op = m->Word32And();
       break;
-    case kExprInt32Ior:
+    case kExprI32Ior:
       op = m->Word32Or();
       break;
-    case kExprInt32Xor:
+    case kExprI32Xor:
       op = m->Word32Xor();
       break;
-    case kExprInt32Shl:
+    case kExprI32Shl:
       op = m->Word32Shl();
       break;
-    case kExprInt32Shr:
+    case kExprI32Shr:
       op = m->Word32Shr();
       break;
-    case kExprInt32Sar:
+    case kExprI32Sar:
       op = m->Word32Sar();
       break;
-    case kExprInt32Eq:
+    case kExprI32Eq:
       op = m->Word32Equal();
       break;
-    case kExprInt32Ne:
-      return Invert(Binop(kExprInt32Eq, left, right));
-    case kExprInt32Slt:
+    case kExprI32Ne:
+      return Invert(Binop(kExprI32Eq, left, right));
+    case kExprI32Slt:
       op = m->Int32LessThan();
       break;
-    case kExprInt32Sle:
+    case kExprI32Sle:
       op = m->Int32LessThanOrEqual();
       break;
-    case kExprInt32Ult:
+    case kExprI32Ult:
       op = m->Uint32LessThan();
       break;
-    case kExprInt32Ule:
+    case kExprI32Ule:
       op = m->Uint32LessThanOrEqual();
       break;
-    case kExprInt32Sgt:
+    case kExprI32Sgt:
       op = m->Int32LessThan();
       std::swap(left, right);
       break;
-    case kExprInt32Sge:
+    case kExprI32Sge:
       op = m->Int32LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprInt32Ugt:
+    case kExprI32Ugt:
       op = m->Uint32LessThan();
       std::swap(left, right);
       break;
-    case kExprInt32Uge:
+    case kExprI32Uge:
       op = m->Uint32LessThanOrEqual();
       std::swap(left, right);
       break;
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
-    case kExprInt64Add:
+    case kExprI64Add:
       op = m->Int64Add();
       break;
-    case kExprInt64Sub:
+    case kExprI64Sub:
       op = m->Int64Sub();
       break;
-    case kExprInt64Mul:
+    case kExprI64Mul:
       op = m->Int64Mul();
       break;
-    case kExprInt64SDiv:
+    case kExprI64SDiv:
       op = m->Int64Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt64UDiv:
+    case kExprI64UDiv:
       op = m->Uint64Div();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt64SRem:
+    case kExprI64SRem:
       op = m->Int64Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt64URem:
+    case kExprI64URem:
       op = m->Uint64Mod();
       return graph->graph()->NewNode(op, left, right, *control);
-    case kExprInt64And:
+    case kExprI64And:
       op = m->Word64And();
       break;
-    case kExprInt64Ior:
+    case kExprI64Ior:
       op = m->Word64Or();
       break;
-    case kExprInt64Xor:
+    case kExprI64Xor:
       op = m->Word64Xor();
       break;
-    case kExprInt64Shl:
+    case kExprI64Shl:
       op = m->Word64Shl();
       break;
-    case kExprInt64Shr:
+    case kExprI64Shr:
       op = m->Word64Shr();
       break;
-    case kExprInt64Sar:
+    case kExprI64Sar:
       op = m->Word64Sar();
       break;
-    case kExprInt64Eq:
+    case kExprI64Eq:
       op = m->Word64Equal();
       break;
-    case kExprInt64Ne:
-      return Invert(Binop(kExprInt64Eq, left, right));
-    case kExprInt64Slt:
+    case kExprI64Ne:
+      return Invert(Binop(kExprI64Eq, left, right));
+    case kExprI64Slt:
       op = m->Int64LessThan();
       break;
-    case kExprInt64Sle:
+    case kExprI64Sle:
       op = m->Int64LessThanOrEqual();
       break;
-    case kExprInt64Ult:
+    case kExprI64Ult:
       op = m->Uint64LessThan();
       break;
-    case kExprInt64Ule:
+    case kExprI64Ule:
       op = m->Uint64LessThanOrEqual();
       break;
-    case kExprInt64Sgt:
+    case kExprI64Sgt:
       op = m->Int64LessThan();
       std::swap(left, right);
       break;
-    case kExprInt64Sge:
+    case kExprI64Sge:
       op = m->Int64LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprInt64Ugt:
+    case kExprI64Ugt:
       op = m->Uint64LessThan();
       std::swap(left, right);
       break;
-    case kExprInt64Uge:
+    case kExprI64Uge:
       op = m->Uint64LessThanOrEqual();
       std::swap(left, right);
       break;
 #endif
 
-    case kExprFloat32Add:
+    case kExprF32Add:
       op = m->Float32Add();
       break;
-    case kExprFloat32Sub:
+    case kExprF32Sub:
       op = m->Float32Sub();
       break;
-    case kExprFloat32Mul:
+    case kExprF32Mul:
       op = m->Float32Mul();
       break;
-    case kExprFloat32Div:
+    case kExprF32Div:
       op = m->Float32Div();
       break;
-    case kExprFloat32Eq:
+    case kExprF32Eq:
       op = m->Float32Equal();
       break;
-    case kExprFloat32Ne:
-      return Invert(Binop(kExprFloat32Eq, left, right));
-    case kExprFloat32Lt:
+    case kExprF32Ne:
+      return Invert(Binop(kExprF32Eq, left, right));
+    case kExprF32Lt:
       op = m->Float32LessThan();
       break;
-    case kExprFloat32Ge:
+    case kExprF32Ge:
       op = m->Float32LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprFloat32Gt:
+    case kExprF32Gt:
       op = m->Float32LessThan();
       std::swap(left, right);
       break;
-    case kExprFloat32Le:
+    case kExprF32Le:
       op = m->Float32LessThanOrEqual();
       break;
-    case kExprFloat64Add:
+    case kExprF64Add:
       op = m->Float64Add();
       break;
-    case kExprFloat64Sub:
+    case kExprF64Sub:
       op = m->Float64Sub();
       break;
-    case kExprFloat64Mul:
+    case kExprF64Mul:
       op = m->Float64Mul();
       break;
-    case kExprFloat64Div:
+    case kExprF64Div:
       op = m->Float64Div();
       break;
-    case kExprFloat64Eq:
+    case kExprF64Eq:
       op = m->Float64Equal();
       break;
-    case kExprFloat64Ne:
-      return Invert(Binop(kExprFloat64Eq, left, right));
-    case kExprFloat64Lt:
+    case kExprF64Ne:
+      return Invert(Binop(kExprF64Eq, left, right));
+    case kExprF64Lt:
       op = m->Float64LessThan();
       break;
-    case kExprFloat64Le:
+    case kExprF64Le:
       op = m->Float64LessThanOrEqual();
       break;
-    case kExprFloat64Gt:
+    case kExprF64Gt:
       op = m->Float64LessThan();
       std::swap(left, right);
       break;
-    case kExprFloat64Ge:
+    case kExprF64Ge:
       op = m->Float64LessThanOrEqual();
       std::swap(left, right);
       break;
@@ -447,72 +447,72 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprBoolNot:
       op = m->Word32Equal();
       return graph->graph()->NewNode(op, input, graph->ZeroConstant());
-    case kExprFloat32Abs:
+    case kExprF32Abs:
       op = m->Float32Abs();
       break;
-    case kExprFloat32Neg:
+    case kExprF32Neg:
       op = m->Float32Sub();
       return graph->graph()->NewNode(op, graph->Float32Constant(0), input);
-    case kExprFloat32Sqrt:
+    case kExprF32Sqrt:
       op = m->Float32Sqrt();
       break;
-    case kExprFloat64Abs:
+    case kExprF64Abs:
       op = m->Float64Abs();
       break;
-    case kExprFloat64Neg:
+    case kExprF64Neg:
       op = m->Float64Sub();
       return graph->graph()->NewNode(op, graph->Float64Constant(0), input);
-    case kExprFloat64Sqrt:
+    case kExprF64Sqrt:
       op = m->Float64Sqrt();
       break;
-    case kExprInt32SConvertFloat64:
+    case kExprI32SConvertF64:
       op = m->ChangeFloat64ToInt32();
       break;
-    case kExprInt32UConvertFloat64:
+    case kExprI32UConvertF64:
       op = m->ChangeFloat64ToUint32();
       break;
-    case kExprFloat32ConvertFloat64:
+    case kExprF32ConvertF64:
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprFloat64SConvertInt32:
+    case kExprF64SConvertI32:
       op = m->ChangeInt32ToFloat64();
       break;
-    case kExprFloat64UConvertInt32:
+    case kExprF64UConvertI32:
       op = m->ChangeUint32ToFloat64();
       break;
-    case kExprFloat32SConvertInt32:
+    case kExprF32SConvertI32:
       op = m->ChangeInt32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprFloat32UConvertInt32:
+    case kExprF32UConvertI32:
       op = m->ChangeUint32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprInt32SConvertFloat32:
+    case kExprI32SConvertF32:
       op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->ChangeFloat64ToInt32();
       break;
-    case kExprInt32UConvertFloat32:
+    case kExprI32UConvertF32:
       op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->ChangeFloat64ToUint32();
       break;
-    case kExprFloat64ConvertFloat32:
+    case kExprF64ConvertF32:
       op = m->ChangeFloat32ToFloat64();
       break;
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
-    case kExprInt32ConvertInt64:
+    case kExprI32ConvertI64:
       op = m->TruncateInt64ToInt32();
       break;
-    case kExprInt64SConvertInt32:
+    case kExprI64SConvertI32:
       op = m->ChangeInt32ToInt64();
       break;
-    case kExprInt64UConvertInt32:
+    case kExprI64UConvertI32:
       op = m->ChangeUint32ToUint64();
       break;
 #endif
@@ -619,15 +619,15 @@ TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
   compiler::Graph* g = graph->graph();
   compiler::SimplifiedOperatorBuilder simplified(graph->zone());
   switch (type) {
-    case kAstInt32:
+    case kAstI32:
       return g->NewNode(simplified.ChangeInt32ToTagged(), node);
-    case kAstInt64:
+    case kAstI64:
       UNIMPLEMENTED();
       return node;
-    case kAstFloat32:
+    case kAstF32:
       node = g->NewNode(graph->machine()->ChangeFloat32ToFloat64(), node);
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
-    case kAstFloat64:
+    case kAstF64:
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
     case kAstStmt:
       return graph->UndefinedConstant();
@@ -649,19 +649,19 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
   num = g->NewNode(simplified.ChangeTaggedToFloat64(), num);
 
   switch (type) {
-    case kAstInt32: {
+    case kAstI32: {
       num = g->NewNode(graph->machine()->TruncateFloat64ToInt32(
                            compiler::TruncationMode::kJavaScript),
                        num);
       break;
     }
-    case kAstInt64:
+    case kAstI64:
       UNIMPLEMENTED();
       break;
-    case kAstFloat32:
+    case kAstF32:
       num = g->NewNode(graph->machine()->TruncateFloat64ToFloat32(), num);
       break;
-    case kAstFloat64:
+    case kAstF64:
       break;
     case kAstStmt:
       num = graph->Int32Constant(0);

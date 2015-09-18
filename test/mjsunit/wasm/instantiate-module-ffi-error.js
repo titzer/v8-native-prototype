@@ -14,16 +14,16 @@ function bytes() {
 }
 
 var kAstStmt = 0;
-var kAstInt32 = 1;
-var kAstInt64 = 2;
-var kAstFloat32 = 3;
-var kAstFloat64 = 4;
+var kAstI32 = 1;
+var kAstI64 = 2;
+var kAstF32 = 3;
+var kAstF64 = 4;
 var kStmtNop = 0;
 var kStmtBlock = 3;
-var kExprInt8Const = 0x10;
-var kExprInt32Sub = 0x41;
+var kExprI8Const = 0x10;
+var kExprI32Sub = 0x41;
 var kExprGetLocal = 0x15;
-var kExprFloat64Lt = 0x99;
+var kExprF64Lt = 0x99;
 var kStmtReturn = 0x9;
 var kExprCallFunction = 0x19;
 
@@ -41,7 +41,7 @@ function testCallFFI(ffi) {
     2, 0,                       // functions
     0, 0,                       // data segments
     // -- foreign function
-    2, kAstInt32, kAstFloat64, kAstFloat64, // signature: (f64,f64)->int
+    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
     kNameAddOffset, 0, 0, 0,    // name offset
     0, 0, 0, 0,                 // code start offset
     0, 0, 0, 0,                 // code end offset
@@ -52,7 +52,7 @@ function testCallFFI(ffi) {
     0,                          // exported
     1,                          // external
     // -- main function
-    2, kAstInt32, kAstFloat64, kAstFloat64, // signature: (f64,f64)->int
+    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
     kNameMainOffset, 0, 0, 0,   // name offset
     kCodeStart, 0, 0, 0,        // code start offset
     kCodeEnd, 0, 0, 0,          // code end offset

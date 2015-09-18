@@ -14,16 +14,16 @@ function bytes() {
 }
 
 var kAstStmt = 0;
-var kAstInt32 = 1;
-var kAstInt64 = 2;
-var kAstFloat32 = 3;
-var kAstFloat64 = 4;
+var kAstI32 = 1;
+var kAstI64 = 2;
+var kAstF32 = 3;
+var kAstF64 = 4;
 var kStmtNop = 0;
 var kStmtBlock = 3;
-var kExprInt8Const = 0x10;
-var kExprInt32Sub = 0x41;
+var kExprI8Const = 0x10;
+var kExprI32Sub = 0x41;
 var kExprGetLocal = 0x15;
-var kExprFloat64Lt = 0x99;
+var kExprF64Lt = 0x99;
 var kStmtReturn = 0x9;
 var kCodeStartOffset = 34;
 var kCodeEndOffset = 40;
@@ -34,7 +34,7 @@ var data = bytes(
   0, 0,                       // globals
   1, 0,                       // functions
   0, 0,                       // data segments
-  2, kAstInt32, kAstInt32, kAstInt32,               // signature: int, int -> int
+  2, kAstI32, kAstI32, kAstI32,               // signature: int, int -> int
   kNameOffset, 0, 0, 0,       // name offset
   kCodeStartOffset, 0, 0, 0,  // code start offset
   kCodeEndOffset, 0, 0, 0,    // code end offset
@@ -45,7 +45,7 @@ var data = bytes(
   1,                          // exported
   0,                          // external
   kStmtReturn,                // body
-  kExprInt32Sub,              // --
+  kExprI32Sub,              // --
   kExprGetLocal,              // --
   0,                          // --
   kExprGetLocal,              // --
@@ -150,7 +150,7 @@ assertEquals(undefined, module.nop());
     0, 0,                       // globals
     1, 0,                       // functions
     0, 0,                       // data segments
-    2, kAstInt32, kAstFloat64, kAstFloat64, // signature: (f64,f64)->int
+    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
     kNameOffset3, 0, 0, 0,      // name offset
     kCodeStartOffset3, 0, 0, 0, // code start offset
     kCodeEndOffset3, 0, 0, 0,   // code end offset
@@ -162,7 +162,7 @@ assertEquals(undefined, module.nop());
     0,                          // external
     kStmtBlock, 1,              // body
     kStmtReturn,                // --       
-    kExprFloat64Lt,             // --
+    kExprF64Lt,             // --
     kExprGetLocal, 0,           // --
     kExprGetLocal, 1,           // --
     'f', 'l', 't', 0            // name

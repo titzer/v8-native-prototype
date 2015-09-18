@@ -35,7 +35,7 @@ void EmitUint32(byte** b, uint32_t x) {
 }
 
 WasmFunctionBuilder::WasmFunctionBuilder(Zone* z)
-    : return_type_(kAstInt32),
+    : return_type_(kAstI32),
       params_(z),
       local_int32_count_(0),
       local_int64_count_(0),

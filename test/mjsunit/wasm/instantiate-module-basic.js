@@ -14,9 +14,9 @@ function bytes() {
 }
 
 var kAstStmt = 0;
-var kAstInt32 = 1;
+var kAstI32 = 1;
 var kStmtNop = 0;
-var kExprInt8Const = 0x10;
+var kExprI8Const = 0x10;
 var kStmtReturn = 0x9;
 var kReturnValue = 117;
 var kCodeStartOffset = 32;
@@ -28,7 +28,7 @@ var data = bytes(
   0, 0,                       // globals
   1, 0,                       // functions
   0, 0,                       // data segments
-  0, kAstInt32,               // signature: void -> int
+  0, kAstI32,               // signature: void -> int
   kNameOffset, 0, 0, 0,       // name offset
   kCodeStartOffset, 0, 0, 0,  // code start offset
   kCodeEndOffset, 0, 0, 0,    // code end offset
@@ -39,7 +39,7 @@ var data = bytes(
   1,                          // exported
   0,                          // external
   kStmtReturn,                // body
-  kExprInt8Const,             // --
+  kExprI8Const,             // --
   kReturnValue,               // --
   'm', 'a', 'i', 'n', 0       // name
 );

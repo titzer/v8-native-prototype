@@ -14,16 +14,16 @@ function bytes() {
 }
 
 var kAstStmt = 0;
-var kAstInt32 = 1;
-var kAstInt64 = 2;
-var kAstFloat32 = 3;
-var kAstFloat64 = 4;
+var kAstI32 = 1;
+var kAstI64 = 2;
+var kAstF32 = 3;
+var kAstF64 = 4;
 var kStmtNop = 0;
 var kStmtBlock = 3;
-var kExprInt8Const = 0x10;
-var kExprInt32Sub = 0x41;
+var kExprI8Const = 0x10;
+var kExprI32Sub = 0x41;
 var kExprGetLocal = 0x15;
-var kExprFloat64Lt = 0x99;
+var kExprF64Lt = 0x99;
 var kStmtReturn = 0x9;
 var kExprCallFunction = 0x19;
 
@@ -44,7 +44,7 @@ function testCallFFI(func, check) {
     2, 0,                       // functions
     0, 0,                       // data segments
     // -- foreign function
-    2, kAstInt32, kAstFloat64, kAstFloat64, // signature: (f64,f64)->int
+    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
     kNameAddOffset, 0, 0, 0,    // name offset
     0, 0, 0, 0,                 // code start offset
     0, 0, 0, 0,                 // code end offset
@@ -55,7 +55,7 @@ function testCallFFI(func, check) {
     0,                          // exported
     1,                          // external
     // -- main function
-    2, kAstInt32, kAstFloat64, kAstFloat64, // signature: (f64,f64)->int
+    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
     kNameMainOffset, 0, 0, 0,   // name offset
     kCodeStart, 0, 0, 0,        // code start offset
     kCodeEnd, 0, 0, 0,          // code end offset
@@ -269,7 +269,7 @@ function testCallBinopVoid(type, func, check) {
     0,                          // exported
     1,                          // external
     // -- main function
-    2, kAstInt32, type, type,   // signature: (type,type)->int
+    2, kAstI32, type, type,   // signature: (type,type)->int
     kNameMainOffset, 0, 0, 0,   // name offset
     kCodeStart, 0, 0, 0,        // code start offset
     kCodeEnd, 0, 0, 0,          // code end offset
@@ -285,7 +285,7 @@ function testCallBinopVoid(type, func, check) {
     kExprGetLocal, 0,           // --
     kExprGetLocal, 1,           // --
     kStmtReturn,                // --
-    kExprInt8Const, 99,         // --
+    kExprI8Const, 99,         // --
     // names
     'f', 'u', 'n', 0,           //  --
     'm', 'a', 'i', 'n', 0       //  --
@@ -304,17 +304,17 @@ function testCallBinopVoid(type, func, check) {
     assertEquals(2, passed_length);
     var expected_a, expected_b;
     switch (type) {
-      case kAstInt32: {
+      case kAstI32: {
         expected_a = a | 0;
         expected_b = b | 0;
         break;
       }
-      case kAstFloat32: {
+      case kAstF32: {
         expected_a = Math.fround(a); 
         expected_b = Math.fround(b);
         break;
       }
-      case kAstFloat64: { 
+      case kAstF64: { 
         expected_a = a;
         expected_b = b;
         break;
@@ -329,7 +329,7 @@ function testCallBinopVoid(type, func, check) {
 }
 
 
-testCallBinopVoid(kAstInt32);
-// TODO testCallBinopVoid(kAstInt64);
-testCallBinopVoid(kAstFloat32);
-testCallBinopVoid(kAstFloat64);
+testCallBinopVoid(kAstI32);
+// TODO testCallBinopVoid(kAstI64);
+testCallBinopVoid(kAstF32);
+testCallBinopVoid(kAstF64);

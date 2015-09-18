@@ -35,13 +35,13 @@ const char* WasmOpcodes::TypeName(LocalType type) {
   switch (type) {
     case kAstStmt:
       return "<stmt>";
-    case kAstInt32:
+    case kAstI32:
       return "int32";
-    case kAstInt64:
+    case kAstI64:
       return "int64";
-    case kAstFloat32:
+    case kAstF32:
       return "float32";
-    case kAstFloat64:
+    case kAstF64:
       return "float64";
     default:
       return "Unknown";
@@ -51,25 +51,25 @@ const char* WasmOpcodes::TypeName(LocalType type) {
 
 const char* WasmOpcodes::TypeName(MemType type) {
   switch (type) {
-    case kMemInt8:
+    case kMemI8:
       return "int8";
-    case kMemUint8:
+    case kMemU8:
       return "uint8";
-    case kMemInt16:
+    case kMemI16:
       return "int16";
-    case kMemUint16:
+    case kMemU16:
       return "uint16";
-    case kMemInt32:
+    case kMemI32:
       return "int32";
-    case kMemUint32:
+    case kMemU32:
       return "uint32";
-    case kMemInt64:
+    case kMemI64:
       return "int64";
-    case kMemUint64:
+    case kMemU64:
       return "uint64";
-    case kMemFloat32:
+    case kMemF32:
       return "float32";
-    case kMemFloat64:
+    case kMemF64:
       return "float64";
     default:
       return "Unknown";
@@ -108,7 +108,7 @@ static void InitSigTable() {
 
 FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
   // TODO(titzer): use LazyInstance to make this thread safe.
-  if (kSimpleExprSigTable[kExprInt32Add] == 0) InitSigTable();
+  if (kSimpleExprSigTable[kExprI32Add] == 0) InitSigTable();
   return const_cast<FunctionSig*>(
       kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]]);
 }
@@ -126,80 +126,80 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {
 #if !WASM_64
     // Opcodes not supported on 32-bit platforms.
-    case kExprInt64LoadMemL:
-    case kExprInt32LoadMemH:
-    case kExprInt64LoadMemH:
-    case kExprFloat32LoadMemH:
-    case kExprFloat64LoadMemH:
-    case kExprInt64StoreMemL:
-    case kExprInt32StoreMemH:
-    case kExprInt64StoreMemH:
-    case kExprFloat32StoreMemH:
-    case kExprFloat64StoreMemH:
+    case kExprI64LoadMemL:
+    case kExprI32LoadMemH:
+    case kExprI64LoadMemH:
+    case kExprF32LoadMemH:
+    case kExprF64LoadMemH:
+    case kExprI64StoreMemL:
+    case kExprI32StoreMemH:
+    case kExprI64StoreMemH:
+    case kExprF32StoreMemH:
+    case kExprF64StoreMemH:
 
-    case kExprInt64Add:
-    case kExprInt64Sub:
-    case kExprInt64Mul:
-    case kExprInt64SDiv:
-    case kExprInt64UDiv:
-    case kExprInt64SRem:
-    case kExprInt64URem:
-    case kExprInt64And:
-    case kExprInt64Ior:
-    case kExprInt64Xor:
-    case kExprInt64Shl:
-    case kExprInt64Shr:
-    case kExprInt64Sar:
-    case kExprInt64Eq:
-    case kExprInt64Ne:
-    case kExprInt64Slt:
-    case kExprInt64Sle:
-    case kExprInt64Ult:
-    case kExprInt64Ule:
-    case kExprInt64Sgt:
-    case kExprInt64Sge:
-    case kExprInt64Ugt:
-    case kExprInt64Uge:
+    case kExprI64Add:
+    case kExprI64Sub:
+    case kExprI64Mul:
+    case kExprI64SDiv:
+    case kExprI64UDiv:
+    case kExprI64SRem:
+    case kExprI64URem:
+    case kExprI64And:
+    case kExprI64Ior:
+    case kExprI64Xor:
+    case kExprI64Shl:
+    case kExprI64Shr:
+    case kExprI64Sar:
+    case kExprI64Eq:
+    case kExprI64Ne:
+    case kExprI64Slt:
+    case kExprI64Sle:
+    case kExprI64Ult:
+    case kExprI64Ule:
+    case kExprI64Sgt:
+    case kExprI64Sge:
+    case kExprI64Ugt:
+    case kExprI64Uge:
 
-    case kExprInt32ConvertInt64:
-    case kExprInt64SConvertInt32:
-    case kExprInt64UConvertInt32:
+    case kExprI32ConvertI64:
+    case kExprI64SConvertI32:
+    case kExprI64UConvertI32:
 #endif
 
-    case kExprInt32Clz:
-    case kExprInt32Ctz:
-    case kExprInt32PopCnt:
+    case kExprI32Clz:
+    case kExprI32Ctz:
+    case kExprI32PopCnt:
 
-    case kExprInt64Clz:
-    case kExprInt64Ctz:
-    case kExprInt64PopCnt:
+    case kExprI64Clz:
+    case kExprI64Ctz:
+    case kExprI64PopCnt:
 
-    case kExprFloat32Min:
-    case kExprFloat32Max:
-    case kExprFloat32CopySign:
-    case kExprFloat32Ceil:
-    case kExprFloat32Floor:
-    case kExprFloat32Trunc:
-    case kExprFloat32NearestInt:
+    case kExprF32Min:
+    case kExprF32Max:
+    case kExprF32CopySign:
+    case kExprF32Ceil:
+    case kExprF32Floor:
+    case kExprF32Trunc:
+    case kExprF32NearestInt:
 
-    case kExprFloat64Min:
-    case kExprFloat64Max:
-    case kExprFloat64CopySign:
-    case kExprFloat64Ceil:
-    case kExprFloat64Floor:
-    case kExprFloat64Trunc:
-    case kExprFloat64NearestInt:
+    case kExprF64Min:
+    case kExprF64Max:
+    case kExprF64CopySign:
+    case kExprF64Ceil:
+    case kExprF64Floor:
+    case kExprF64Trunc:
+    case kExprF64NearestInt:
 
-    case kExprInt64SConvertFloat32:
-    case kExprInt64SConvertFloat64:
-    case kExprInt64UConvertFloat32:
-    case kExprInt64UConvertFloat64:
-    case kExprFloat32SConvertInt64:
-    case kExprFloat32UConvertInt64:
-    case kExprFloat32ReinterpretInt32:
-    case kExprFloat64SConvertInt64:
-    case kExprFloat64UConvertInt64:
-    case kExprFloat64ReinterpretInt64:
+    case kExprI64SConvertF32:
+    case kExprI64SConvertF64:
+    case kExprI64UConvertF32:
+    case kExprI64UConvertF64:
+    case kExprF32SConvertI64:
+    case kExprF32UConvertI64:
+    case kExprF32ReinterpretI32:
+    case kExprF64SConvertI64:
+    case kExprF64UConvertI64:
+    case kExprF64ReinterpretI64:
       return false;
     default:
       return true;

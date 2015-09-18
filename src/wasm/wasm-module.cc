@@ -291,7 +291,7 @@ class ModuleDecoder {
     // Decode globals.
     for (uint32_t i = 0; i < globals_count; i++) {
       if (result_.failed()) break;
-      module->globals->push_back({0, kMemInt32, 0, false});
+      module->globals->push_back({0, kMemI32, 0, false});
       WasmGlobal* global = &module->globals->back();
       DecodeGlobalInModule(global);
     }
@@ -494,10 +494,10 @@ class ModuleDecoder {
     LocalType t = static_cast<LocalType>(val);
     switch (t) {
       case kAstStmt:
-      case kAstInt32:
-      case kAstInt64:
-      case kAstFloat32:
-      case kAstFloat64:
+      case kAstI32:
+      case kAstI64:
+      case kAstF32:
+      case kAstF64:
         return t;
       default:
         error(cur_ - 1, "invalid local type");
@@ -510,20 +510,20 @@ class ModuleDecoder {
     byte val = u8();
     MemType t = static_cast<MemType>(val);
     switch (t) {
-      case kMemInt8:
-      case kMemUint8:
-      case kMemInt16:
-      case kMemUint16:
-      case kMemInt32:
-      case kMemUint32:
-      case kMemInt64:
-      case kMemUint64:
-      case kMemFloat32:
-      case kMemFloat64:
+      case kMemI8:
+      case kMemU8:
+      case kMemI16:
+      case kMemU16:
+      case kMemI32:
+      case kMemU32:
+      case kMemI64:
+      case kMemU64:
+      case kMemF32:
+      case kMemF64:
         return t;
       default:
         error(cur_ - 1, "invalid memory type");
-        return kMemInt32;
+        return kMemI32;
     }
   }
 

@@ -32,35 +32,35 @@
 // Misc expressions.
 //------------------------------------------------------------------------------
 #define WASM_ID(...) __VA_ARGS__
-#define WASM_ZERO kExprInt8Const, 0
-#define WASM_ONE kExprInt8Const, 1
-#define WASM_INT8(val) kExprInt8Const, static_cast<byte>(val)
-#define WASM_INT32(val)                                                 \
-  kExprInt32Const, static_cast<byte>(val), static_cast<byte>(val >> 8), \
+#define WASM_ZERO kExprI8Const, 0
+#define WASM_ONE kExprI8Const, 1
+#define WASM_I8(val) kExprI8Const, static_cast<byte>(val)
+#define WASM_I32(val)                                                 \
+  kExprI32Const, static_cast<byte>(val), static_cast<byte>(val >> 8), \
       static_cast<byte>(val >> 16), static_cast<byte>(val >> 24)
-#define WASM_INT64(val)                                           \
-  kExprInt64Const, static_cast<byte>(static_cast<uint64_t>(val)), \
-      static_cast<byte>(static_cast<uint64_t>(val) >> 8),         \
-      static_cast<byte>(static_cast<uint64_t>(val) >> 16),        \
-      static_cast<byte>(static_cast<uint64_t>(val) >> 24),        \
-      static_cast<byte>(static_cast<uint64_t>(val) >> 32),        \
-      static_cast<byte>(static_cast<uint64_t>(val) >> 40),        \
-      static_cast<byte>(static_cast<uint64_t>(val) >> 48),        \
+#define WASM_I64(val)                                           \
+  kExprI64Const, static_cast<byte>(static_cast<uint64_t>(val)), \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 8),       \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 16),      \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 24),      \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 32),      \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 40),      \
+      static_cast<byte>(static_cast<uint64_t>(val) >> 48),      \
       static_cast<byte>(static_cast<uint64_t>(val) >> 56)
-#define WASM_FLOAT32(val)                                                   \
-  kExprFloat32Const,                                                        \
+#define WASM_F32(val)                                                       \
+  kExprF32Const,                                                            \
       static_cast<byte>(bit_cast<int32_t>(static_cast<float>(val))),        \
       static_cast<byte>(bit_cast<uint32_t>(static_cast<float>(val)) >> 8),  \
       static_cast<byte>(bit_cast<uint32_t>(static_cast<float>(val)) >> 16), \
       static_cast<byte>(bit_cast<uint32_t>(static_cast<float>(val)) >> 24)
-#define WASM_FLOAT64(val)                                        \
-  kExprFloat64Const, static_cast<byte>(bit_cast<uint64_t>(val)), \
-      static_cast<byte>(bit_cast<uint64_t>(val) >> 8),           \
-      static_cast<byte>(bit_cast<uint64_t>(val) >> 16),          \
-      static_cast<byte>(bit_cast<uint64_t>(val) >> 24),          \
-      static_cast<byte>(bit_cast<uint64_t>(val) >> 32),          \
-      static_cast<byte>(bit_cast<uint64_t>(val) >> 40),          \
-      static_cast<byte>(bit_cast<uint64_t>(val) >> 48),          \
+#define WASM_F64(val)                                        \
+  kExprF64Const, static_cast<byte>(bit_cast<uint64_t>(val)), \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 8),       \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 16),      \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 24),      \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 32),      \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 40),      \
+      static_cast<byte>(bit_cast<uint64_t>(val) >> 48),      \
       static_cast<byte>(bit_cast<uint64_t>(val) >> 56)
 #define WASM_GET_LOCAL(index) kExprGetLocal, static_cast<byte>(index)
 #define WASM_SET_LOCAL(index, val) kExprSetLocal, static_cast<byte>(index), val
@@ -89,12 +89,12 @@
 // Statements and expressions that are composed of multiple bytecodes.
 //------------------------------------------------------------------------------
 #define WASM_WHILE(x, y) kStmtLoop, 1, kStmtIfThen, x, y, kStmtBreak, 0
-#define WASM_INC_LOCAL(index)                                            \
-  kExprSetLocal, static_cast<byte>(index), kExprInt32Add, kExprGetLocal, \
-      static_cast<byte>(index), kExprInt8Const, 1
-#define WASM_INC_LOCAL_BY(index, count)                                  \
-  kExprSetLocal, static_cast<byte>(index), kExprInt32Add, kExprGetLocal, \
-      static_cast<byte>(index), kExprInt8Const, static_cast<int8_t>(count)
+#define WASM_INC_LOCAL(index)                                          \
+  kExprSetLocal, static_cast<byte>(index), kExprI32Add, kExprGetLocal, \
+      static_cast<byte>(index), kExprI8Const, 1
+#define WASM_INC_LOCAL_BY(index, count)                                \
+  kExprSetLocal, static_cast<byte>(index), kExprI32Add, kExprGetLocal, \
+      static_cast<byte>(index), kExprI8Const, static_cast<int8_t>(count)
 
 
 #define WASM_UNOP(opcode, x) static_cast<byte>(opcode), x
@@ -103,138 +103,138 @@
 //------------------------------------------------------------------------------
 // Int32 operations
 //------------------------------------------------------------------------------
-#define WASM_INT32_ADD(x, y) kExprInt32Add, x, y
-#define WASM_INT32_SUB(x, y) kExprInt32Sub, x, y
-#define WASM_INT32_MUL(x, y) kExprInt32Mul, x, y
-#define WASM_INT32_SDIV(x, y) kExprInt32SDiv, x, y
-#define WASM_INT32_UDIV(x, y) kExprInt32UDiv, x, y
-#define WASM_INT32_SREM(x, y) kExprInt32SRem, x, y
-#define WASM_INT32_UREM(x, y) kExprInt32URem, x, y
-#define WASM_INT32_AND(x, y) kExprInt32And, x, y
-#define WASM_INT32_IOR(x, y) kExprInt32Ior, x, y
-#define WASM_INT32_XOR(x, y) kExprInt32Xor, x, y
-#define WASM_INT32_SHL(x, y) kExprInt32Shl, x, y
-#define WASM_INT32_SHR(x, y) kExprInt32Shr, x, y
-#define WASM_INT32_SAR(x, y) kExprInt32Sar, x, y
-#define WASM_INT32_EQ(x, y) kExprInt32Eq, x, y
-#define WASM_INT32_NE(x, y) kExprInt32Ne, x, y
-#define WASM_INT32_SLT(x, y) kExprInt32Slt, x, y
-#define WASM_INT32_SLE(x, y) kExprInt32Sle, x, y
-#define WASM_INT32_ULT(x, y) kExprInt32Ult, x, y
-#define WASM_INT32_ULE(x, y) kExprInt32Ule, x, y
-#define WASM_INT32_SGT(x, y) kExprInt32Sgt, x, y
-#define WASM_INT32_SGE(x, y) kExprInt32Sge, x, y
-#define WASM_INT32_UGT(x, y) kExprInt32Ugt, x, y
-#define WASM_INT32_UGE(x, y) kExprInt32Uge, x, y
-#define WASM_INT32_CLZ(x) kExprInt32Clz, x
-#define WASM_INT32_CTZ(x) kExprInt32Ctz, x
-#define WASM_INT32_POPCNT(x) kExprInt32PopCnt, x
+#define WASM_I32_ADD(x, y) kExprI32Add, x, y
+#define WASM_I32_SUB(x, y) kExprI32Sub, x, y
+#define WASM_I32_MUL(x, y) kExprI32Mul, x, y
+#define WASM_I32_SDIV(x, y) kExprI32SDiv, x, y
+#define WASM_I32_UDIV(x, y) kExprI32UDiv, x, y
+#define WASM_I32_SREM(x, y) kExprI32SRem, x, y
+#define WASM_I32_UREM(x, y) kExprI32URem, x, y
+#define WASM_I32_AND(x, y) kExprI32And, x, y
+#define WASM_I32_IOR(x, y) kExprI32Ior, x, y
+#define WASM_I32_XOR(x, y) kExprI32Xor, x, y
+#define WASM_I32_SHL(x, y) kExprI32Shl, x, y
+#define WASM_I32_SHR(x, y) kExprI32Shr, x, y
+#define WASM_I32_SAR(x, y) kExprI32Sar, x, y
+#define WASM_I32_EQ(x, y) kExprI32Eq, x, y
+#define WASM_I32_NE(x, y) kExprI32Ne, x, y
+#define WASM_I32_SLT(x, y) kExprI32Slt, x, y
+#define WASM_I32_SLE(x, y) kExprI32Sle, x, y
+#define WASM_I32_ULT(x, y) kExprI32Ult, x, y
+#define WASM_I32_ULE(x, y) kExprI32Ule, x, y
+#define WASM_I32_SGT(x, y) kExprI32Sgt, x, y
+#define WASM_I32_SGE(x, y) kExprI32Sge, x, y
+#define WASM_I32_UGT(x, y) kExprI32Ugt, x, y
+#define WASM_I32_UGE(x, y) kExprI32Uge, x, y
+#define WASM_I32_CLZ(x) kExprI32Clz, x
+#define WASM_I32_CTZ(x) kExprI32Ctz, x
+#define WASM_I32_POPCNT(x) kExprI32PopCnt, x
 
 //------------------------------------------------------------------------------
 // Int64 operations
 //------------------------------------------------------------------------------
-#define WASM_INT64_ADD(x, y) kExprInt64Add, x, y
-#define WASM_INT64_SUB(x, y) kExprInt64Sub, x, y
-#define WASM_INT64_MUL(x, y) kExprInt64Mul, x, y
-#define WASM_INT64_SDIV(x, y) kExprInt64SDiv, x, y
-#define WASM_INT64_UDIV(x, y) kExprInt64UDiv, x, y
-#define WASM_INT64_SREM(x, y) kExprInt64SRem, x, y
-#define WASM_INT64_UREM(x, y) kExprInt64URem, x, y
-#define WASM_INT64_AND(x, y) kExprInt64And, x, y
-#define WASM_INT64_IOR(x, y) kExprInt64Ior, x, y
-#define WASM_INT64_XOR(x, y) kExprInt64Xor, x, y
-#define WASM_INT64_SHL(x, y) kExprInt64Shl, x, y
-#define WASM_INT64_SHR(x, y) kExprInt64Shr, x, y
-#define WASM_INT64_SAR(x, y) kExprInt64Sar, x, y
-#define WASM_INT64_EQ(x, y) kExprInt64Eq, x, y
-#define WASM_INT64_NE(x, y) kExprInt64Ne, x, y
-#define WASM_INT64_SLT(x, y) kExprInt64Slt, x, y
-#define WASM_INT64_SLE(x, y) kExprInt64Sle, x, y
-#define WASM_INT64_ULT(x, y) kExprInt64Ult, x, y
-#define WASM_INT64_ULE(x, y) kExprInt64Ule, x, y
-#define WASM_INT64_SGT(x, y) kExprInt64Sgt, x, y
-#define WASM_INT64_SGE(x, y) kExprInt64Sge, x, y
-#define WASM_INT64_UGT(x, y) kExprInt64Ugt, x, y
-#define WASM_INT64_UGE(x, y) kExprInt64Uge, x, y
-#define WASM_INT64_CLZ(x) kExprInt64Clz, x
-#define WASM_INT64_CTZ(x) kExprInt64Ctz, x
-#define WASM_INT64_POPCNT(x) kExprInt64PopCnt, x
+#define WASM_I64_ADD(x, y) kExprI64Add, x, y
+#define WASM_I64_SUB(x, y) kExprI64Sub, x, y
+#define WASM_I64_MUL(x, y) kExprI64Mul, x, y
+#define WASM_I64_SDIV(x, y) kExprI64SDiv, x, y
+#define WASM_I64_UDIV(x, y) kExprI64UDiv, x, y
+#define WASM_I64_SREM(x, y) kExprI64SRem, x, y
+#define WASM_I64_UREM(x, y) kExprI64URem, x, y
+#define WASM_I64_AND(x, y) kExprI64And, x, y
+#define WASM_I64_IOR(x, y) kExprI64Ior, x, y
+#define WASM_I64_XOR(x, y) kExprI64Xor, x, y
+#define WASM_I64_SHL(x, y) kExprI64Shl, x, y
+#define WASM_I64_SHR(x, y) kExprI64Shr, x, y
+#define WASM_I64_SAR(x, y) kExprI64Sar, x, y
+#define WASM_I64_EQ(x, y) kExprI64Eq, x, y
+#define WASM_I64_NE(x, y) kExprI64Ne, x, y
+#define WASM_I64_SLT(x, y) kExprI64Slt, x, y
+#define WASM_I64_SLE(x, y) kExprI64Sle, x, y
+#define WASM_I64_ULT(x, y) kExprI64Ult, x, y
+#define WASM_I64_ULE(x, y) kExprI64Ule, x, y
+#define WASM_I64_SGT(x, y) kExprI64Sgt, x, y
+#define WASM_I64_SGE(x, y) kExprI64Sge, x, y
+#define WASM_I64_UGT(x, y) kExprI64Ugt, x, y
+#define WASM_I64_UGE(x, y) kExprI64Uge, x, y
+#define WASM_I64_CLZ(x) kExprI64Clz, x
+#define WASM_I64_CTZ(x) kExprI64Ctz, x
+#define WASM_I64_POPCNT(x) kExprI64PopCnt, x
 
 //------------------------------------------------------------------------------
 // Float32 operations
 //------------------------------------------------------------------------------
-#define WASM_FLOAT32_ADD(x, y) kExprFloat32Add, x, y
-#define WASM_FLOAT32_SUB(x, y) kExprFloat32Sub, x, y
-#define WASM_FLOAT32_MUL(x, y) kExprFloat32Mul, x, y
-#define WASM_FLOAT32_DIV(x, y) kExprFloat32Div, x, y
-#define WASM_FLOAT32_MIN(x, y) kExprFloat32Min, x, y
-#define WASM_FLOAT32_MAX(x, y) kExprFloat32Max, x, y
-#define WASM_FLOAT32_ABS(x) kExprFloat32Abs, x
-#define WASM_FLOAT32_NEG(x) kExprFloat32Neg, x
-#define WASM_FLOAT32_COPYSIGN(x) kExprFloat32CopySign, x
-#define WASM_FLOAT32_CEIL(x) kExprFloat32Ceil, x
-#define WASM_FLOAT32_FLOOR(x) kExprFloat32Floor, x
-#define WASM_FLOAT32_TRUNC(x) kExprFloat32Trunc, x
-#define WASM_FLOAT32_NEARESTINT(x) kExprFloat32NearestInt, x
-#define WASM_FLOAT32_SQRT(x) kExprFloat32Sqrt, x
-#define WASM_FLOAT32_EQ(x, y) kExprFloat32Eq, x, y
-#define WASM_FLOAT32_NE(x, y) kExprFloat32Ne, x, y
-#define WASM_FLOAT32_LT(x, y) kExprFloat32Lt, x, y
-#define WASM_FLOAT32_LE(x, y) kExprFloat32Le, x, y
-#define WASM_FLOAT32_GT(x, y) kExprFloat32Gt, x, y
-#define WASM_FLOAT32_GE(x, y) kExprFloat32Ge, x, y
+#define WASM_F32_ADD(x, y) kExprF32Add, x, y
+#define WASM_F32_SUB(x, y) kExprF32Sub, x, y
+#define WASM_F32_MUL(x, y) kExprF32Mul, x, y
+#define WASM_F32_DIV(x, y) kExprF32Div, x, y
+#define WASM_F32_MIN(x, y) kExprF32Min, x, y
+#define WASM_F32_MAX(x, y) kExprF32Max, x, y
+#define WASM_F32_ABS(x) kExprF32Abs, x
+#define WASM_F32_NEG(x) kExprF32Neg, x
+#define WASM_F32_COPYSIGN(x) kExprF32CopySign, x
+#define WASM_F32_CEIL(x) kExprF32Ceil, x
+#define WASM_F32_FLOOR(x) kExprF32Floor, x
+#define WASM_F32_TRUNC(x) kExprF32Trunc, x
+#define WASM_F32_NEARESTINT(x) kExprF32NearestInt, x
+#define WASM_F32_SQRT(x) kExprF32Sqrt, x
+#define WASM_F32_EQ(x, y) kExprF32Eq, x, y
+#define WASM_F32_NE(x, y) kExprF32Ne, x, y
+#define WASM_F32_LT(x, y) kExprF32Lt, x, y
+#define WASM_F32_LE(x, y) kExprF32Le, x, y
+#define WASM_F32_GT(x, y) kExprF32Gt, x, y
+#define WASM_F32_GE(x, y) kExprF32Ge, x, y
 
 
 //------------------------------------------------------------------------------
 // Float64 operations
 //------------------------------------------------------------------------------
-#define WASM_FLOAT64_ADD(x, y) kExprFloat64Add, x, y
-#define WASM_FLOAT64_SUB(x, y) kExprFloat64Sub, x, y
-#define WASM_FLOAT64_MUL(x, y) kExprFloat64Mul, x, y
-#define WASM_FLOAT64_DIV(x, y) kExprFloat64Div, x, y
-#define WASM_FLOAT64_MIN(x, y) kExprFloat64Min, x, y
-#define WASM_FLOAT64_MAX(x, y) kExprFloat64Max, x, y
-#define WASM_FLOAT64_ABS(x) kExprFloat64Abs, x
-#define WASM_FLOAT64_NEG(x) kExprFloat64Neg, x
-#define WASM_FLOAT64_COPYSIGN(x) kExprFloat64CopySign, x
-#define WASM_FLOAT64_CEIL(x) kExprFloat64Ceil, x
-#define WASM_FLOAT64_FLOOR(x) kExprFloat64Floor, x
-#define WASM_FLOAT64_TRUNC(x) kExprFloat64Trunc, x
-#define WASM_FLOAT64_NEARESTINT(x) kExprFloat64NearestInt, x
-#define WASM_FLOAT64_SQRT(x) kExprFloat64Sqrt, x
-#define WASM_FLOAT64_EQ(x, y) kExprFloat64Eq, x, y
-#define WASM_FLOAT64_NE(x, y) kExprFloat64Ne, x, y
-#define WASM_FLOAT64_LT(x, y) kExprFloat64Lt, x, y
-#define WASM_FLOAT64_LE(x, y) kExprFloat64Le, x, y
-#define WASM_FLOAT64_GT(x, y) kExprFloat64Gt, x, y
-#define WASM_FLOAT64_GE(x, y) kExprFloat64Ge, x, y
+#define WASM_F64_ADD(x, y) kExprF64Add, x, y
+#define WASM_F64_SUB(x, y) kExprF64Sub, x, y
+#define WASM_F64_MUL(x, y) kExprF64Mul, x, y
+#define WASM_F64_DIV(x, y) kExprF64Div, x, y
+#define WASM_F64_MIN(x, y) kExprF64Min, x, y
+#define WASM_F64_MAX(x, y) kExprF64Max, x, y
+#define WASM_F64_ABS(x) kExprF64Abs, x
+#define WASM_F64_NEG(x) kExprF64Neg, x
+#define WASM_F64_COPYSIGN(x) kExprF64CopySign, x
+#define WASM_F64_CEIL(x) kExprF64Ceil, x
+#define WASM_F64_FLOOR(x) kExprF64Floor, x
+#define WASM_F64_TRUNC(x) kExprF64Trunc, x
+#define WASM_F64_NEARESTINT(x) kExprF64NearestInt, x
+#define WASM_F64_SQRT(x) kExprF64Sqrt, x
+#define WASM_F64_EQ(x, y) kExprF64Eq, x, y
+#define WASM_F64_NE(x, y) kExprF64Ne, x, y
+#define WASM_F64_LT(x, y) kExprF64Lt, x, y
+#define WASM_F64_LE(x, y) kExprF64Le, x, y
+#define WASM_F64_GT(x, y) kExprF64Gt, x, y
+#define WASM_F64_GE(x, y) kExprF64Ge, x, y
 
 
 //------------------------------------------------------------------------------
 // Type conversions.
 //------------------------------------------------------------------------------
-#define WASM_INT32_SCONVERT_FLOAT32(x) kExprInt32SConvertFloat32, x
-#define WASM_INT32_SCONVERT_FLOAT64(x) kExprInt32SConvertFloat64, x
-#define WASM_INT32_UCONVERT_FLOAT32(x) kExprInt32UConvertFloat32, x
-#define WASM_INT32_UCONVERT_FLOAT64(x) kExprInt32UConvertFloat64, x
-#define WASM_INT32_CONVERT_INT64(x) kExprInt32ConvertInt64, x
-#define WASM_INT64_SCONVERT_FLOAT32(x) kExprInt64SConvertFloat32, x
-#define WASM_INT64_SCONVERT_FLOAT64(x) kExprInt64SConvertFloat64, x
-#define WASM_INT64_UCONVERT_FLOAT32(x) kExprInt64UConvertFloat32, x
-#define WASM_INT64_UCONVERT_FLOAT64(x) kExprInt64UConvertFloat64, x
-#define WASM_INT64_SCONVERT_INT32(x) kExprInt64SConvertInt32, x
-#define WASM_INT64_UCONVERT_INT32(x) kExprInt64UConvertInt32, x
-#define WASM_FLOAT32_SCONVERT_INT32(x) kExprFloat32SConvertInt32, x
-#define WASM_FLOAT32_UCONVERT_INT32(x) kExprFloat32UConvertInt32, x
-#define WASM_FLOAT32_SCONVERT_INT64(x) kExprFloat32SConvertInt64, x
-#define WASM_FLOAT32_UCONVERT_INT64(x) kExprFloat32UConvertInt64, x
-#define WASM_FLOAT32_CONVERT_FLOAT64(x) kExprFloat32ConvertFloat64, x
-#define WASM_FLOAT32_REINTERPRET_INT32(x) kExprFloat32ReinterpretInt32, x
-#define WASM_FLOAT64_SCONVERT_INT32(x) kExprFloat64SConvertInt32, x
-#define WASM_FLOAT64_UCONVERT_INT32(x) kExprFloat64UConvertInt32, x
-#define WASM_FLOAT64_SCONVERT_INT64(x) kExprFloat64SConvertInt64, x
-#define WASM_FLOAT64_UCONVERT_INT64(x) kExprFloat64UConvertInt64, x
-#define WASM_FLOAT64_CONVERT_FLOAT32(x) kExprFloat64ConvertFloat32, x
-#define WASM_FLOAT64_REINTERPRET_INT64(x) kExprFloat64ReinterpretInt64, x
+#define WASM_I32_SCONVERT_F32(x) kExprI32SConvertF32, x
+#define WASM_I32_SCONVERT_F64(x) kExprI32SConvertF64, x
+#define WASM_I32_UCONVERT_F32(x) kExprI32UConvertF32, x
+#define WASM_I32_UCONVERT_F64(x) kExprI32UConvertF64, x
+#define WASM_I32_CONVERT_I64(x) kExprI32ConvertI64, x
+#define WASM_I64_SCONVERT_F32(x) kExprI64SConvertF32, x
+#define WASM_I64_SCONVERT_F64(x) kExprI64SConvertF64, x
+#define WASM_I64_UCONVERT_F32(x) kExprI64UConvertF32, x
+#define WASM_I64_UCONVERT_F64(x) kExprI64UConvertF64, x
+#define WASM_I64_SCONVERT_I32(x) kExprI64SConvertI32, x
+#define WASM_I64_UCONVERT_I32(x) kExprI64UConvertI32, x
+#define WASM_F32_SCONVERT_I32(x) kExprF32SConvertI32, x
+#define WASM_F32_UCONVERT_I32(x) kExprF32UConvertI32, x
+#define WASM_F32_SCONVERT_I64(x) kExprF32SConvertI64, x
+#define WASM_F32_UCONVERT_I64(x) kExprF32UConvertI64, x
+#define WASM_F32_CONVERT_F64(x) kExprF32ConvertF64, x
+#define WASM_F32_REINTERPRET_I32(x) kExprF32ReinterpretI32, x
+#define WASM_F64_SCONVERT_I32(x) kExprF64SConvertI32, x
+#define WASM_F64_UCONVERT_I32(x) kExprF64UConvertI32, x
+#define WASM_F64_SCONVERT_I64(x) kExprF64SConvertI64, x
+#define WASM_F64_UCONVERT_I64(x) kExprF64UConvertI64, x
+#define WASM_F64_CONVERT_F32(x) kExprF64ConvertF32, x
+#define WASM_F64_REINTERPRET_I64(x) kExprF64ReinterpretI64, x
 
 #endif  // V8_WASM_MACRO_GEN_H_

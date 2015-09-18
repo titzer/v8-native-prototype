@@ -18,20 +18,20 @@ namespace wasm {
 
 static const byte kCodeGetLocal0[] = {kExprGetLocal, 0};
 static const byte kCodeGetLocal1[] = {kExprGetLocal, 1};
-static const byte kCodeSetLocal0[] = {kExprSetLocal, 0, kExprInt8Const, 0};
+static const byte kCodeSetLocal0[] = {kExprSetLocal, 0, kExprI8Const, 0};
 
-static const LocalType kLocalTypes[] = {kAstInt32, kAstInt64, kAstFloat32,
-                                        kAstFloat64};
+static const LocalType kLocalTypes[] = {kAstI32, kAstI64, kAstF32,
+                                        kAstF64};
 static const MemType kMemTypes[] = {
-    kMemInt8,   kMemUint8, kMemInt16,  kMemUint16,  kMemInt32,
-    kMemUint32, kMemInt64, kMemUint64, kMemFloat32, kMemFloat64};
+    kMemI8,   kMemU8, kMemI16,  kMemU16,  kMemI32,
+    kMemU32, kMemI64, kMemU64, kMemF32, kMemF64};
 
 static const WasmOpcode kInt32BinopOpcodes[] = {
-    kExprInt32Add,  kExprInt32Sub,  kExprInt32Mul,  kExprInt32SDiv,
-    kExprInt32UDiv, kExprInt32SRem, kExprInt32URem, kExprInt32And,
-    kExprInt32Ior,  kExprInt32Xor,  kExprInt32Shl,  kExprInt32Shr,
-    kExprInt32Sar,  kExprInt32Eq,   kExprInt32Slt,  kExprInt32Sle,
-    kExprInt32Ult,  kExprInt32Ule};
+    kExprI32Add,  kExprI32Sub,  kExprI32Mul,  kExprI32SDiv,
+    kExprI32UDiv, kExprI32SRem, kExprI32URem, kExprI32And,
+    kExprI32Ior,  kExprI32Xor,  kExprI32Shl,  kExprI32Shr,
+    kExprI32Sar,  kExprI32Eq,   kExprI32Slt,  kExprI32Sle,
+    kExprI32Ult,  kExprI32Ule};
 
 
 #define EXPECT_VERIFIES(env, x) Verify(kSuccess, env, x, x + arraysize(x))
@@ -186,7 +186,7 @@ static FunctionEnv CreateInt32FunctionEnv(FunctionSig* sig, int count) {
 
 
 TEST_F(WasmDecoderTest, Int8Const) {
-  byte code[] = {kExprInt8Const, 0};
+  byte code[] = {kExprI8Const, 0};
   for (int i = -128; i < 128; i++) {
     code[1] = static_cast<byte>(i);
     EXPECT_VERIFIES(&env_i_i, code);
@@ -195,13 +195,13 @@ TEST_F(WasmDecoderTest, Int8Const) {
 
 
 TEST_F(WasmDecoderTest, Int8Const_fallthru) {
-  byte code[] = {kExprInt8Const, 0, kExprInt8Const, 1};
+  byte code[] = {kExprI8Const, 0, kExprI8Const, 1};
   EXPECT_VERIFIES(&env_i_i, code);
 }
 
 
 TEST_F(WasmDecoderTest, Int32Const) {
-  byte code[] = {kExprInt32Const, 0, 0, 0, 0};
+  byte code[] = {kExprI32Const, 0, 0, 0, 0};
   int32_t* ptr = reinterpret_cast<int32_t*>(code + 1);
   const int kInc = 4498211;
   for (int32_t i = kMinInt; i < kMaxInt - kInc; i = i + kInc) {
@@ -212,13 +212,13 @@ TEST_F(WasmDecoderTest, Int32Const) {
 
 
 TEST_F(WasmDecoderTest, Int8Const_fallthru2) {
-  byte code[] = {kExprInt8Const, 0, kExprInt32Const, 1, 2, 3, 4};
+  byte code[] = {kExprI8Const, 0, kExprI32Const, 1, 2, 3, 4};
   EXPECT_VERIFIES(&env_i_i, code);
 }
 
 
 TEST_F(WasmDecoderTest, Int64Const) {
-  byte code[] = {kExprInt64Const, 0, 0, 0, 0, 0, 0, 0, 0};
+  byte code[] = {kExprI64Const, 0, 0, 0, 0, 0, 0, 0, 0};
   int64_t* ptr = reinterpret_cast<int64_t*>(code + 1);
   const int kInc = 4498211;
   for (int32_t i = kMinInt; i < kMaxInt - kInc; i = i + kInc) {
@@ -229,7 +229,7 @@ TEST_F(WasmDecoderTest, Int64Const) {
 
 
 TEST_F(WasmDecoderTest, Float32Const) {
-  byte code[] = {kExprFloat32Const, 0, 0, 0, 0};
+  byte code[] = {kExprF32Const, 0, 0, 0, 0};
   float* ptr = reinterpret_cast<float*>(code + 1);
   for (int i = 0; i < 30; i++) {
     *ptr = i * -7.75f;
@@ -239,7 +239,7 @@ TEST_F(WasmDecoderTest, Float32Const) {
 
 
 TEST_F(WasmDecoderTest, Float64Const) {
-  byte code[] = {kExprFloat64Const, 0, 0, 0, 0, 0, 0, 0, 0};
+  byte code[] = {kExprF64Const, 0, 0, 0, 0, 0, 0, 0, 0};
   double* ptr = reinterpret_cast<double*>(code + 1);
   for (int i = 0; i < 30; i++) {
     *ptr = i * 33.45;
@@ -249,7 +249,7 @@ TEST_F(WasmDecoderTest, Float64Const) {
 
 
 TEST_F(WasmDecoderTest, Int32Const_off_end) {
-  byte code[] = {kExprInt32Const, 0xaa, 0xbb, 0xcc, 0x44};
+  byte code[] = {kExprI32Const, 0xaa, 0xbb, 0xcc, 0x44};
 
   for (int size = 1; size <= 4; size++) {
     Verify(kError, &env_i_i, code, code + size);
@@ -265,7 +265,7 @@ TEST_F(WasmDecoderTest, GetLocal0_param) {
 TEST_F(WasmDecoderTest, GetLocal0_local) {
   FunctionEnv env;
   init_env(&env, sigs.i_v());
-  env.AddLocals(kAstInt32, 1);
+  env.AddLocals(kAstI32, 1);
   EXPECT_VERIFIES(&env, kCodeGetLocal0);
 }
 
@@ -371,13 +371,13 @@ TEST_F(WasmDecoderTest, Nop) {
 
 
 TEST_F(WasmDecoderTest, SetLocal0_param) {
-  static const byte code[] = {kExprSetLocal, 0, kExprInt8Const, 0};
+  static const byte code[] = {kExprSetLocal, 0, kExprI8Const, 0};
   EXPECT_VERIFIES(&env_i_i, code);
 }
 
 
 TEST_F(WasmDecoderTest, SetLocal0_local) {
-  byte code[] = {kExprSetLocal, 0, kExprInt8Const, 0};
+  byte code[] = {kExprSetLocal, 0, kExprI8Const, 0};
   FunctionEnv env = CreateInt32FunctionEnv(sigs.i_v(), 1);
 
   EXPECT_VERIFIES(&env, code);
@@ -388,7 +388,7 @@ TEST_F(WasmDecoderTest, SetLocalN_local) {
   for (byte i = 1; i < 8; i++) {
     FunctionEnv env = CreateInt32FunctionEnv(sigs.i_v(), i);
     for (byte j = 0; j < i; j++) {
-      byte code[] = {kExprSetLocal, j, kExprInt8Const, i};
+      byte code[] = {kExprSetLocal, j, kExprI8Const, i};
       EXPECT_VERIFIES(&env, code);
     }
   }
@@ -396,37 +396,37 @@ TEST_F(WasmDecoderTest, SetLocalN_local) {
 
 
 TEST_F(WasmDecoderTest, Switches0) {
-  static const byte code[] = {kStmtSwitch, 0, kExprInt8Const, 0};
+  static const byte code[] = {kStmtSwitch, 0, kExprI8Const, 0};
   EXPECT_VERIFIES(&env_v_v, code);
-  static const byte codenf[] = {kStmtSwitchNf, 0, kExprInt8Const, 0};
+  static const byte codenf[] = {kStmtSwitchNf, 0, kExprI8Const, 0};
   EXPECT_VERIFIES(&env_v_v, codenf);
 }
 
 
 TEST_F(WasmDecoderTest, Switches1) {
-  static const byte code[] = {kStmtSwitch, 1, kExprInt8Const, 0, kStmtNop};
+  static const byte code[] = {kStmtSwitch, 1, kExprI8Const, 0, kStmtNop};
   EXPECT_VERIFIES(&env_v_v, code);
-  static const byte codenf[] = {kStmtSwitchNf, 1, kExprInt8Const, 0, kStmtBlock,
+  static const byte codenf[] = {kStmtSwitchNf, 1, kExprI8Const, 0, kStmtBlock,
                                 0};
   EXPECT_VERIFIES(&env_v_v, codenf);
 }
 
 
 TEST_F(WasmDecoderTest, Switches2) {
-  static const byte code[] = {kStmtSwitch, 2, kExprInt8Const, 0, kStmtNop,
+  static const byte code[] = {kStmtSwitch, 2, kExprI8Const, 0, kStmtNop,
                               kStmtNop};
   EXPECT_VERIFIES(&env_v_v, code);
-  static const byte codenf[] = {kStmtSwitchNf, 2, kExprInt8Const, 0, kStmtBlock,
+  static const byte codenf[] = {kStmtSwitchNf, 2, kExprI8Const, 0, kStmtBlock,
                                 0, kStmtNop};
   EXPECT_VERIFIES(&env_v_v, codenf);
 }
 
 
 TEST_F(WasmDecoderTest, Switches4) {
-  static const byte code[] = {kStmtSwitch, 4, kExprInt8Const, 0, kStmtNop,
+  static const byte code[] = {kStmtSwitch, 4, kExprI8Const, 0, kStmtNop,
                               kStmtNop, kStmtNop, kStmtNop};
   EXPECT_VERIFIES(&env_v_v, code);
-  static const byte codenf[] = {kStmtSwitchNf, 4, kExprInt8Const, 0, kStmtBlock,
+  static const byte codenf[] = {kStmtSwitchNf, 4, kExprI8Const, 0, kStmtBlock,
                                 0, kStmtNop, kStmtNop, kStmtNop};
   EXPECT_VERIFIES(&env_v_v, codenf);
 }
@@ -434,12 +434,12 @@ TEST_F(WasmDecoderTest, Switches4) {
 
 TEST_F(WasmDecoderTest, Switches4_break) {
   for (int i = 0; i < 4; i++) {
-    byte code[] = {kStmtSwitch, 4, kExprInt8Const, 0, kStmtBlock, 0, kStmtBlock,
+    byte code[] = {kStmtSwitch, 4, kExprI8Const, 0, kStmtBlock, 0, kStmtBlock,
                    0, kStmtBlock, 0, kStmtBlock, 0};
     code[4 + i * 2] = kStmtBreak;
     EXPECT_VERIFIES(&env_v_v, code);
 
-    byte codenf[] = {kStmtSwitchNf, 4, kExprInt8Const, 0, kStmtBlock, 0,
+    byte codenf[] = {kStmtSwitchNf, 4, kExprI8Const, 0, kStmtBlock, 0,
                      kStmtBlock, 0, kStmtBlock, 0, kStmtBlock, 0};
     codenf[4 + i * 2] = kStmtBreak;
     EXPECT_VERIFIES(&env_v_v, codenf);
@@ -460,14 +460,14 @@ TEST_F(WasmDecoderTest, Block0_fallthru1) {
 
 
 TEST_F(WasmDecoderTest, Block1) {
-  static const byte code[] = {kStmtBlock, 1, kExprSetLocal, 0, kExprInt8Const,
+  static const byte code[] = {kStmtBlock, 1, kExprSetLocal, 0, kExprI8Const,
                               0};
   EXPECT_VERIFIES(&env_i_i, code);
 }
 
 
 TEST_F(WasmDecoderTest, Block0_fallthru2) {
-  static const byte code[] = {kStmtBlock, 0, kExprSetLocal, 0, kExprInt8Const,
+  static const byte code[] = {kStmtBlock, 0, kExprSetLocal, 0, kExprI8Const,
                               0};
   EXPECT_VERIFIES(&env_i_i, code);
 }
@@ -475,17 +475,17 @@ TEST_F(WasmDecoderTest, Block0_fallthru2) {
 
 TEST_F(WasmDecoderTest, Block2) {
   static const byte code[] = {kStmtBlock, 2,                         // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,   // --
-                              kExprSetLocal, 0, kExprInt8Const, 0};  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,   // --
+                              kExprSetLocal, 0, kExprI8Const, 0};  // --
   EXPECT_VERIFIES(&env_i_i, code);
 }
 
 
 TEST_F(WasmDecoderTest, Block2_fallthru) {
   static const byte code[] = {kStmtBlock, 2,                        // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,  // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,  // --
-                              kExprInt8Const, 11};                  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,  // --
+                              kExprI8Const, 11};                  // --
   EXPECT_VERIFIES(&env_i_i, code);
 }
 
@@ -548,14 +548,14 @@ TEST_F(WasmDecoderTest, IfEmpty) {
 
 TEST_F(WasmDecoderTest, IfSet) {
   static const byte code[] = {kStmtIf, kExprGetLocal, 0, kExprSetLocal, 0,
-                              kExprInt8Const, 0};
+                              kExprI8Const, 0};
   EXPECT_VERIFIES(&env_v_i, code);
 }
 
 
 TEST_F(WasmDecoderTest, IfBlock1) {
   static const byte code[] = {kStmtIf, kExprGetLocal, 0, kStmtBlock, 1,
-                              kExprSetLocal, 0, kExprInt8Const, 0};
+                              kExprSetLocal, 0, kExprI8Const, 0};
   EXPECT_VERIFIES(&env_v_i, code);
 }
 
@@ -563,8 +563,8 @@ TEST_F(WasmDecoderTest, IfBlock1) {
 TEST_F(WasmDecoderTest, IfBlock2) {
   static const byte code[] = {kStmtIf, kExprGetLocal, 0,             // --
                               kStmtBlock, 2,                         // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,   // --
-                              kExprSetLocal, 0, kExprInt8Const, 0};  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,   // --
+                              kExprSetLocal, 0, kExprI8Const, 0};  // --
   EXPECT_VERIFIES(&env_v_i, code);
 }
 
@@ -578,8 +578,8 @@ TEST_F(WasmDecoderTest, IfThenEmpty) {
 
 TEST_F(WasmDecoderTest, IfThenSet) {
   static const byte code[] = {kStmtIfThen, kExprGetLocal, 0,         // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,   // --
-                              kExprSetLocal, 0, kExprInt8Const, 1};  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,   // --
+                              kExprSetLocal, 0, kExprI8Const, 1};  // --
   EXPECT_VERIFIES(&env_v_i, code);
 }
 
@@ -591,7 +591,7 @@ TEST_F(WasmDecoderTest, Loop0) {
 
 
 TEST_F(WasmDecoderTest, Loop1) {
-  static const byte code[] = {kStmtLoop, 1, kExprSetLocal, 0, kExprInt8Const,
+  static const byte code[] = {kStmtLoop, 1, kExprSetLocal, 0, kExprI8Const,
                               0};
   EXPECT_VERIFIES(&env_v_i, code);
 }
@@ -599,8 +599,8 @@ TEST_F(WasmDecoderTest, Loop1) {
 
 TEST_F(WasmDecoderTest, Loop2) {
   static const byte code[] = {kStmtLoop, 2,                          // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,   // --
-                              kExprSetLocal, 0, kExprInt8Const, 0};  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,   // --
+                              kExprSetLocal, 0, kExprI8Const, 0};  // --
   EXPECT_VERIFIES(&env_v_i, code);
 }
 
@@ -619,7 +619,7 @@ TEST_F(WasmDecoderTest, Loop1_break) {
 
 TEST_F(WasmDecoderTest, Loop2_continue) {
   static const byte code[] = {kStmtLoop, 2,                         // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,  // --
                               kStmtContinue, 0};                    // --
   EXPECT_VERIFIES(&env_v_i, code);
 }
@@ -627,7 +627,7 @@ TEST_F(WasmDecoderTest, Loop2_continue) {
 
 TEST_F(WasmDecoderTest, Loop2_break) {
   static const byte code[] = {kStmtLoop, 2,                         // --
-                              kExprSetLocal, 0, kExprInt8Const, 0,  // --
+                              kExprSetLocal, 0, kExprI8Const, 0,  // --
                               kStmtBreak, 0};                       // --
   EXPECT_VERIFIES(&env_v_i, code);
 }
@@ -647,12 +647,12 @@ TEST_F(WasmDecoderTest, UnreachableCode1) {
 
 
 TEST_F(WasmDecoderTest, UnreachableCode2) {
-  EXPECT_FAILURE_INLINE(&env_i_i, kStmtReturn, kExprInt8Const, 0, kStmtNop);
+  EXPECT_FAILURE_INLINE(&env_i_i, kStmtReturn, kExprI8Const, 0, kStmtNop);
 }
 
 
 TEST_F(WasmDecoderTest, UnreachableCode3) {
-  EXPECT_FAILURE_INLINE(&env_i_i, kStmtLoop, 0, kExprInt8Const, 0, kStmtNop);
+  EXPECT_FAILURE_INLINE(&env_i_i, kStmtLoop, 0, kExprI8Const, 0, kStmtNop);
 }
 
 
@@ -660,32 +660,32 @@ TEST_F(WasmDecoderTest, Unreachable4) {
   EXPECT_FAILURE_INLINE(
       &env_i_i,
       WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(1)),
-                              WASM_SET_LOCAL(0, WASM_INT8(99))),
+                              WASM_SET_LOCAL(0, WASM_I8(99))),
                  /*unreachable*/ WASM_RETURN(WASM_GET_LOCAL(0))),
-      WASM_INT8(43));
+      WASM_I8(43));
 }
 
 
 TEST_F(WasmDecoderTest, Codeiness) {
   VERIFY(kStmtLoop, 2,                         // --
-         kExprSetLocal, 0, kExprInt8Const, 0,  // --
+         kExprSetLocal, 0, kExprI8Const, 0,  // --
          kStmtBreak, 0);                       // --
 }
 
 
 TEST_F(WasmDecoderTest, Ternary1) {
-  VERIFY(kExprTernary, kExprGetLocal, 0, kExprInt8Const, 0, kExprInt8Const, 1);
+  VERIFY(kExprTernary, kExprGetLocal, 0, kExprI8Const, 0, kExprI8Const, 1);
   VERIFY(kExprTernary, kExprGetLocal, 0, kExprGetLocal, 0, kExprGetLocal, 0);
-  VERIFY(kExprTernary, kExprGetLocal, 0, kExprInt32Add, kExprGetLocal, 0,
-         kExprGetLocal, 0, kExprInt8Const, 1);
+  VERIFY(kExprTernary, kExprGetLocal, 0, kExprI32Add, kExprGetLocal, 0,
+         kExprGetLocal, 0, kExprI8Const, 1);
 }
 
 
 TEST_F(WasmDecoderTest, Comma1) {
-  VERIFY(kExprComma, kExprInt8Const, 0, kExprInt8Const, 1);
+  VERIFY(kExprComma, kExprI8Const, 0, kExprI8Const, 1);
   VERIFY(kExprComma, kExprGetLocal, 0, kExprGetLocal, 0);
-  VERIFY(kExprComma, kExprInt32Add, kExprGetLocal, 0, kExprGetLocal, 0,
-         kExprInt8Const, 1);
+  VERIFY(kExprComma, kExprI32Add, kExprGetLocal, 0, kExprGetLocal, 0,
+         kExprI8Const, 1);
 }
 
 
@@ -701,34 +701,34 @@ TEST_F(WasmDecoderTest, Ternary_off_end) {
 TEST_F(WasmDecoderTest, Ternary_type) {
   {
     // float|double ? 1 : 2
-    static const byte kCode[] = {kExprTernary, kExprGetLocal, 0, kExprInt8Const,
-                                 1, kExprInt8Const, 2};
+    static const byte kCode[] = {kExprTernary, kExprGetLocal, 0, kExprI8Const,
+                                 1, kExprI8Const, 2};
     EXPECT_FAILURE(&env_i_f, kCode);
     EXPECT_FAILURE(&env_i_d, kCode);
   }
   {
     // 1 ? float|double : 2
-    static const byte kCode[] = {kExprTernary, kExprInt8Const, 1, kExprGetLocal,
-                                 0, kExprInt8Const, 2};
+    static const byte kCode[] = {kExprTernary, kExprI8Const, 1, kExprGetLocal,
+                                 0, kExprI8Const, 2};
     EXPECT_FAILURE(&env_i_f, kCode);
     EXPECT_FAILURE(&env_i_d, kCode);
   }
   {
     // stmt ? 0 : 1
-    static const byte kCode[] = {kExprTernary, kStmtNop, kExprInt8Const, 0,
-                                 kExprInt8Const, 1};
+    static const byte kCode[] = {kExprTernary, kStmtNop, kExprI8Const, 0,
+                                 kExprI8Const, 1};
     EXPECT_FAILURE(&env_i_i, kCode);
   }
   {
     // 0 ? stmt : 1
-    static const byte kCode[] = {kExprTernary, kExprInt8Const, 0, kStmtNop,
-                                 kExprInt8Const, 1};
+    static const byte kCode[] = {kExprTernary, kExprI8Const, 0, kStmtNop,
+                                 kExprI8Const, 1};
     EXPECT_FAILURE(&env_i_i, kCode);
   }
   {
     // 0 ? 1 : stmt
-    static const byte kCode[] = {kExprTernary, kExprInt8Const, 0,
-                                 kExprInt8Const, 1, 0, kStmtBlock};
+    static const byte kCode[] = {kExprTernary, kExprI8Const, 0,
+                                 kExprI8Const, 1, 0, kStmtBlock};
     EXPECT_FAILURE(&env_i_i, kCode);
   }
 }
@@ -743,7 +743,7 @@ TEST_F(WasmDecoderTest, Int64Locals) {
   for (byte i = 1; i < 8; i++) {
     FunctionEnv env;
     init_env(&env, sigs.l_v());
-    env.AddLocals(kAstInt64, i);
+    env.AddLocals(kAstI64, i);
     for (byte j = 0; j < i; j++) {
       byte code[] = {kExprGetLocal, j};
       EXPECT_VERIFIES(&env, code);
@@ -753,68 +753,68 @@ TEST_F(WasmDecoderTest, Int64Locals) {
 
 
 TEST_F(WasmDecoderTest, Int32Binops) {
-  TestBinop(kExprInt32Add, sigs.i_ii());
-  TestBinop(kExprInt32Sub, sigs.i_ii());
-  TestBinop(kExprInt32Mul, sigs.i_ii());
-  TestBinop(kExprInt32SDiv, sigs.i_ii());
-  TestBinop(kExprInt32UDiv, sigs.i_ii());
-  TestBinop(kExprInt32SRem, sigs.i_ii());
-  TestBinop(kExprInt32URem, sigs.i_ii());
-  TestBinop(kExprInt32And, sigs.i_ii());
-  TestBinop(kExprInt32Ior, sigs.i_ii());
-  TestBinop(kExprInt32Xor, sigs.i_ii());
-  TestBinop(kExprInt32Shl, sigs.i_ii());
-  TestBinop(kExprInt32Shr, sigs.i_ii());
-  TestBinop(kExprInt32Sar, sigs.i_ii());
-  TestBinop(kExprInt32Eq, sigs.i_ii());
-  TestBinop(kExprInt32Slt, sigs.i_ii());
-  TestBinop(kExprInt32Sle, sigs.i_ii());
-  TestBinop(kExprInt32Ult, sigs.i_ii());
-  TestBinop(kExprInt32Ule, sigs.i_ii());
+  TestBinop(kExprI32Add, sigs.i_ii());
+  TestBinop(kExprI32Sub, sigs.i_ii());
+  TestBinop(kExprI32Mul, sigs.i_ii());
+  TestBinop(kExprI32SDiv, sigs.i_ii());
+  TestBinop(kExprI32UDiv, sigs.i_ii());
+  TestBinop(kExprI32SRem, sigs.i_ii());
+  TestBinop(kExprI32URem, sigs.i_ii());
+  TestBinop(kExprI32And, sigs.i_ii());
+  TestBinop(kExprI32Ior, sigs.i_ii());
+  TestBinop(kExprI32Xor, sigs.i_ii());
+  TestBinop(kExprI32Shl, sigs.i_ii());
+  TestBinop(kExprI32Shr, sigs.i_ii());
+  TestBinop(kExprI32Sar, sigs.i_ii());
+  TestBinop(kExprI32Eq, sigs.i_ii());
+  TestBinop(kExprI32Slt, sigs.i_ii());
+  TestBinop(kExprI32Sle, sigs.i_ii());
+  TestBinop(kExprI32Ult, sigs.i_ii());
+  TestBinop(kExprI32Ule, sigs.i_ii());
 }
 
 
 TEST_F(WasmDecoderTest, DoubleBinops) {
-  TestBinop(kExprFloat64Add, sigs.d_dd());
-  TestBinop(kExprFloat64Sub, sigs.d_dd());
-  TestBinop(kExprFloat64Mul, sigs.d_dd());
-  TestBinop(kExprFloat64Div, sigs.d_dd());
+  TestBinop(kExprF64Add, sigs.d_dd());
+  TestBinop(kExprF64Sub, sigs.d_dd());
+  TestBinop(kExprF64Mul, sigs.d_dd());
+  TestBinop(kExprF64Div, sigs.d_dd());
 
-  TestBinop(kExprFloat64Eq, sigs.i_dd());
-  TestBinop(kExprFloat64Lt, sigs.i_dd());
-  TestBinop(kExprFloat64Le, sigs.i_dd());
+  TestBinop(kExprF64Eq, sigs.i_dd());
+  TestBinop(kExprF64Lt, sigs.i_dd());
+  TestBinop(kExprF64Le, sigs.i_dd());
 }
 
 
 TEST_F(WasmDecoderTest, FloatBinops) {
-  TestBinop(kExprFloat32Add, sigs.f_ff());
-  TestBinop(kExprFloat32Sub, sigs.f_ff());
-  TestBinop(kExprFloat32Mul, sigs.f_ff());
-  TestBinop(kExprFloat32Div, sigs.f_ff());
+  TestBinop(kExprF32Add, sigs.f_ff());
+  TestBinop(kExprF32Sub, sigs.f_ff());
+  TestBinop(kExprF32Mul, sigs.f_ff());
+  TestBinop(kExprF32Div, sigs.f_ff());
 
-  TestBinop(kExprFloat32Eq, sigs.i_ff());
-  TestBinop(kExprFloat32Lt, sigs.i_ff());
-  TestBinop(kExprFloat32Le, sigs.i_ff());
+  TestBinop(kExprF32Eq, sigs.i_ff());
+  TestBinop(kExprF32Lt, sigs.i_ff());
+  TestBinop(kExprF32Le, sigs.i_ff());
 }
 
 
 TEST_F(WasmDecoderTest, TypeConversions) {
-  TestUnop(kExprInt32SConvertFloat32, kAstInt32, kAstFloat32);
-  TestUnop(kExprInt32SConvertFloat64, kAstInt32, kAstFloat64);
-  TestUnop(kExprInt32UConvertFloat32, kAstInt32, kAstFloat32);
-  TestUnop(kExprInt32UConvertFloat64, kAstInt32, kAstFloat64);
-  TestUnop(kExprFloat64SConvertInt32, kAstFloat64, kAstInt32);
-  TestUnop(kExprFloat64UConvertInt32, kAstFloat64, kAstInt32);
-  TestUnop(kExprFloat64ConvertFloat32, kAstFloat64, kAstFloat32);
-  TestUnop(kExprFloat32SConvertInt32, kAstFloat32, kAstInt32);
-  TestUnop(kExprFloat32UConvertInt32, kAstFloat32, kAstInt32);
-  TestUnop(kExprFloat32ConvertFloat64, kAstFloat32, kAstFloat64);
+  TestUnop(kExprI32SConvertF32, kAstI32, kAstF32);
+  TestUnop(kExprI32SConvertF64, kAstI32, kAstF64);
+  TestUnop(kExprI32UConvertF32, kAstI32, kAstF32);
+  TestUnop(kExprI32UConvertF64, kAstI32, kAstF64);
+  TestUnop(kExprF64SConvertI32, kAstF64, kAstI32);
+  TestUnop(kExprF64UConvertI32, kAstF64, kAstI32);
+  TestUnop(kExprF64ConvertF32, kAstF64, kAstF32);
+  TestUnop(kExprF32SConvertI32, kAstF32, kAstI32);
+  TestUnop(kExprF32UConvertI32, kAstF32, kAstI32);
+  TestUnop(kExprF32ConvertF64, kAstF32, kAstF64);
 }
 
 
 TEST_F(WasmDecoderTest, MacrosStmt) {
-  VERIFY(WASM_SET_LOCAL(0, WASM_INT32(87348)));
-  VERIFY(WASM_STORE_MEM(kMemInt32, WASM_INT8(24), WASM_INT8(40)));
+  VERIFY(WASM_SET_LOCAL(0, WASM_I32(87348)));
+  VERIFY(WASM_STORE_MEM(kMemI32, WASM_I8(24), WASM_I8(40)));
   VERIFY(WASM_IF(WASM_GET_LOCAL(0), WASM_NOP));
   VERIFY(WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_NOP, WASM_NOP));
   VERIFY(WASM_NOP);
@@ -826,11 +826,11 @@ TEST_F(WasmDecoderTest, MacrosStmt) {
 
 TEST_F(WasmDecoderTest, MacrosReturn) {
   EXPECT_VERIFIES_INLINE(&env_i_i, WASM_RETURN(WASM_ZERO));
-  EXPECT_VERIFIES_INLINE(&env_l_l, WASM_RETURN(WASM_INT64(0)));
-  EXPECT_VERIFIES_INLINE(&env_f_ff, WASM_RETURN(WASM_FLOAT32(0.0)));
-  EXPECT_VERIFIES_INLINE(&env_d_dd, WASM_RETURN(WASM_FLOAT64(0.0)));
+  EXPECT_VERIFIES_INLINE(&env_l_l, WASM_RETURN(WASM_I64(0)));
+  EXPECT_VERIFIES_INLINE(&env_f_ff, WASM_RETURN(WASM_F32(0.0)));
+  EXPECT_VERIFIES_INLINE(&env_d_dd, WASM_RETURN(WASM_F64(0.0)));
 
-  static LocalType kIntTypes[] = {kAstInt32, kAstInt32};
+  static LocalType kIntTypes[] = {kAstI32, kAstI32};
   FunctionSig sig_ii_v(2, 0, kIntTypes);
   FunctionEnv env_ii_v;
   init_env(&env_ii_v, &sig_ii_v);
@@ -857,8 +857,8 @@ TEST_F(WasmDecoderTest, MacrosNestedBlocks) {
 
 
 TEST_F(WasmDecoderTest, MultipleReturn) {
-  static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
-                                   kAstInt32};
+  static LocalType kIntTypes5[] = {kAstI32, kAstI32, kAstI32, kAstI32,
+                                   kAstI32};
   FunctionSig sig_ii_v(2, 0, kIntTypes5);
   FunctionEnv env_ii_v;
   init_env(&env_ii_v, &sig_ii_v);
@@ -869,14 +869,14 @@ TEST_F(WasmDecoderTest, MultipleReturn) {
   FunctionEnv env_iii_v;
   init_env(&env_iii_v, &sig_iii_v);
   EXPECT_VERIFIES_INLINE(&env_iii_v,
-                         WASM_RETURN(WASM_ZERO, WASM_ONE, WASM_INT8(44)));
+                         WASM_RETURN(WASM_ZERO, WASM_ONE, WASM_I8(44)));
   EXPECT_FAILURE_INLINE(&env_iii_v, WASM_RETURN(WASM_ZERO, WASM_ONE));
 }
 
 
 TEST_F(WasmDecoderTest, MultipleReturn_fallthru) {
-  static LocalType kIntTypes5[] = {kAstInt32, kAstInt32, kAstInt32, kAstInt32,
-                                   kAstInt32};
+  static LocalType kIntTypes5[] = {kAstI32, kAstI32, kAstI32, kAstI32,
+                                   kAstI32};
   FunctionSig sig_ii_v(2, 0, kIntTypes5);
   FunctionEnv env_ii_v;
   init_env(&env_ii_v, &sig_ii_v);
@@ -887,37 +887,37 @@ TEST_F(WasmDecoderTest, MultipleReturn_fallthru) {
   FunctionSig sig_iii_v(3, 0, kIntTypes5);
   FunctionEnv env_iii_v;
   init_env(&env_iii_v, &sig_iii_v);
-  EXPECT_VERIFIES_INLINE(&env_iii_v, WASM_ZERO, WASM_ONE, WASM_INT8(44));
+  EXPECT_VERIFIES_INLINE(&env_iii_v, WASM_ZERO, WASM_ONE, WASM_I8(44));
   EXPECT_FAILURE_INLINE(&env_iii_v, WASM_ZERO, WASM_ONE);
 }
 
 
 TEST_F(WasmDecoderTest, MacrosInt32) {
-  VERIFY(WASM_INT32_ADD(WASM_GET_LOCAL(0), WASM_INT8(12)));
-  VERIFY(WASM_INT32_SUB(WASM_GET_LOCAL(0), WASM_INT8(13)));
-  VERIFY(WASM_INT32_MUL(WASM_GET_LOCAL(0), WASM_INT8(14)));
-  VERIFY(WASM_INT32_SDIV(WASM_GET_LOCAL(0), WASM_INT8(15)));
-  VERIFY(WASM_INT32_UDIV(WASM_GET_LOCAL(0), WASM_INT8(16)));
-  VERIFY(WASM_INT32_SREM(WASM_GET_LOCAL(0), WASM_INT8(17)));
-  VERIFY(WASM_INT32_UREM(WASM_GET_LOCAL(0), WASM_INT8(18)));
-  VERIFY(WASM_INT32_AND(WASM_GET_LOCAL(0), WASM_INT8(19)));
-  VERIFY(WASM_INT32_IOR(WASM_GET_LOCAL(0), WASM_INT8(20)));
-  VERIFY(WASM_INT32_XOR(WASM_GET_LOCAL(0), WASM_INT8(21)));
-  VERIFY(WASM_INT32_SHL(WASM_GET_LOCAL(0), WASM_INT8(22)));
-  VERIFY(WASM_INT32_SHR(WASM_GET_LOCAL(0), WASM_INT8(23)));
-  VERIFY(WASM_INT32_SAR(WASM_GET_LOCAL(0), WASM_INT8(24)));
-  VERIFY(WASM_INT32_EQ(WASM_GET_LOCAL(0), WASM_INT8(25)));
-  VERIFY(WASM_INT32_NE(WASM_GET_LOCAL(0), WASM_INT8(25)));
+  VERIFY(WASM_I32_ADD(WASM_GET_LOCAL(0), WASM_I8(12)));
+  VERIFY(WASM_I32_SUB(WASM_GET_LOCAL(0), WASM_I8(13)));
+  VERIFY(WASM_I32_MUL(WASM_GET_LOCAL(0), WASM_I8(14)));
+  VERIFY(WASM_I32_SDIV(WASM_GET_LOCAL(0), WASM_I8(15)));
+  VERIFY(WASM_I32_UDIV(WASM_GET_LOCAL(0), WASM_I8(16)));
+  VERIFY(WASM_I32_SREM(WASM_GET_LOCAL(0), WASM_I8(17)));
+  VERIFY(WASM_I32_UREM(WASM_GET_LOCAL(0), WASM_I8(18)));
+  VERIFY(WASM_I32_AND(WASM_GET_LOCAL(0), WASM_I8(19)));
+  VERIFY(WASM_I32_IOR(WASM_GET_LOCAL(0), WASM_I8(20)));
+  VERIFY(WASM_I32_XOR(WASM_GET_LOCAL(0), WASM_I8(21)));
+  VERIFY(WASM_I32_SHL(WASM_GET_LOCAL(0), WASM_I8(22)));
+  VERIFY(WASM_I32_SHR(WASM_GET_LOCAL(0), WASM_I8(23)));
+  VERIFY(WASM_I32_SAR(WASM_GET_LOCAL(0), WASM_I8(24)));
+  VERIFY(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(25)));
+  VERIFY(WASM_I32_NE(WASM_GET_LOCAL(0), WASM_I8(25)));
 
-  VERIFY(WASM_INT32_SLT(WASM_GET_LOCAL(0), WASM_INT8(26)));
-  VERIFY(WASM_INT32_SLE(WASM_GET_LOCAL(0), WASM_INT8(27)));
-  VERIFY(WASM_INT32_ULT(WASM_GET_LOCAL(0), WASM_INT8(28)));
-  VERIFY(WASM_INT32_ULE(WASM_GET_LOCAL(0), WASM_INT8(29)));
+  VERIFY(WASM_I32_SLT(WASM_GET_LOCAL(0), WASM_I8(26)));
+  VERIFY(WASM_I32_SLE(WASM_GET_LOCAL(0), WASM_I8(27)));
+  VERIFY(WASM_I32_ULT(WASM_GET_LOCAL(0), WASM_I8(28)));
+  VERIFY(WASM_I32_ULE(WASM_GET_LOCAL(0), WASM_I8(29)));
 
-  VERIFY(WASM_INT32_SGT(WASM_GET_LOCAL(0), WASM_INT8(26)));
-  VERIFY(WASM_INT32_SGE(WASM_GET_LOCAL(0), WASM_INT8(27)));
-  VERIFY(WASM_INT32_UGT(WASM_GET_LOCAL(0), WASM_INT8(28)));
-  VERIFY(WASM_INT32_UGE(WASM_GET_LOCAL(0), WASM_INT8(29)));
+  VERIFY(WASM_I32_SGT(WASM_GET_LOCAL(0), WASM_I8(26)));
+  VERIFY(WASM_I32_SGE(WASM_GET_LOCAL(0), WASM_I8(27)));
+  VERIFY(WASM_I32_UGT(WASM_GET_LOCAL(0), WASM_I8(28)));
+  VERIFY(WASM_I32_UGE(WASM_GET_LOCAL(0), WASM_I8(29)));
 }
 
 
@@ -930,33 +930,33 @@ TEST_F(WasmDecoderTest, MacrosInt64) {
 #define VERIFY_L_LL(...) EXPECT_VERIFIES_INLINE(&env_l_ll, __VA_ARGS__)
 #define VERIFY_I_LL(...) EXPECT_VERIFIES_INLINE(&env_i_ll, __VA_ARGS__)
 
-  VERIFY_L_LL(WASM_INT64_ADD(WASM_GET_LOCAL(0), WASM_INT64(12)));
-  VERIFY_L_LL(WASM_INT64_SUB(WASM_GET_LOCAL(0), WASM_INT64(13)));
-  VERIFY_L_LL(WASM_INT64_MUL(WASM_GET_LOCAL(0), WASM_INT64(14)));
-  VERIFY_L_LL(WASM_INT64_SDIV(WASM_GET_LOCAL(0), WASM_INT64(15)));
-  VERIFY_L_LL(WASM_INT64_UDIV(WASM_GET_LOCAL(0), WASM_INT64(16)));
-  VERIFY_L_LL(WASM_INT64_SREM(WASM_GET_LOCAL(0), WASM_INT64(17)));
-  VERIFY_L_LL(WASM_INT64_UREM(WASM_GET_LOCAL(0), WASM_INT64(18)));
-  VERIFY_L_LL(WASM_INT64_AND(WASM_GET_LOCAL(0), WASM_INT64(19)));
-  VERIFY_L_LL(WASM_INT64_IOR(WASM_GET_LOCAL(0), WASM_INT64(20)));
-  VERIFY_L_LL(WASM_INT64_XOR(WASM_GET_LOCAL(0), WASM_INT64(21)));
+  VERIFY_L_LL(WASM_I64_ADD(WASM_GET_LOCAL(0), WASM_I64(12)));
+  VERIFY_L_LL(WASM_I64_SUB(WASM_GET_LOCAL(0), WASM_I64(13)));
+  VERIFY_L_LL(WASM_I64_MUL(WASM_GET_LOCAL(0), WASM_I64(14)));
+  VERIFY_L_LL(WASM_I64_SDIV(WASM_GET_LOCAL(0), WASM_I64(15)));
+  VERIFY_L_LL(WASM_I64_UDIV(WASM_GET_LOCAL(0), WASM_I64(16)));
+  VERIFY_L_LL(WASM_I64_SREM(WASM_GET_LOCAL(0), WASM_I64(17)));
+  VERIFY_L_LL(WASM_I64_UREM(WASM_GET_LOCAL(0), WASM_I64(18)));
+  VERIFY_L_LL(WASM_I64_AND(WASM_GET_LOCAL(0), WASM_I64(19)));
+  VERIFY_L_LL(WASM_I64_IOR(WASM_GET_LOCAL(0), WASM_I64(20)));
+  VERIFY_L_LL(WASM_I64_XOR(WASM_GET_LOCAL(0), WASM_I64(21)));
 
-  VERIFY_L_LL(WASM_INT64_SHL(WASM_GET_LOCAL(0), WASM_INT64(22)));
-  VERIFY_L_LL(WASM_INT64_SHR(WASM_GET_LOCAL(0), WASM_INT64(23)));
-  VERIFY_L_LL(WASM_INT64_SAR(WASM_GET_LOCAL(0), WASM_INT64(24)));
+  VERIFY_L_LL(WASM_I64_SHL(WASM_GET_LOCAL(0), WASM_I64(22)));
+  VERIFY_L_LL(WASM_I64_SHR(WASM_GET_LOCAL(0), WASM_I64(23)));
+  VERIFY_L_LL(WASM_I64_SAR(WASM_GET_LOCAL(0), WASM_I64(24)));
 
-  VERIFY_I_LL(WASM_INT64_SLT(WASM_GET_LOCAL(0), WASM_INT64(26)));
-  VERIFY_I_LL(WASM_INT64_SLE(WASM_GET_LOCAL(0), WASM_INT64(27)));
-  VERIFY_I_LL(WASM_INT64_ULT(WASM_GET_LOCAL(0), WASM_INT64(28)));
-  VERIFY_I_LL(WASM_INT64_ULE(WASM_GET_LOCAL(0), WASM_INT64(29)));
+  VERIFY_I_LL(WASM_I64_SLT(WASM_GET_LOCAL(0), WASM_I64(26)));
+  VERIFY_I_LL(WASM_I64_SLE(WASM_GET_LOCAL(0), WASM_I64(27)));
+  VERIFY_I_LL(WASM_I64_ULT(WASM_GET_LOCAL(0), WASM_I64(28)));
+  VERIFY_I_LL(WASM_I64_ULE(WASM_GET_LOCAL(0), WASM_I64(29)));
 
-  VERIFY_I_LL(WASM_INT64_SGT(WASM_GET_LOCAL(0), WASM_INT64(26)));
-  VERIFY_I_LL(WASM_INT64_SGE(WASM_GET_LOCAL(0), WASM_INT64(27)));
-  VERIFY_I_LL(WASM_INT64_UGT(WASM_GET_LOCAL(0), WASM_INT64(28)));
-  VERIFY_I_LL(WASM_INT64_UGE(WASM_GET_LOCAL(0), WASM_INT64(29)));
+  VERIFY_I_LL(WASM_I64_SGT(WASM_GET_LOCAL(0), WASM_I64(26)));
+  VERIFY_I_LL(WASM_I64_SGE(WASM_GET_LOCAL(0), WASM_I64(27)));
+  VERIFY_I_LL(WASM_I64_UGT(WASM_GET_LOCAL(0), WASM_I64(28)));
+  VERIFY_I_LL(WASM_I64_UGE(WASM_GET_LOCAL(0), WASM_I64(29)));
 
-  VERIFY_I_LL(WASM_INT64_EQ(WASM_GET_LOCAL(0), WASM_INT64(25)));
-  VERIFY_I_LL(WASM_INT64_NE(WASM_GET_LOCAL(0), WASM_INT64(25)));
+  VERIFY_I_LL(WASM_I64_EQ(WASM_GET_LOCAL(0), WASM_I64(25)));
+  VERIFY_I_LL(WASM_I64_NE(WASM_GET_LOCAL(0), WASM_I64(25)));
 }
 
 
@@ -985,7 +985,7 @@ TEST_F(WasmDecoderTest, AllLoadMemCombinations) {
       MemType mem_type = kMemTypes[j];
       byte code[] = {
           kStmtReturn, WasmOpcodes::LoadStoreOpcodeOf(mem_type, false),
-          WasmOpcodes::LoadStoreAccessOf(mem_type), kExprInt8Const, 0};
+          WasmOpcodes::LoadStoreAccessOf(mem_type), kExprI8Const, 0};
       FunctionEnv env;
       FunctionSig sig(1, 0, &local_type);
       init_env(&env, &sig);
@@ -1005,7 +1005,7 @@ TEST_F(WasmDecoderTest, AllStoreMemCombinations) {
     for (size_t j = 0; j < arraysize(kMemTypes); j++) {
       MemType mem_type = kMemTypes[j];
       byte code[] = {WasmOpcodes::LoadStoreOpcodeOf(mem_type, true),
-                     WasmOpcodes::LoadStoreAccessOf(mem_type), kExprInt8Const,
+                     WasmOpcodes::LoadStoreAccessOf(mem_type), kExprI8Const,
                      0, kExprGetLocal, 0};
       FunctionEnv env;
       FunctionSig sig(0, 1, &local_type);
@@ -1021,14 +1021,14 @@ TEST_F(WasmDecoderTest, AllStoreMemCombinations) {
 
 
 TEST_F(WasmDecoderTest, LoadMemHigh) {
-  WasmOpcode opcodes[] = {kExprInt32LoadMemH, kExprInt64LoadMemH,
-                          kExprFloat32LoadMemH, kExprFloat64LoadMemH};
-  LocalType local_types[] = {kAstInt32, kAstInt64, kAstFloat32, kAstFloat64};
-  MemType mem_types[] = {kMemInt32, kMemInt64, kMemFloat32, kMemFloat64};
+  WasmOpcode opcodes[] = {kExprI32LoadMemH, kExprI64LoadMemH,
+                          kExprF32LoadMemH, kExprF64LoadMemH};
+  LocalType local_types[] = {kAstI32, kAstI64, kAstF32, kAstF64};
+  MemType mem_types[] = {kMemI32, kMemI64, kMemF32, kMemF64};
   // Check that all Expr<T>LoadMemH instructions take an int64 index.
   for (size_t i = 0; i < arraysize(local_types); i++) {
     LocalType type = local_types[i];
-    LocalType sig_types[] = {type, kAstInt64};
+    LocalType sig_types[] = {type, kAstI64};
     FunctionSig sig(1, 1, sig_types);
     FunctionEnv env;
     init_env(&env, &sig);
@@ -1041,14 +1041,14 @@ TEST_F(WasmDecoderTest, LoadMemHigh) {
 
 
 TEST_F(WasmDecoderTest, StoreMemHigh) {
-  WasmOpcode opcodes[] = {kExprInt32StoreMemH, kExprInt64StoreMemH,
-                          kExprFloat32StoreMemH, kExprFloat64LoadMemH};
-  LocalType local_types[] = {kAstInt32, kAstInt64, kAstFloat32, kAstFloat64};
-  MemType mem_types[] = {kMemInt32, kMemInt64, kMemFloat32, kMemFloat64};
+  WasmOpcode opcodes[] = {kExprI32StoreMemH, kExprI64StoreMemH,
+                          kExprF32StoreMemH, kExprF64LoadMemH};
+  LocalType local_types[] = {kAstI32, kAstI64, kAstF32, kAstF64};
+  MemType mem_types[] = {kMemI32, kMemI64, kMemF32, kMemF64};
   // Check that all Expr<T>StoreMemH instructions take an int64 index.
   for (size_t i = 0; i < arraysize(local_types); i++) {
     LocalType type = local_types[i];
-    LocalType sig_types[] = {type, kAstInt64, type};
+    LocalType sig_types[] = {type, kAstI64, type};
     FunctionSig sig(1, 2, sig_types);
     FunctionEnv env;
     init_env(&env, &sig);
@@ -1098,9 +1098,9 @@ TEST_F(WasmDecoderTest, SimpleCalls) {
   module_env.AddFunction(sigs.i_ii());
 
   EXPECT_VERIFIES_INLINE(env, WASM_CALL_FUNCTION(0));
-  EXPECT_VERIFIES_INLINE(env, WASM_CALL_FUNCTION(1, WASM_INT8(27)));
+  EXPECT_VERIFIES_INLINE(env, WASM_CALL_FUNCTION(1, WASM_I8(27)));
   EXPECT_VERIFIES_INLINE(env,
-                         WASM_CALL_FUNCTION(2, WASM_INT8(37), WASM_INT8(77)));
+                         WASM_CALL_FUNCTION(2, WASM_I8(37), WASM_I8(77)));
 }
 
 
@@ -1120,7 +1120,7 @@ TEST_F(WasmDecoderTest, CallsWithTooFewArguments) {
 
 
 TEST_F(WasmDecoderTest, CallsWithSpilloverArgs) {
-  static LocalType a_i_ff[] = {kAstInt32, kAstFloat32, kAstFloat32};
+  static LocalType a_i_ff[] = {kAstI32, kAstF32, kAstF32};
   FunctionSig sig_i_ff(1, 2, a_i_ff);
   FunctionEnv env_i_ff;
   init_env(&env_i_ff, &sig_i_ff);
@@ -1133,21 +1133,21 @@ TEST_F(WasmDecoderTest, CallsWithSpilloverArgs) {
   module_env.AddFunction(&sig_i_ff);
 
   EXPECT_VERIFIES_INLINE(
-      &env_i_i, WASM_CALL_FUNCTION(0, WASM_FLOAT32(0.1), WASM_FLOAT32(0.1)));
+      &env_i_i, WASM_CALL_FUNCTION(0, WASM_F32(0.1), WASM_F32(0.1)));
 
   EXPECT_VERIFIES_INLINE(
-      &env_i_ff, WASM_CALL_FUNCTION(0, WASM_FLOAT32(0.1), WASM_FLOAT32(0.1)));
+      &env_i_ff, WASM_CALL_FUNCTION(0, WASM_F32(0.1), WASM_F32(0.1)));
 
   EXPECT_FAILURE_INLINE(
-      &env_f_ff, WASM_CALL_FUNCTION(0, WASM_FLOAT32(0.1), WASM_FLOAT32(0.1)));
+      &env_f_ff, WASM_CALL_FUNCTION(0, WASM_F32(0.1), WASM_F32(0.1)));
 
   EXPECT_FAILURE_INLINE(
-      &env_i_i, WASM_CALL_FUNCTION(0, WASM_FLOAT32(0.1), WASM_FLOAT32(0.1),
-                                   WASM_FLOAT32(0.2)));
+      &env_i_i, WASM_CALL_FUNCTION(0, WASM_F32(0.1), WASM_F32(0.1),
+                                   WASM_F32(0.2)));
 
   EXPECT_VERIFIES_INLINE(
-      &env_f_ff, WASM_CALL_FUNCTION(0, WASM_FLOAT32(0.1), WASM_FLOAT32(0.1),
-                                    WASM_FLOAT32(11)));
+      &env_f_ff, WASM_CALL_FUNCTION(0, WASM_F32(0.1), WASM_F32(0.1),
+                                    WASM_F32(11)));
 }
 
 
@@ -1158,9 +1158,9 @@ TEST_F(WasmDecoderTest, CallsWithMismatchedSigs2) {
 
   module_env.AddFunction(sigs.i_i());
 
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT64(17)));
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_FLOAT32(17.1)));
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_FLOAT64(17.1)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_I64(17)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_F32(17.1)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_F64(17.1)));
 }
 
 
@@ -1171,15 +1171,15 @@ TEST_F(WasmDecoderTest, CallsWithMismatchedSigs3) {
 
   module_env.AddFunction(sigs.i_f());
 
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT8(17)));
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_INT64(27)));
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_FLOAT64(37.2)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_I8(17)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_I64(27)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(0, WASM_F64(37.2)));
 
   module_env.AddFunction(sigs.i_d());
 
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_INT8(16)));
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_INT64(16)));
-  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_FLOAT32(17.6)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_I8(16)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_I64(16)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_F32(17.6)));
 }
 
 
@@ -1188,12 +1188,12 @@ TEST_F(WasmDecoderTest, Int32Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMemInt8);
-  module_env.AddGlobal(kMemUint8);
-  module_env.AddGlobal(kMemInt16);
-  module_env.AddGlobal(kMemUint16);
-  module_env.AddGlobal(kMemInt32);
-  module_env.AddGlobal(kMemUint32);
+  module_env.AddGlobal(kMemI8);
+  module_env.AddGlobal(kMemU8);
+  module_env.AddGlobal(kMemI16);
+  module_env.AddGlobal(kMemU16);
+  module_env.AddGlobal(kMemI32);
+  module_env.AddGlobal(kMemU32);
 
   EXPECT_VERIFIES_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(0)));
   EXPECT_VERIFIES_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(1)));
@@ -1216,10 +1216,10 @@ TEST_F(WasmDecoderTest, Int32Globals_fail) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMemInt64);
-  module_env.AddGlobal(kMemUint64);
-  module_env.AddGlobal(kMemFloat32);
-  module_env.AddGlobal(kMemFloat64);
+  module_env.AddGlobal(kMemI64);
+  module_env.AddGlobal(kMemU64);
+  module_env.AddGlobal(kMemF32);
+  module_env.AddGlobal(kMemF64);
 
   EXPECT_FAILURE_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(0)));
   EXPECT_FAILURE_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(1)));
@@ -1238,8 +1238,8 @@ TEST_F(WasmDecoderTest, Int64Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMemInt64);
-  module_env.AddGlobal(kMemUint64);
+  module_env.AddGlobal(kMemI64);
+  module_env.AddGlobal(kMemU64);
 
   EXPECT_VERIFIES_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(0)));
   EXPECT_VERIFIES_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(1)));
@@ -1256,7 +1256,7 @@ TEST_F(WasmDecoderTest, Float32Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMemFloat32);
+  module_env.AddGlobal(kMemF32);
 
   EXPECT_VERIFIES_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(0)));
   EXPECT_VERIFIES_INLINE(env, WASM_STORE_GLOBAL(0, WASM_GET_LOCAL(0)));
@@ -1270,7 +1270,7 @@ TEST_F(WasmDecoderTest, Float64Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMemFloat64);
+  module_env.AddGlobal(kMemF64);
 
   EXPECT_VERIFIES_INLINE(env, WASM_RETURN(WASM_LOAD_GLOBAL(0)));
   EXPECT_VERIFIES_INLINE(env, WASM_STORE_GLOBAL(0, WASM_GET_LOCAL(0)));
@@ -1324,7 +1324,7 @@ TEST_F(WasmDecoderTest, BreakNesting1) {
     // (block[2] (loop[2] (if (get p) break[N]) (set p 1)) (return p))
     byte code[] = {
         WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(i)),
-                                WASM_SET_LOCAL(0, WASM_INT8(1))),
+                                WASM_SET_LOCAL(0, WASM_I8(1))),
                    WASM_RETURN(WASM_GET_LOCAL(0)))};
     if (i == 0) {
       EXPECT_VERIFIES(&env_i_i, code);
@@ -1336,13 +1336,13 @@ TEST_F(WasmDecoderTest, BreakNesting1) {
 
 
 TEST_F(WasmDecoderTest, BreakNesting2) {
-  env_v_v.AddLocals(kAstInt32, 1);
+  env_v_v.AddLocals(kAstI32, 1);
   for (int i = 0; i < 5; i++) {
     // (block[2] (loop[2] (if (get p) break[N]) (set p 1)) (return p)) (11)
     byte code[] = {
         WASM_BLOCK(1, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(i)),
-                                WASM_SET_LOCAL(0, WASM_INT8(1)))),
-        WASM_INT8(11)};
+                                WASM_SET_LOCAL(0, WASM_I8(1)))),
+        WASM_I8(11)};
     if (i < 2) {
       EXPECT_VERIFIES(&env_v_v, code);
     } else {
@@ -1353,7 +1353,7 @@ TEST_F(WasmDecoderTest, BreakNesting2) {
 
 
 TEST_F(WasmDecoderTest, BreakNesting3) {
-  env_v_v.AddLocals(kAstInt32, 1);
+  env_v_v.AddLocals(kAstI32, 1);
   for (int i = 0; i < 5; i++) {
     // (block[1] (loop[1] (block[1] (if (get p) break[N])
     byte code[] = {WASM_BLOCK(
