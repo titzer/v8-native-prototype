@@ -503,6 +503,12 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprF64ConvertF32:
       op = m->ChangeFloat32ToFloat64();
       break;
+    case kExprF32ReinterpretI32:
+      op = m->BitcastInt32ToFloat32();
+      break;
+    case kExprI32ReinterpretF32:
+      op = m->BitcastFloat32ToInt32();
+      break;
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
@@ -514,6 +520,12 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     case kExprI64UConvertI32:
       op = m->ChangeUint32ToUint64();
+      break;
+    case kExprF64ReinterpretI64:
+      op = m->BitcastInt64ToFloat64();
+      break;
+    case kExprI64ReinterpretF64:
+      op = m->BitcastFloat64ToInt64();
       break;
 #endif
     default:

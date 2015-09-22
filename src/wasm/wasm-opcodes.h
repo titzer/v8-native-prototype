@@ -227,7 +227,7 @@ typedef Signature<LocalType> FunctionSig;
   V(F64SConvertI64, 0xb0, d_l)        \
   V(F64UConvertI64, 0xb1, d_l)        \
   V(F64ConvertF32, 0xb2, d_f)         \
-  V(F64ReinterpretI64, 0xb3, f_i)     \
+  V(F64ReinterpretI64, 0xb3, d_l)     \
   V(I32ReinterpretF32, 0xb4, i_f)     \
   V(I64ReinterpretF64, 0xb5, l_d)     
 

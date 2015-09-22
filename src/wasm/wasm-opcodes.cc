@@ -164,6 +164,9 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI32ConvertI64:
     case kExprI64SConvertI32:
     case kExprI64UConvertI32:
+
+    case kExprF64ReinterpretI64:
+    case kExprI64ReinterpretF64:
 #endif
 
     case kExprI32Clz:
@@ -196,12 +199,8 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI64UConvertF64:
     case kExprF32SConvertI64:
     case kExprF32UConvertI64:
-    case kExprF32ReinterpretI32:
     case kExprF64SConvertI64:
     case kExprF64UConvertI64:
-    case kExprF64ReinterpretI64:
-    case kExprI32ReinterpretF32:
-    case kExprI64ReinterpretF64:
       return false;
     default:
       return true;

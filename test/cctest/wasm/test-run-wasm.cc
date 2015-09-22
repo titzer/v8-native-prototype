@@ -690,6 +690,43 @@ TEST(Run_Wasm_IfThen_P) {
 }
 
 
+TEST(Run_Wasm_F32ReinterpretI32) {
+  WasmRunner<int32_t> r;
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(8);
+  r.function_env->module = &module;
+
+  BUILD(r, WASM_RETURN(WASM_I32_REINTERPRET_F32(WASM_LOAD_MEM(kMemF32,
+                                                              WASM_ZERO))));
+
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i;
+    memory[0] = expected;
+    CHECK_EQ(expected, r.Call());
+  }
+}
+
+
+TEST(Run_Wasm_I32ReinterpretF32) {
+  WasmRunner<int32_t> r(kMachInt32);
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(8);
+  r.function_env->module = &module;
+
+  BUILD(r, WASM_BLOCK(2,
+                      WASM_STORE_MEM(kMemF32,
+                                     WASM_ZERO,
+                                     WASM_F32_REINTERPRET_I32(WASM_GET_LOCAL(0))),
+                      WASM_RETURN(WASM_I8(107))));
+
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i;
+    CHECK_EQ(107, r.Call(expected));
+    CHECK_EQ(expected, memory[0]);
+  }
+}
+
+
 TEST(Run_Wasm_VoidReturn) {
   WasmRunner<void> r;
   r.function_env = &r.env_v_v;
@@ -860,6 +897,49 @@ TEST(Run_Wasm_LoadMemI32) {
 
 
 #if WASM_64
+TEST(Run_Wasm_F64ReinterpretI64) {
+  WasmRunner<int64_t> r;
+  FunctionEnv env;
+  init_env(&env, r.sigs.l_v());
+  r.function_env = &env;
+  TestingModule module;
+  int64_t* memory = module.AddMemoryElems<int64_t>(8);
+  r.function_env->module = &module;
+
+  BUILD(r, WASM_RETURN(WASM_I64_REINTERPRET_F64(WASM_LOAD_MEM(kMemF64,
+                                                              WASM_ZERO))));
+
+  FOR_INT32_INPUTS(i) {
+    int64_t expected = static_cast<int64_t>(*i) * 0x300010001;
+    memory[0] = expected;
+    CHECK_EQ(expected, r.Call());
+  }
+}
+
+
+TEST(Run_Wasm_I64ReinterpretF64) {
+  WasmRunner<int64_t> r(kMachInt64);
+  FunctionEnv env;
+  init_env(&env, r.sigs.l_l());
+  r.function_env = &env;
+  TestingModule module;
+  int64_t* memory = module.AddMemoryElems<int64_t>(8);
+  r.function_env->module = &module;
+
+  BUILD(r, WASM_BLOCK(2,
+                      WASM_STORE_MEM(kMemF64,
+                                     WASM_ZERO,
+                                     WASM_F64_REINTERPRET_I64(WASM_GET_LOCAL(0))),
+                      WASM_RETURN(WASM_GET_LOCAL(0))));
+
+  FOR_INT32_INPUTS(i) {
+    int64_t expected = static_cast<int64_t>(*i) * 0x300010001;
+    CHECK_EQ(expected, r.Call(expected));
+    CHECK_EQ(expected, memory[0]);
+  }
+}
+
+
 TEST(Run_Wasm_LoadMemI64) {
   WasmRunner<int64_t> r;
   FunctionEnv env;
