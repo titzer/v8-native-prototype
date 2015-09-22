@@ -14,6 +14,7 @@
         'sources': [
           'test-run-wasm.cc',
           'test-run-wasm-module.cc',
+          'test-wasm-encoder.cc',
         ],
       },
     },

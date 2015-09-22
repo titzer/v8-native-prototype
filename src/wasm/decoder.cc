@@ -1296,21 +1296,11 @@ class LR_WasmDecoder {
 
   uint32_t UnsignedLEB128Operand(const byte* pc, int* length) {
     uint32_t result = 0;
-    const byte* ptr = pc + 1;
-    const byte* end = pc + 6;  // maximum 5 bytes.
-    if (end > limit_) end = limit_;
-    int shift = 0;
-    byte b = 0;
-    while (ptr < end) {
-      b = *ptr++;
-      result = result | ((b & 0x7F) << shift);
-      if ((b & 0x80) == 0) break;
-      shift += 7;
-    }
-    if (ptr == end && (b & 0x80)) error(pc, "invalid LEB128 varint");
-    DCHECK_LE(ptr - pc, 6);
-    *length = static_cast<int>(ptr - pc);
-    if (*length == 1) error(pc, "expected LEB128 varint");
+    ReadUnsignedLEB128ErrorCode error_code =
+        ReadUnsignedLEB128Operand(pc+1, limit_, length, &result);
+    if (error_code == kInvalidLEB128) error(pc, "invalid LEB128 varint");
+    if (error_code == kMissingLEB128) error(pc, "expected LEB128 varint");
+    (*length)++;
     return result;
   }
 
@@ -1427,6 +1417,35 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree) {
   if (tree.count > 0) os << ")";
   return os;
 }
+
+ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(
+    const byte* pc,
+    const byte* limit,
+    int* length,
+    uint32_t* result) {
+  *result = 0;
+  const byte* ptr = pc;
+  const byte* end = pc + 5;  // maximum 5 bytes.
+  if (end > limit) end = limit;
+  int shift = 0;
+  byte b = 0;
+  while (ptr < end) {
+    b = *ptr++;
+    *result = *result | ((b & 0x7F) << shift);
+    if ((b & 0x80) == 0) break;
+    shift += 7;
+  }
+  DCHECK_LE(ptr - pc, 5);
+  *length = static_cast<int>(ptr - pc);
+  if (ptr == end && (b & 0x80)) {
+    return kInvalidLEB128;
+  } else if (*length == 0) {
+    return kMissingLEB128;
+  } else {
+    return kNoError;
+  }
+}
+
 }
 }
 }
