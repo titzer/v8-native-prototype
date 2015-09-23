@@ -92,8 +92,8 @@ class WasmLinker {
       byte buffer[] = {0, 0, 0, 0, 0, 0, 0, 0};  // fake instructions.
       CodeDesc desc = {buffer, 8, 8, 0, 0, nullptr};
       Handle<Code> code = isolate_->factory()->NewCode(
-          desc, Code::KindField::encode(Code::PLACEHOLDER), self);
-      code->set_constant_pool_offset(index);
+          desc, Code::KindField::encode(Code::WASM_FUNCTION), self);
+      code->set_constant_pool_offset(index + kPlaceholderMarker);
       placeholder_code_[index] = code;
       function_code_[index] = code;
     }
@@ -112,7 +112,7 @@ class WasmLinker {
   }
 
  private:
-  static const int kPlaceholderMarker = -100;
+  static const int kPlaceholderMarker = 1000000000;
 
   Isolate* isolate_;
   std::vector<Handle<Code>> placeholder_code_;
@@ -127,9 +127,10 @@ class WasmLinker {
       if (RelocInfo::IsCodeTarget(mode)) {
         Code* target =
             Code::GetCodeFromTargetAddress(it.rinfo()->target_address());
-        if (target->kind() == Code::PLACEHOLDER) {
+        if (target->kind() == Code::WASM_FUNCTION &&
+            target->constant_pool_offset() >= kPlaceholderMarker) {
           // Patch direct calls to placeholder code objects.
-          uint32_t index = target->constant_pool_offset();
+          uint32_t index = target->constant_pool_offset() - kPlaceholderMarker;
           CHECK(index < function_code_.size());
           Handle<Code> new_target = function_code_[index];
           if (target != *new_target) {
