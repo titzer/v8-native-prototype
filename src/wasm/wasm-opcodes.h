@@ -113,6 +113,12 @@ typedef Signature<LocalType> FunctionSig;
   V(F32StoreMemH, 0x36, f_lf)            \
   V(F64StoreMemH, 0x37, d_ld)
 
+// Load memory expressions.
+#define FOREACH_MISC_MEM_EXPR_OPCODE(V) \
+  V(PageSize,   0x38, i_v)              \
+  V(ResizeMemL, 0x39, i_i)              \
+  V(ResizeMemH, 0x3a, l_l)
+
 // Expressions with signatures.
 #define FOREACH_SIMPLE_EXPR_OPCODE(V) \
   V(I32Add, 0x40, i_ii)               \
@@ -239,7 +245,8 @@ typedef Signature<LocalType> FunctionSig;
   FOREACH_SIMPLE_EXPR_OPCODE(V)    \
   FOREACH_MISC_EXPR_OPCODE(V)      \
   FOREACH_STORE_MEM_EXPR_OPCODE(V) \
-  FOREACH_LOAD_MEM_EXPR_OPCODE(V)  
+  FOREACH_LOAD_MEM_EXPR_OPCODE(V)  \
+  FOREACH_MISC_MEM_EXPR_OPCODE(V)  
 
 // All opcodes.
 #define FOREACH_OPCODE(V) \
@@ -250,6 +257,7 @@ typedef Signature<LocalType> FunctionSig;
 #define FOREACH_SIGNATURE(V)         \
   V(i_ii, kAstI32, kAstI32, kAstI32) \
   V(i_i, kAstI32, kAstI32)           \
+  V(i_v, kAstI32)                    \
   V(i_ff, kAstI32, kAstF32, kAstF32) \
   V(i_f, kAstI32, kAstF32)           \
   V(i_dd, kAstI32, kAstF64, kAstF64) \

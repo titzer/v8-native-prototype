@@ -399,6 +399,18 @@ TEST(Run_WasmInt32Const_many) {
 }
 
 
+TEST(Run_WasmPageSize) {
+  WasmRunner<int32_t> r;
+  BUILD(r, kExprPageSize);
+  int32_t result = r.Call();
+  CHECK_GE(result, 4096);
+  CHECK_EQ(0, (result - 1) & result);  // power of 2
+  for (int i = 0; i < 10; i++) {
+    CHECK_EQ(result, r.Call());  // should always be the same
+  }
+}
+
+
 #if WASM_64
 TEST(Run_WasmInt64Const) {
   WasmRunner<int64_t> r;

@@ -540,6 +540,17 @@ class LR_WasmDecoder {
           Shift(kAstF64, 2);
           len = 2;
           break;
+        case kExprPageSize:
+          // TODO(titzer): is this the correct constant for all platforms?
+          Leaf(kAstI32, builder_.Int32Constant(
+               static_cast<int32_t>(base::OS::CommitPageSize())));
+          break;
+        case kExprResizeMemL:
+          Shift(kAstI32, 1);
+          break;
+        case kExprResizeMemH:
+          Shift(kAstI64, 1);
+          break;
         case kExprCallFunction: {
           FunctionSig* sig = FunctionSigOperand(pc_, &len);
           if (sig) {
@@ -901,6 +912,16 @@ class LR_WasmDecoder {
         return ReduceStoreMem(p, false, kAstF64);
       case kExprF64StoreMemH:
         return ReduceStoreMem(p, true, kAstF64);
+      case kExprResizeMemL:
+        TypeCheckLast(p, kAstI32);
+        // TODO: build node for ResizeMemL
+        p->tree->node = builder_.Int32Constant(0);
+        return;
+      case kExprResizeMemH:
+        TypeCheckLast(p, kAstI64);
+        // TODO: build node for ResizeMemH
+        p->tree->node = builder_.Int64Constant(0);
+        return;
 
       case kExprCallFunction: {
         int unused = 0;
