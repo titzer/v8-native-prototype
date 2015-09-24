@@ -27,7 +27,6 @@
 #define WASM_RETURN0 kStmtReturn
 #define WASM_RETURN(...) kStmtReturn, __VA_ARGS__
 
-
 //------------------------------------------------------------------------------
 // Misc expressions.
 //------------------------------------------------------------------------------
@@ -80,10 +79,12 @@
 #define WASM_CALL_FUNCTION0(index) kExprCallFunction, static_cast<byte>(index)
 #define WASM_CALL_INDIRECT0(index, func) \
   kExprCallIndirect, static_cast<byte>(index), func
-#define WASM_TERNARY(cond, tval, fval) kExprTernary, cond, tval, fval
+#define WASM_EXPR_IF(cond, tval, fval) kExprIf, cond, tval, fval
 #define WASM_COMMA(left, right) kExprComma, left, right
 #define WASM_NOT(x) kExprBoolNot, x
-
+#define WASM_EXPR_BLOCK(count, ...) kExprBlock, static_cast<byte>(count), __VA_ARGS__
+#define WASM_EXPR_LOOP(count, ...) kExprLoop, static_cast<byte>(count), __VA_ARGS__
+#define WASM_EXPR_BREAK(depth, x) kExprBreak, static_cast<byte>(depth), x
 
 //------------------------------------------------------------------------------
 // Statements and expressions that are composed of multiple bytecodes.

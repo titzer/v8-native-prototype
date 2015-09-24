@@ -74,6 +74,38 @@ struct SsaEnv {
 struct Block {
   SsaEnv* cont_env;
   SsaEnv* break_env;
+  Production* production;
+
+  WasmOpcode opcode() { return production->opcode(); }
+  bool IsLoop() {
+    switch (opcode()) {
+      case kStmtLoop:
+      case kExprLoop:
+        return true;
+      default:
+        return false;
+    }
+  }
+  bool IsStmt() {
+    switch (opcode()) {
+      case kStmtLoop:
+      case kStmtBlock:
+      case kStmtSwitch:
+      case kStmtSwitchNf:
+        return true;
+      default:
+        return false;
+    }
+  }
+  bool IsExpr() {
+    switch (opcode()) {
+      case kExprBlock:
+      case kExprLoop:
+        return true;
+      default:
+        return false;
+    }
+  }
 };
 
 
@@ -319,7 +351,7 @@ class LR_WasmDecoder {
           Shift(kAstStmt, length + 1);
           SsaEnv* cont_env = nullptr;
           SsaEnv* break_env = UnreachableEnv();
-          blocks_.push_back({cont_env, break_env});
+          PushBlock(cont_env, break_env);
           len = 2;
           break;
         }
@@ -331,7 +363,7 @@ class LR_WasmDecoder {
             Shift(kAstStmt, length);
             SsaEnv* cont_env = nullptr;
             SsaEnv* break_env = UnreachableEnv();
-            blocks_.push_back({cont_env, break_env});
+            PushBlock(cont_env, break_env);
           }
           len = 2;
           break;
@@ -349,7 +381,7 @@ class LR_WasmDecoder {
             ssa_env_ = Split(ssa_env_);
             ssa_env_->state = SsaEnv::kReached;
             SsaEnv* break_env = UnreachableEnv();
-            blocks_.push_back({cont_env, break_env});
+            PushBlock(cont_env, break_env);
           }
           len = 2;
           break;
@@ -358,10 +390,10 @@ class LR_WasmDecoder {
           uint32_t depth = Operand<uint8_t>(pc_);
           if (depth < blocks_.size()) {
             Block* block = &blocks_[blocks_.size() - depth - 1];
-            if (block->cont_env) {
-              Goto(ssa_env_, block->cont_env);
+            if (!block->IsLoop()) {
+              error("continue-stmt does not go to loop-stmt or loop-expression");
             } else {
-              error("improper continue to block");
+              Goto(ssa_env_, block->cont_env);
             }
             ssa_env_->state = SsaEnv::kControlEnd;
           } else {
@@ -377,6 +409,9 @@ class LR_WasmDecoder {
             Block* block = &blocks_[blocks_.size() - depth - 1];
             Goto(ssa_env_, block->break_env);
             ssa_env_->state = SsaEnv::kControlEnd;
+            if (!block->IsStmt()) {
+              error("break-stmt does not go to block-stmt or loop-stmt or switch");
+            }
           } else {
             error("improperly nested break");
           }
@@ -531,12 +566,57 @@ class LR_WasmDecoder {
           }
           break;
         }
-        case kExprTernary: {
+        case kExprIf: {
           Shift(kAstI32, 3);  // Result type is typeof(x) in {c ? x : y}.
           break;
         }
         case kExprComma: {
           Shift(kAstI32, 2);  // Result type is typeof(y) in {x, y}.
+          break;
+        }
+        case kExprBlock: {
+          int length = Operand<uint8_t>(pc_);
+          if (length < 1) {
+            error("block-expression of length 0");
+            Leaf(kAstStmt);
+          } else {
+            Shift(kAstStmt, length);
+            SsaEnv* cont_env = nullptr;
+            SsaEnv* break_env = UnreachableEnv();
+            PushBlock(cont_env, break_env);
+          }
+          len = 2;
+          break;
+        }
+        case kExprLoop: {
+          int length = Operand<uint8_t>(pc_);
+          if (length < 1) {
+            error("loop-expression of length 0");
+          } else {
+            Shift(kAstStmt, length);
+            PrepareForLoop(ssa_env_);
+            SsaEnv* cont_env = ssa_env_;
+            ssa_env_ = Split(ssa_env_);
+            ssa_env_->state = SsaEnv::kReached;
+            SsaEnv* break_env = UnreachableEnv();
+            PushBlock(cont_env, break_env);
+          }
+          len = 2;
+          break;
+        }
+        case kExprBreak: {
+          uint32_t depth = Operand<uint8_t>(pc_);
+          Shift(kAstStmt, 1);
+          if (depth < blocks_.size()) {
+            Block* block = &blocks_[blocks_.size() - depth - 1];
+            if (!block->IsExpr()) {
+              error("break-expression does not go to block-expression "
+                    "or loop-expression");
+            }
+          } else {
+            error("improperly nested break-expression");
+          }
+          len = 2;
           break;
         }
         default:
@@ -552,6 +632,10 @@ class LR_WasmDecoder {
         return;
       }
     }
+  }
+
+  void PushBlock(SsaEnv* cont_env, SsaEnv* break_env) {
+    blocks_.push_back({cont_env, break_env, &stack_.back()});
   }
 
   Tree* GetLastValueIfBlock(Tree* tree) {
@@ -671,12 +755,26 @@ class LR_WasmDecoder {
         break;
       }
       case kStmtBlock:
+      case kExprLoop:
       case kStmtLoop: {
         if (p->done()) {
           Block* last = &blocks_.back();
           if (ssa_env_->go()) {
             Goto(ssa_env_,
-                 opcode == kStmtLoop ? last->cont_env : last->break_env);
+                 opcode == kStmtLoop || opcode == kExprLoop ?
+                     last->cont_env : last->break_env);
+          }
+          SetEnv(last->break_env);
+          blocks_.pop_back();
+        }
+        break;
+      }
+      case kExprBlock: {
+        if (p->done()) {
+          Block* last = &blocks_.back();
+          if (ssa_env_->go()) {
+            // fallthrough with the last expression.
+            ReduceBreakToExprBlock(p, last);
           }
           SetEnv(last->break_env);
           blocks_.pop_back();
@@ -844,7 +942,7 @@ class LR_WasmDecoder {
         }
         break;
       }
-      case kExprTernary: {
+      case kExprIf: {
         // TODO(titzer): reduce duplication with kStmtIfThen.
         Tree* left = p->tree->children[1];
         Tree* right = p->tree->children[2];
@@ -881,7 +979,7 @@ class LR_WasmDecoder {
           TFNode* b = right->node;
           TFNode* result = a;
           if (a != b) {
-            TFNode* vals[] = {a, b};
+            TFNode* vals[] = {b, a};  // false predecessor first, then true.
             result = builder_.Phi(left->type, 2, vals, *builder_.control);
           }
           p->tree->node = result;
@@ -899,8 +997,37 @@ class LR_WasmDecoder {
         }
         break;
       }
+      case kExprBreak: {
+        uint32_t depth = Operand<uint8_t>(p->pc());
+        if (depth < blocks_.size()) {
+          Block* block = &blocks_[blocks_.size() - depth - 1];
+          ReduceBreakToExprBlock(p, block);
+        } else {
+          error("improperly nested break");
+        }
+        break;
+      }
       default:
         break;
+    }
+  }
+
+  void ReduceBreakToExprBlock(Production* p, Block* block) {
+    Production* bp = block->production;
+    Tree* expr = p->last();
+    Goto(ssa_env_, block->break_env);
+    ssa_env_->state = SsaEnv::kControlEnd;
+    if (bp->tree->type == kAstStmt) {
+      // first break out of this block; set the type and the node.
+      bp->tree->type = expr->type;
+      bp->tree->node = expr->node;
+    } else {
+      // merge with the existing value for this block.
+      LocalType type = bp->tree->type;
+      TypeCheckLast(p, type);
+      bp->tree->node = CreateOrMergeIntoPhi(type,
+                                      block->break_env->control, bp->tree->node,
+                                      expr->node);
     }
   }
 
@@ -953,18 +1080,18 @@ class LR_WasmDecoder {
       case SsaEnv::kReached: {  // Create a new merge.
         to->state = SsaEnv::kMerged;
         // Merge control.
-        TFNode* controls[] = {from->control, to->control};
+        TFNode* controls[] = {to->control, from->control};
         TFNode* merge = builder_.Merge(2, controls);
         to->control = merge;
         // Merge effects.
         if (from->effect != to->effect) {
-          TFNode* effects[] = {from->effect, to->effect, merge};
+          TFNode* effects[] = {to->effect, from->effect, merge};
           to->effect = builder_.EffectPhi(2, effects, merge);
         }
         // Merge SSA values.
         for (int i = EnvironmentCount() - 1; i >= 0; i--) {
-          TFNode* a = from->locals[i];
-          TFNode* b = to->locals[i];
+          TFNode* a = to->locals[i];
+          TFNode* b = from->locals[i];
           if (a != b) {
             TFNode* vals[] = {a, b};
             to->locals[i] =
@@ -1008,6 +1135,21 @@ class LR_WasmDecoder {
         UNREACHABLE();
     }
     return from->Kill();
+  }
+
+  TFNode* CreateOrMergeIntoPhi(LocalType type, TFNode* merge, TFNode* tnode,
+                            TFNode* fnode) {
+    if (!builder_.graph) return nullptr;
+    if (builder_.IsPhiWithMerge(tnode, merge)) {
+      builder_.AppendToPhi(merge, tnode, fnode);
+    } else if (tnode != fnode) {
+      uint32_t count = builder_.InputCount(merge);
+      TFNode** vals = builder_.Buffer(count);
+      for (int j = 0; j < count - 1; j++) vals[j] = tnode;
+      vals[count - 1] = fnode;
+      return builder_.Phi(type, count, vals, merge);
+    }
+    return tnode;
   }
 
   void BuildInfiniteLoop() {

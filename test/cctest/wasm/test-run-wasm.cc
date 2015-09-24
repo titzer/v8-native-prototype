@@ -722,7 +722,7 @@ TEST(Run_WasmFloat64Unops) {
 TEST(Run_Wasm_IfThen_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // if (p0) return 11; else return 22;
-  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),             // --
+  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),           // --
                         WASM_RETURN(WASM_I8(11)),    // --
                         WASM_RETURN(WASM_I8(22))));  // --
   FOR_INT32_INPUTS(i) {
@@ -779,8 +779,8 @@ TEST(Run_Wasm_VoidReturn) {
 TEST(Run_Wasm_Block_If_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) return 51; return 52; }
-  BUILD(r, WASM_BLOCK(2,                                    // --
-                      WASM_IF(WASM_GET_LOCAL(0),            // --
+  BUILD(r, WASM_BLOCK(2,                                  // --
+                      WASM_IF(WASM_GET_LOCAL(0),          // --
                               WASM_RETURN(WASM_I8(51))),  // --
                       WASM_RETURN(WASM_I8(52))));         // --
   FOR_INT32_INPUTS(i) {
@@ -793,8 +793,8 @@ TEST(Run_Wasm_Block_If_P) {
 TEST(Run_Wasm_Block_IfThen_P_assign) {
   WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 71; else p0 = 72; return p0; }
-  BUILD(r, WASM_BLOCK(2,                                               // --
-                      WASM_IF_THEN(WASM_GET_LOCAL(0),                  // --
+  BUILD(r, WASM_BLOCK(2,                                             // --
+                      WASM_IF_THEN(WASM_GET_LOCAL(0),                // --
                                    WASM_SET_LOCAL(0, WASM_I8(71)),   // --
                                    WASM_SET_LOCAL(0, WASM_I8(72))),  // --
                       WASM_RETURN(WASM_GET_LOCAL(0))));
@@ -818,12 +818,12 @@ TEST(Run_Wasm_Block_If_P_assign) {
 }
 
 
-TEST(Run_Wasm_Ternary_P) {
+TEST(Run_Wasm_ExprIf_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // return p0 ? 11 : 22;
-  BUILD(r, WASM_RETURN(WASM_TERNARY(WASM_GET_LOCAL(0),  // --
-                                    WASM_I8(11),      // --
-                                    WASM_I8(22))));   // --
+  BUILD(r, WASM_RETURN(WASM_EXPR_IF(WASM_GET_LOCAL(0),  // --
+                                    WASM_I8(11),        // --
+                                    WASM_I8(22))));     // --
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 11 : 22;
     CHECK_EQ(expected, r.Call(*i));
@@ -831,12 +831,12 @@ TEST(Run_Wasm_Ternary_P) {
 }
 
 
-TEST(Run_Wasm_Ternary_P_fallthru) {
+TEST(Run_Wasm_ExprIf_P_fallthru) {
   WasmRunner<int32_t> r(kMachInt32);
   // p0 ? 11 : 22;
-  BUILD(r, WASM_TERNARY(WASM_GET_LOCAL(0),  // --
-                        WASM_I8(11),      // --
-                        WASM_I8(22)));    // --
+  BUILD(r, WASM_EXPR_IF(WASM_GET_LOCAL(0),  // --
+                        WASM_I8(11),        // --
+                        WASM_I8(22)));      // --
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 11 : 22;
     CHECK_EQ(expected, r.Call(*i));
@@ -1859,3 +1859,103 @@ TEST(Run_WasmMixedCall_0) { Run_WasmMixedCall_N(0); }
 TEST(Run_WasmMixedCall_1) { Run_WasmMixedCall_N(1); }
 TEST(Run_WasmMixedCall_2) { Run_WasmMixedCall_N(2); }
 TEST(Run_WasmMixedCall_3) { Run_WasmMixedCall_N(3); }
+
+
+TEST(Run_Wasm_CountDown_expr) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_EXPR_LOOP(2, WASM_IF(WASM_NOT(WASM_GET_LOCAL(0)), 
+                                  WASM_EXPR_BREAK(0, WASM_GET_LOCAL(0))),
+                       WASM_SET_LOCAL(0, WASM_I32_SUB(WASM_GET_LOCAL(0),
+                                                      WASM_I8(1)))));
+  CHECK_EQ(0, r.Call(1));
+  CHECK_EQ(0, r.Call(10));
+  CHECK_EQ(0, r.Call(100));
+}
+
+
+TEST(Run_Wasm_ExprBlock2a) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_EXPR_BLOCK(2,
+                        WASM_IF(WASM_GET_LOCAL(0), 
+                                WASM_EXPR_BREAK(0, WASM_I8(1))),
+                        WASM_I8(1)));
+  CHECK_EQ(1, r.Call(0));
+  CHECK_EQ(1, r.Call(1));
+}
+
+
+TEST(Run_Wasm_ExprBlock2b) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_EXPR_BLOCK(2,
+                        WASM_IF(WASM_GET_LOCAL(0), 
+                                WASM_EXPR_BREAK(0, WASM_I8(1))),
+                        WASM_I8(2)));
+  CHECK_EQ(2, r.Call(0));
+  CHECK_EQ(1, r.Call(1));
+}
+
+
+TEST(Run_Wasm_ExprBlock_ManualSwitch) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_EXPR_BLOCK(6,
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(1)),
+                                WASM_EXPR_BREAK(0, WASM_I8(11))),
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(2)),
+                                WASM_EXPR_BREAK(0, WASM_I8(12))),
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(3)), 
+                                WASM_EXPR_BREAK(0, WASM_I8(13))),
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(4)), 
+                                WASM_EXPR_BREAK(0, WASM_I8(14))),
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(5)), 
+                                WASM_EXPR_BREAK(0, WASM_I8(15))),
+                        WASM_I8(99)));
+  CHECK_EQ(99, r.Call(0));
+  CHECK_EQ(11, r.Call(1));
+  CHECK_EQ(12, r.Call(2));
+  CHECK_EQ(13, r.Call(3));
+  CHECK_EQ(14, r.Call(4));
+  CHECK_EQ(15, r.Call(5));
+  CHECK_EQ(99, r.Call(6));
+}
+
+
+TEST(Run_Wasm_ExprBlock_nested_ifs) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+
+  BUILD(r, WASM_EXPR_BLOCK(1, WASM_IF_THEN(WASM_GET_LOCAL(0),
+                                           WASM_IF_THEN(WASM_GET_LOCAL(1),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(11)),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(12))),
+                                           WASM_IF_THEN(WASM_GET_LOCAL(1),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(13)),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(14))))));
+       
+
+  CHECK_EQ(11, r.Call(1, 1));
+  CHECK_EQ(12, r.Call(1, 0));
+  CHECK_EQ(13, r.Call(0, 1));
+  CHECK_EQ(14, r.Call(0, 0));
+}
+
+
+TEST(Run_Wasm_ExprLoop_nested_ifs) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+
+  BUILD(r, WASM_EXPR_LOOP(1, WASM_IF_THEN(WASM_GET_LOCAL(0),
+                                           WASM_IF_THEN(WASM_GET_LOCAL(1),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(11)),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(12))),
+                                           WASM_IF_THEN(WASM_GET_LOCAL(1),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(13)),
+                                                        WASM_EXPR_BREAK(0, WASM_I8(14))))));
+       
+
+  CHECK_EQ(11, r.Call(1, 1));
+  CHECK_EQ(12, r.Call(1, 0));
+  CHECK_EQ(13, r.Call(0, 1));
+  CHECK_EQ(14, r.Call(0, 0));
+}

@@ -85,8 +85,11 @@ typedef Signature<LocalType> FunctionSig;
   V(StoreGlobal, 0x18, _)           \
   V(CallFunction, 0x19, _)          \
   V(CallIndirect, 0x1a, _)          \
-  V(Ternary, 0x1b, _)               \
-  V(Comma, 0x1c, _)
+  V(If, 0x1b, _)                    \
+  V(Comma, 0x1c, _)                 \
+  V(Block, 0x1d, _)                 \
+  V(Loop, 0x1e, _)                  \
+  V(Break, 0x1f, _)         
 
 // Load memory expressions.
 #define FOREACH_LOAD_MEM_EXPR_OPCODE(V) \
@@ -236,7 +239,7 @@ typedef Signature<LocalType> FunctionSig;
   FOREACH_SIMPLE_EXPR_OPCODE(V)    \
   FOREACH_MISC_EXPR_OPCODE(V)      \
   FOREACH_STORE_MEM_EXPR_OPCODE(V) \
-  FOREACH_LOAD_MEM_EXPR_OPCODE(V)
+  FOREACH_LOAD_MEM_EXPR_OPCODE(V)  
 
 // All opcodes.
 #define FOREACH_OPCODE(V) \
