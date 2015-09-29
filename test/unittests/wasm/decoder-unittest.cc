@@ -1148,22 +1148,34 @@ class TestModuleEnv : public ModuleEnv {
     module = &mod;
     linker = nullptr;
     function_code = nullptr;
-    mod.functions = &functions;
     mod.globals = &globals;
+    mod.signatures = &signatures;
+    mod.functions = &functions;
   }
-  void AddFunction(FunctionSig* sig) {
-    functions.push_back({sig, 0, 0, 0, 0, 0, 0, 0, false, false});
-  }
-  void AddGlobal(MemType mem_type) {
+  byte AddGlobal(MemType mem_type) {
     globals.push_back({0, mem_type, 0, false});
+    CHECK(globals.size() <= 127);
+    return static_cast<byte>(globals.size() - 1);
+  }
+  byte AddSignature(FunctionSig* sig) {
+    signatures.push_back(sig);
+    CHECK(signatures.size() <= 127);
+    return static_cast<byte>(signatures.size() - 1);
+  }
+  byte AddFunction(FunctionSig* sig) {
+    functions.push_back({sig, 0, 0, 0, 0, 0, 0, 0, false, false});
+    CHECK(functions.size() <= 127);
+    return static_cast<byte>(functions.size() - 1);
   }
 
  private:
   WasmModule mod;
-  std::vector<WasmFunction> functions;
   std::vector<WasmGlobal> globals;
+  std::vector<FunctionSig*> signatures;
+  std::vector<WasmFunction> functions;
 };
 }
+
 
 TEST_F(WasmDecoderTest, SimpleCalls) {
   FunctionEnv* env = &env_i_i;
@@ -1257,6 +1269,63 @@ TEST_F(WasmDecoderTest, CallsWithMismatchedSigs3) {
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_I8(16)));
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_I64(16)));
   EXPECT_FAILURE_INLINE(env, WASM_CALL_FUNCTION(1, WASM_F32(17.6)));
+}
+
+
+TEST_F(WasmDecoderTest, SimpleIndirectCalls) {
+  FunctionEnv* env = &env_i_i;
+  TestModuleEnv module_env;
+  env->module = &module_env;
+
+  byte f0 = module_env.AddSignature(sigs.i_v());
+  byte f1 = module_env.AddSignature(sigs.i_i());
+  byte f2 = module_env.AddSignature(sigs.i_ii());
+
+  EXPECT_VERIFIES_INLINE(env, WASM_CALL_INDIRECT0(f0, WASM_ZERO));
+  EXPECT_VERIFIES_INLINE(env, WASM_CALL_INDIRECT(f1, WASM_ZERO, WASM_I8(22)));
+  EXPECT_VERIFIES_INLINE(env,
+                         WASM_CALL_INDIRECT(f2, WASM_ZERO, WASM_I8(32),
+                                            WASM_I8(72)));
+}
+
+
+TEST_F(WasmDecoderTest, IndirectCallsOutOfBounds) {
+  FunctionEnv* env = &env_i_i;
+  TestModuleEnv module_env;
+  env->module = &module_env;
+
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT0(0, WASM_ZERO));
+  module_env.AddSignature(sigs.i_v());
+  EXPECT_VERIFIES_INLINE(env, WASM_CALL_INDIRECT0(0, WASM_ZERO));
+
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(1, WASM_ZERO, WASM_I8(22)));
+  module_env.AddSignature(sigs.i_i());
+  EXPECT_VERIFIES_INLINE(env, WASM_CALL_INDIRECT(1, WASM_ZERO, WASM_I8(27)));
+
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(2, WASM_ZERO, WASM_I8(27)));
+}
+
+
+TEST_F(WasmDecoderTest, IndirectCallsWithMismatchedSigs3) {
+  FunctionEnv* env = &env_i_i;
+  TestModuleEnv module_env;
+  env->module = &module_env;
+
+  byte f0 = module_env.AddFunction(sigs.i_f());
+
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(f0, WASM_ZERO, WASM_I8(17)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(f0, WASM_ZERO, WASM_I64(27)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(f0, WASM_ZERO, WASM_F64(37.2)));
+
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT0(f0, WASM_I8(17)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT0(f0, WASM_I64(27)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT0(f0, WASM_F64(37.2)));
+
+  byte f1 = module_env.AddFunction(sigs.i_d());
+
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(f1, WASM_ZERO, WASM_I8(16)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(f1, WASM_ZERO, WASM_I64(16)));
+  EXPECT_FAILURE_INLINE(env, WASM_CALL_INDIRECT(f1, WASM_ZERO, WASM_F32(17.6)));
 }
 
 

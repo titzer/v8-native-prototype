@@ -64,8 +64,10 @@ struct WasmModule {
   uint8_t mem_size_log2;     // size of the memory (log base 2).
   bool mem_export;           // true if the memory is exported.
   bool mem_external;         // true if the memory is external.
-  std::vector<WasmFunction>* functions;         // functions in this module.
+
   std::vector<WasmGlobal>* globals;             // globals in this module.
+  std::vector<FunctionSig*>* signatures;        // signatures in this module.
+  std::vector<WasmFunction>* functions;         // functions in this module.
   std::vector<WasmDataSegment>* data_segments;  // data segments in this module.
 
   // Get a pointer to a string stored in the module bytes representing a name.
@@ -105,6 +107,9 @@ struct ModuleEnv {
   bool IsValidFunction(uint32_t index) {
     return module && index < module->functions->size();
   }
+  bool IsValidSignature(uint32_t index) {
+    return module && index < module->signatures->size();
+  }
   MemType GetGlobalType(uint32_t index) {
     DCHECK(IsValidGlobal(index));
     return module->globals->at(index).type;
@@ -114,8 +119,9 @@ struct ModuleEnv {
     return module->functions->at(index).sig;
   }
 
-  FunctionSig* GetFunctionTableSignature(uint32_t index) {
-    return nullptr;  // TODO(titzer): implement function tables
+  FunctionSig* GetSignature(uint32_t index) {
+    DCHECK(IsValidSignature(index));
+    return module->signatures->at(index);
   }
 
   Handle<Code> GetFunctionCode(uint32_t index);

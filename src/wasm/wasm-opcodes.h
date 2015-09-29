@@ -89,7 +89,7 @@ typedef Signature<LocalType> FunctionSig;
   V(Comma, 0x1c, _)                 \
   V(Block, 0x1d, _)                 \
   V(Loop, 0x1e, _)                  \
-  V(Break, 0x1f, _)         
+  V(Break, 0x1f, _)
 
 // Load memory expressions.
 #define FOREACH_LOAD_MEM_EXPR_OPCODE(V) \
@@ -115,7 +115,7 @@ typedef Signature<LocalType> FunctionSig;
 
 // Load memory expressions.
 #define FOREACH_MISC_MEM_EXPR_OPCODE(V) \
-  V(PageSize,   0x38, i_v)              \
+  V(PageSize, 0x38, i_v)                \
   V(ResizeMemL, 0x39, i_i)              \
   V(ResizeMemH, 0x3a, l_l)
 
@@ -159,8 +159,8 @@ typedef Signature<LocalType> FunctionSig;
   V(I64Ior, 0x63, l_ll)               \
   V(I64Xor, 0x64, l_ll)               \
   V(I64Shl, 0x65, l_ll)               \
-  V(I64ShrU, 0x66, l_ll)               \
-  V(I64ShrS, 0x67, l_ll)               \
+  V(I64ShrU, 0x66, l_ll)              \
+  V(I64ShrS, 0x67, l_ll)              \
   V(I64Eq, 0x68, i_ll)                \
   V(I64Ne, 0x69, i_ll)                \
   V(I64LtS, 0x6a, i_ll)               \
@@ -238,7 +238,7 @@ typedef Signature<LocalType> FunctionSig;
   V(F64ConvertF32, 0xb2, d_f)         \
   V(F64ReinterpretI64, 0xb3, d_l)     \
   V(I32ReinterpretF32, 0xb4, i_f)     \
-  V(I64ReinterpretF64, 0xb5, l_d)     
+  V(I64ReinterpretF64, 0xb5, l_d)
 
 // All expression opcodes.
 #define FOREACH_EXPR_OPCODE(V)     \
@@ -246,7 +246,7 @@ typedef Signature<LocalType> FunctionSig;
   FOREACH_MISC_EXPR_OPCODE(V)      \
   FOREACH_STORE_MEM_EXPR_OPCODE(V) \
   FOREACH_LOAD_MEM_EXPR_OPCODE(V)  \
-  FOREACH_MISC_MEM_EXPR_OPCODE(V)  
+  FOREACH_MISC_MEM_EXPR_OPCODE(V)
 
 // All opcodes.
 #define FOREACH_OPCODE(V) \

@@ -82,8 +82,10 @@
 #define WASM_EXPR_IF(cond, tval, fval) kExprIf, cond, tval, fval
 #define WASM_COMMA(left, right) kExprComma, left, right
 #define WASM_NOT(x) kExprBoolNot, x
-#define WASM_EXPR_BLOCK(count, ...) kExprBlock, static_cast<byte>(count), __VA_ARGS__
-#define WASM_EXPR_LOOP(count, ...) kExprLoop, static_cast<byte>(count), __VA_ARGS__
+#define WASM_EXPR_BLOCK(count, ...) \
+  kExprBlock, static_cast<byte>(count), __VA_ARGS__
+#define WASM_EXPR_LOOP(count, ...) \
+  kExprLoop, static_cast<byte>(count), __VA_ARGS__
 #define WASM_EXPR_BREAK(depth, x) kExprBreak, static_cast<byte>(depth), x
 
 //------------------------------------------------------------------------------

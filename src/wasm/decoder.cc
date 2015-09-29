@@ -391,7 +391,8 @@ class LR_WasmDecoder {
           if (depth < blocks_.size()) {
             Block* block = &blocks_[blocks_.size() - depth - 1];
             if (!block->IsLoop()) {
-              error("continue-stmt does not go to loop-stmt or loop-expression");
+              error(
+                  "continue-stmt does not go to loop-stmt or loop-expression");
             } else {
               Goto(ssa_env_, block->cont_env);
             }
@@ -410,7 +411,9 @@ class LR_WasmDecoder {
             Goto(ssa_env_, block->break_env);
             ssa_env_->state = SsaEnv::kControlEnd;
             if (!block->IsStmt()) {
-              error("break-stmt does not go to block-stmt or loop-stmt or switch");
+              error(
+                  "break-stmt does not go to block-stmt or loop-stmt or "
+                  "switch");
             }
           } else {
             error("improperly nested break");
@@ -461,30 +464,29 @@ class LR_WasmDecoder {
           break;
         }
         case kExprGetLocal: {
-          uint32_t index = LocalIndexOperand(pc_, &len);
-          TFNode* val = builder_.graph && function_env_->IsValidLocal(index)
+          uint32_t index;
+          LocalType type = LocalOperand(pc_, &index, &len);
+          TFNode* val = builder_.graph && type != kAstStmt
                             ? ssa_env_->locals[index]
                             : builder_.Error();
-          Leaf(function_env_->GetLocalType(index), val);
+          Leaf(type, val);
           break;
         }
         case kExprSetLocal: {
-          uint32_t index = LocalIndexOperand(pc_, &len);
-          LocalType type = function_env_->GetLocalType(index);
+          uint32_t index;
+          LocalType type = LocalOperand(pc_, &index, &len);
           Shift(type, 1);
           break;
         }
         case kExprLoadGlobal: {
-          uint32_t index = GlobalIndexOperand(pc_, &len);
-          LocalType type = WasmOpcodes::LocalTypeFor(
-              function_env_->module->GetGlobalType(index));
+          uint32_t index;
+          LocalType type = GlobalOperand(pc_, &index, &len);
           Leaf(type, builder_.LoadGlobal(index));
           break;
         }
         case kExprStoreGlobal: {
-          uint32_t index = GlobalIndexOperand(pc_, &len);
-          LocalType type = WasmOpcodes::LocalTypeFor(
-              function_env_->module->GetGlobalType(index));
+          uint32_t index;
+          LocalType type = GlobalOperand(pc_, &index, &len);
           Shift(type, 1);
           break;
         }
@@ -543,7 +545,7 @@ class LR_WasmDecoder {
         case kExprPageSize:
           // TODO(titzer): is this the correct constant for all platforms?
           Leaf(kAstI32, builder_.Int32Constant(
-               static_cast<int32_t>(base::OS::CommitPageSize())));
+                            static_cast<int32_t>(base::OS::CommitPageSize())));
           break;
         case kExprResizeMemL:
           Shift(kAstI32, 1);
@@ -552,7 +554,8 @@ class LR_WasmDecoder {
           Shift(kAstI64, 1);
           break;
         case kExprCallFunction: {
-          FunctionSig* sig = FunctionSigOperand(pc_, &len);
+          uint32_t unused;
+          FunctionSig* sig = FunctionSigOperand(pc_, &unused, &len);
           if (sig) {
             LocalType type =
                 sig->return_count() == 0 ? kAstStmt : sig->GetReturn();
@@ -563,7 +566,8 @@ class LR_WasmDecoder {
           break;
         }
         case kExprCallIndirect: {
-          FunctionSig* sig = FunctionTableIndexOperand(pc_, &len);
+          uint32_t unused;
+          FunctionSig* sig = SigOperand(pc_, &unused, &len);
           if (sig) {
             LocalType type = kAstI32;
             if (sig->return_count() == 1) {
@@ -621,8 +625,9 @@ class LR_WasmDecoder {
           if (depth < blocks_.size()) {
             Block* block = &blocks_[blocks_.size() - depth - 1];
             if (!block->IsExpr()) {
-              error("break-expression does not go to block-expression "
-                    "or loop-expression");
+              error(
+                  "break-expression does not go to block-expression "
+                  "or loop-expression");
             }
           } else {
             error("improperly nested break-expression");
@@ -771,9 +776,9 @@ class LR_WasmDecoder {
         if (p->done()) {
           Block* last = &blocks_.back();
           if (ssa_env_->go()) {
-            Goto(ssa_env_,
-                 opcode == kStmtLoop || opcode == kExprLoop ?
-                     last->cont_env : last->break_env);
+            Goto(ssa_env_, opcode == kStmtLoop || opcode == kExprLoop
+                               ? last->cont_env
+                               : last->break_env);
           }
           SetEnv(last->break_env);
           blocks_.pop_back();
@@ -854,9 +859,10 @@ class LR_WasmDecoder {
       }
       case kExprSetLocal: {
         int unused = 0;
-        uint32_t index = LocalIndexOperand(p->pc(), &unused);
+        uint32_t index;
+        LocalType type = LocalOperand(p->pc(), &index, &unused);
         Tree* val = p->last();
-        if (function_env_->GetLocalType(index) == val->type) {
+        if (type == val->type) {
           if (builder_.graph) ssa_env_->locals[index] = val->node;
           p->tree->node = val->node;
         } else {
@@ -866,11 +872,10 @@ class LR_WasmDecoder {
       }
       case kExprStoreGlobal: {
         int unused = 0;
-        uint32_t index = GlobalIndexOperand(p->pc(), &unused);
+        uint32_t index;
+        LocalType type = GlobalOperand(p->pc(), &index, &unused);
         Tree* val = p->last();
-        LocalType global = WasmOpcodes::LocalTypeFor(
-            function_env_->module->GetGlobalType(index));
-        if (global == val->type) {
+        if (type == val->type) {
           builder_.StoreGlobal(index, val->node);
           p->tree->node = val->node;
         } else {
@@ -924,8 +929,9 @@ class LR_WasmDecoder {
         return;
 
       case kExprCallFunction: {
-        int unused = 0;
-        FunctionSig* sig = FunctionSigOperand(p->pc(), &unused);
+        int len;
+        uint32_t index;
+        FunctionSig* sig = FunctionSigOperand(p->pc(), &index, &len);
         if (!sig) break;
         if (p->index > 0) {
           TypeCheckLast(p, sig->GetParam(p->index - 1));
@@ -933,7 +939,8 @@ class LR_WasmDecoder {
         if (p->done()) {
           uint32_t count = p->tree->count + 1;
           TFNode** buffer = builder_.Buffer(count);
-          uint32_t index = FunctionIndexOperand(p->pc(), &unused);
+          FunctionSig* sig = FunctionSigOperand(p->pc(), &index, &len);
+          USE(sig);
           buffer[0] = nullptr;  // reserved for code object.
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i - 1]->node;
@@ -943,18 +950,17 @@ class LR_WasmDecoder {
         break;
       }
       case kExprCallIndirect: {
-        int unused = 0;
-        FunctionSig* sig = FunctionTableIndexOperand(p->pc(), &unused);
+        int len;
+        uint32_t index;
         if (p->index == 1) {
           TypeCheckLast(p, kAstI32);
         } else {
-          TypeCheckLast(p, sig->GetParam(p->index));
+          FunctionSig* sig = SigOperand(p->pc(), &index, &len);
+          TypeCheckLast(p, sig->GetParam(p->index - 2));
         }
         if (p->done()) {
           uint32_t count = p->tree->count;
           TFNode** buffer = builder_.Buffer(count);
-          // TODO(titzer): function table index operand
-          uint32_t index = Operand<uint8_t>(p->pc());
           buffer[0] = nullptr;  // reserved for computed target.
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i]->node;
@@ -1046,9 +1052,8 @@ class LR_WasmDecoder {
       // merge with the existing value for this block.
       LocalType type = bp->tree->type;
       TypeCheckLast(p, type);
-      bp->tree->node = CreateOrMergeIntoPhi(type,
-                                      block->break_env->control, bp->tree->node,
-                                      expr->node);
+      bp->tree->node = CreateOrMergeIntoPhi(type, block->break_env->control,
+                                            bp->tree->node, expr->node);
     }
   }
 
@@ -1159,7 +1164,7 @@ class LR_WasmDecoder {
   }
 
   TFNode* CreateOrMergeIntoPhi(LocalType type, TFNode* merge, TFNode* tnode,
-                            TFNode* fnode) {
+                               TFNode* fnode) {
     if (!builder_.graph) return nullptr;
     if (builder_.IsPhiWithMerge(tnode, merge)) {
       builder_.AppendToPhi(merge, tnode, fnode);
@@ -1245,46 +1250,45 @@ class LR_WasmDecoder {
 
   int EnvironmentCount() {
     if (builder_.graph) return static_cast<int>(function_env_->GetLocalCount());
-    return 0;  // don't perform SSA renaming.
+    return 0;  // if we aren't building a graph, don't bother with SSA renaming.
   }
 
-  uint32_t LocalIndexOperand(const byte* pc, int* length) {
-    uint32_t index = UnsignedLEB128Operand(pc, length);
-    if (!function_env_->IsValidLocal(index)) {
-      error(pc, "invalid local variable index");
+  LocalType LocalOperand(const byte* pc, uint32_t* index, int* length) {
+    *index = UnsignedLEB128Operand(pc, length);
+    if (function_env_->IsValidLocal(*index)) {
+      return function_env_->GetLocalType(*index);
     }
-    return index;
+    error(pc, "invalid local variable index");
+    return kAstStmt;
   }
 
-  uint32_t GlobalIndexOperand(const byte* pc, int* length) {
-    uint32_t index = UnsignedLEB128Operand(pc, length);
-    if (!function_env_->module->IsValidGlobal(index)) {
-      error(pc, "invalid global variable index");
+  LocalType GlobalOperand(const byte* pc, uint32_t* index, int* length) {
+    *index = UnsignedLEB128Operand(pc, length);
+    if (function_env_->module->IsValidGlobal(*index)) {
+      return WasmOpcodes::LocalTypeFor(
+          function_env_->module->GetGlobalType(*index));
     }
-    return index;
+    error(pc, "invalid global variable index");
+    return kAstStmt;
   }
 
-  uint32_t FunctionIndexOperand(const byte* pc, int* length) {
-    uint32_t index = UnsignedLEB128Operand(pc, length);
-    if (!function_env_->module->IsValidFunction(index)) {
-      error(pc, "invalid function index");
-      return 0;
+  FunctionSig* FunctionSigOperand(const byte* pc, uint32_t* index,
+                                  int* length) {
+    *index = UnsignedLEB128Operand(pc, length);
+    if (function_env_->module->IsValidFunction(*index)) {
+      return function_env_->module->GetFunctionSignature(*index);
     }
-    return index;
+    error(pc, "invalid function index");
+    return nullptr;
   }
 
-  FunctionSig* FunctionSigOperand(const byte* pc, int* length) {
-    uint32_t index = UnsignedLEB128Operand(pc, length);
-    FunctionSig* sig = function_env_->module->GetFunctionSignature(index);
-    if (!sig) error(pc, "invalid function index");
-    return sig;
-  }
-
-  FunctionSig* FunctionTableIndexOperand(const byte* pc, int* length) {
-    uint32_t index = UnsignedLEB128Operand(pc, length);
-    FunctionSig* sig = function_env_->module->GetFunctionTableSignature(index);
-    if (!sig) error(pc, "invalid function table index");
-    return sig;
+  FunctionSig* SigOperand(const byte* pc, uint32_t* index, int* length) {
+    *index = UnsignedLEB128Operand(pc, length);
+    if (function_env_->module->IsValidSignature(*index)) {
+      return function_env_->module->GetSignature(*index);
+    }
+    error(pc, "invalid signature index");
+    return nullptr;
   }
 
   uint32_t UnsignedLEB128Operand(const byte* pc, int* length) {

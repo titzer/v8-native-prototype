@@ -138,8 +138,7 @@ void TFBuilder::AppendToMerge(TFNode* merge, TFNode* from) {
     merge->AppendInput(graph->zone(), from);
     int new_size = merge->InputCount();
     compiler::NodeProperties::ChangeOp(
-        merge,
-        graph->common()->ResizeMergeOrPhi(merge->op(), new_size));
+        merge, graph->common()->ResizeMergeOrPhi(merge->op(), new_size));
   }
 }
 
@@ -597,7 +596,7 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
 
 TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   DCHECK_NULL(args[0]);
-  UNIMPLEMENTED();
+  // TODO
   return nullptr;
 }
 
