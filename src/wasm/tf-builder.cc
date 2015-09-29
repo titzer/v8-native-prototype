@@ -795,15 +795,30 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   return node;
 }
 
-TFNode* TFBuilder::LoadMem(MemType type, TFNode* index) {
+TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index) {
   if (!graph) return nullptr;
   const compiler::Operator* op =
-      graph->machine()->CheckedLoad(MachineTypeFor(type));
+      graph->machine()->CheckedLoad(MachineTypeFor(memtype));
   TFNode* mem_buffer = MemBuffer();
   TFNode* mem_size = MemSize();
   TFNode* node = graph->graph()->NewNode(op, mem_buffer, index, mem_size,
                                          *effect, *control);
+
   *effect = node;
+
+  if (type == kAstI64 && WasmOpcodes::MemSize(memtype) < 8) {
+    // TODO(titzer): TF zeroes the upper bits of 64-bit loads for subword sizes.
+    bool sign_extend =
+        memtype == kMemI8 || memtype == kMemI16 || memtype == kMemI32;
+    if (sign_extend) {
+      node =
+          graph->graph()->NewNode(graph->machine()->ChangeInt32ToInt64(), node);
+    } else {
+      node = graph->graph()->NewNode(graph->machine()->ChangeUint32ToUint64(),
+                                     node);
+    }
+  }
+
   return node;
 }
 

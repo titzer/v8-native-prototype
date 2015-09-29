@@ -781,6 +781,22 @@ TEST(Run_Wasm_I32ReinterpretF32) {
 }
 
 
+TEST(Run_Wasm_ReturnStore) {
+  WasmRunner<int32_t> r;
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(8);
+  r.env.module = &module;
+
+  BUILD(r, WASM_STORE_MEM(kMemI32, WASM_ZERO, WASM_LOAD_MEM(kMemI32, WASM_ZERO)));
+
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i;
+    memory[0] = expected;
+    CHECK_EQ(expected, r.Call());
+  }
+}
+
+
 TEST(Run_Wasm_VoidReturn) {
   WasmRunner<void> r;
   BUILD(r, WASM_RETURN0);
@@ -1971,3 +1987,40 @@ TEST(Run_Wasm_ExprLoop_nested_ifs) {
   CHECK_EQ(13, r.Call(0, 1));
   CHECK_EQ(14, r.Call(0, 0));
 }
+
+
+#if WASM_64
+TEST(Run_Wasm_LoadStoreI64_sx) {
+  MemType memtypes[] = {kMemI8, kMemI16, kMemI32, kMemI64 };
+
+  for (size_t m = 0; m < arraysize(memtypes); m++) {
+    WasmRunner<int64_t> r;
+    TestingModule module;
+    byte* memory = module.AddMemoryElems<byte>(16);
+    r.env.module = &module;
+
+    byte code[] = {kExprI64StoreMemL, WasmOpcodes::LoadStoreAccessOf(kMemI64),
+                   kExprI8Const, 8,
+                   kExprI64LoadMemL, WasmOpcodes::LoadStoreAccessOf(memtypes[m]),
+                   kExprI8Const, 0};
+
+    r.Build(code, code + arraysize(code));
+
+    // Try a bunch of different negative values.
+    for (int i = -1; i >= -128; i -= 11) {
+      int size = 1 << m;
+      module.ZeroMemory();
+      memory[size - 1] = static_cast<byte>(i);  // set the high order byte.
+
+      int64_t expected = static_cast<int64_t>(i) << ((size - 1) * 8);
+
+      CHECK_EQ(expected, r.Call());
+      CHECK_EQ(static_cast<byte>(i), memory[8 + size - 1]);
+      for (int j = size; j < 8; j++) {
+        CHECK_EQ(255, memory[8 + j]);
+      }
+    }
+  }
+}
+
+#endif

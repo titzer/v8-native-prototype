@@ -1060,7 +1060,7 @@ class LR_WasmDecoder {
   void ReduceLoadMem(Production* p, bool high, LocalType type) {
     TypeCheckLast(p, high ? kAstI64 : kAstI32);  // index
     MemType mem_type = MemAccessTypeOperand(p->pc(), type);
-    p->tree->node = builder_.LoadMem(mem_type, p->last()->node);
+    p->tree->node = builder_.LoadMem(type, mem_type, p->last()->node);
   }
 
   void ReduceStoreMem(Production* p, bool high, LocalType type) {
@@ -1069,8 +1069,9 @@ class LR_WasmDecoder {
     } else if (p->index == 2) {
       TypeCheckLast(p, type);
       MemType mem_type = MemAccessTypeOperand(p->pc(), type);
-      p->tree->node = builder_.StoreMem(mem_type, p->tree->children[0]->node,
-                                        p->tree->children[1]->node);
+      TFNode* val = p->tree->children[1]->node;
+      builder_.StoreMem(mem_type, p->tree->children[0]->node, val);
+      p->tree->node = val;
     }
   }
 

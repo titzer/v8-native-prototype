@@ -101,7 +101,7 @@ struct TFBuilder {
   TFNode* MemSize();
   TFNode* LoadGlobal(uint32_t index);
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
-  TFNode* LoadMem(MemType type, TFNode* index);
+  TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index);
   TFNode* StoreMem(MemType type, TFNode* index, TFNode* val);
 
   static void PrintDebugName(TFNode* node);
