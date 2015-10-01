@@ -5,8 +5,8 @@
 #ifndef V8_WASM_WRAPPER_H_
 #define V8_WASM_WRAPPER_H_
 
-#include "src/wasm/wasm-module.h"
 #include "src/handles.h"
+#include "src/wasm/wasm-module.h"
 
 namespace v8 {
 namespace internal {

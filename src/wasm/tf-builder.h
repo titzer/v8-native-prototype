@@ -34,6 +34,8 @@ struct TFBuilder {
   ModuleEnv* module;
   TFNode* mem_buffer;
   TFNode* mem_size;
+  TFNode* function_table;
+  TFNode* trap;
   TFNode** control;
   TFNode** effect;
   TFNode** cur_buffer;
@@ -50,6 +52,12 @@ struct TFBuilder {
       cur_bufsize = new_size;
     }
     return cur_buffer;
+  }
+
+  TFNode** Realloc(TFNode** buffer, size_t count) {
+    TFNode** buf = Buffer(count);
+    if (buf != buffer) memcpy(buf, buffer, count * sizeof(TFNode*));
+    return buf;
   }
 
   //-----------------------------------------------------------------------
@@ -82,10 +90,6 @@ struct TFBuilder {
   void Return(unsigned count, TFNode** vals);
   void ReturnVoid();
 
-  TFNode* FunctionTableLookup(unsigned index, TFNode* offset) {
-    return nullptr;
-  }
-
   TFNode* CallDirect(uint32_t index, TFNode** args);
   TFNode* CallIndirect(uint32_t index, TFNode** args);
   void BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig* sig);
@@ -93,9 +97,11 @@ struct TFBuilder {
   TFNode* ToJS(TFNode* node, TFNode* context, LocalType type);
   TFNode* FromJS(TFNode* node, TFNode* context, LocalType type);
   TFNode* Invert(TFNode* node);
+  TFNode* FunctionTable();
+  TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
 
   //-----------------------------------------------------------------------
-  // Operations that access the mem.
+  // Operations that access the linear memory.
   //-----------------------------------------------------------------------
   TFNode* MemBuffer();
   TFNode* MemSize();
@@ -103,6 +109,9 @@ struct TFBuilder {
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
   TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index);
   TFNode* StoreMem(MemType type, TFNode* index, TFNode* val);
+
+  // Adds a branch that traps unless {cond} is true.
+  void AddTrapUnless(TFNode* cond);
 
   static void PrintDebugName(TFNode* node);
 };

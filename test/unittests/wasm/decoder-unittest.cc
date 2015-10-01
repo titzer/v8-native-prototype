@@ -8,6 +8,8 @@
 
 #include "test/cctest/wasm/test-signatures.h"
 
+#include "src/objects.h"
+
 #include "src/wasm/decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-module.h"

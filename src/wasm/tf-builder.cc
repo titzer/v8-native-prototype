@@ -7,6 +7,8 @@
 #include "src/compiler/machine-operator.h"
 #include "src/compiler/simplified-operator.h"
 
+#include "src/compiler/access-builder.h"
+
 #include "src/code-stubs.h"
 
 #include "src/compiler/linkage.h"
@@ -85,6 +87,8 @@ TFBuilder::TFBuilder(Zone* z, TFGraph* g)
       module(nullptr),
       mem_buffer(nullptr),
       mem_size(nullptr),
+      function_table(nullptr),
+      trap(nullptr),
       control(nullptr),
       effect(nullptr),
       cur_buffer(def_buffer),
@@ -162,8 +166,7 @@ TFNode* TFBuilder::Merge(unsigned count, TFNode** controls) {
 TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
                        TFNode* control) {
   if (!graph) return nullptr;
-  TFNode** buf = Buffer(count + 1);
-  if (buf != vals) memcpy(buf, vals, sizeof(TFNode*) * count);
+  TFNode** buf = Realloc(vals, count + 1);
   buf[count] = control;
   compiler::MachineType machine_type = MachineTypeFor(type);
   return graph->graph()->NewNode(graph->common()->Phi(machine_type, count),
@@ -173,8 +176,7 @@ TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
 TFNode* TFBuilder::EffectPhi(unsigned count, TFNode** effects,
                              TFNode* control) {
   if (!graph) return nullptr;
-  TFNode** buf = Buffer(count + 1);
-  if (buf != effects) memcpy(buf, effects, sizeof(TFNode*) * count);
+  TFNode** buf = Realloc(effects, count + 1);
   buf[count] = control;
   return graph->graph()->NewNode(graph->common()->EffectPhi(count), count + 1,
                                  buf);
@@ -550,8 +552,7 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   }
 
   compiler::Graph* g = graph->graph();
-  TFNode** buf = Buffer(count + 2);
-  if (buf != vals) memcpy(buf, vals, sizeof(TFNode*) * count);
+  TFNode** buf = Realloc(vals, count + 2);
   buf[count] = *effect;
   buf[count + 1] = *control;
   TFNode* ret = g->NewNode(graph->common()->Return(), count + 2, vals);
@@ -564,40 +565,92 @@ void TFBuilder::ReturnVoid() {
   Return(0, vals);
 }
 
-TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
-  DCHECK_NULL(args[0]);
-  if (!graph) return nullptr;
 
-  FunctionSig* sig = module->GetFunctionSignature(index);
+TFNode* TFBuilder::MakeWasmCall(FunctionSig* sig, TFNode** args) {
   const size_t params = sig->parameter_count();
   const size_t extra = 2;  // effect and control inputs.
   const size_t count = 1 + params + extra;
 
-  if (args != cur_buffer || cur_bufsize < count) {
-    // Reallocate the buffer to make space for extra inputs.
-    TFNode** nargs = Buffer(count);
-    memcpy(nargs + 1, args + 1, params * sizeof(TFNode**));
-    args = nargs;
-  }
+  // Reallocate the buffer to make space for extra inputs.
+  args = Realloc(args, count);
 
-  // Add code object as constant.
-  args[0] = Constant(module->GetFunctionCode(index));
   // Add effect and control inputs.
   args[params + 1] = *effect;
   args[params + 2] = *control;
 
   const compiler::Operator* op =
-      graph->common()->Call(module->GetCallDescriptor(graph->zone(), index));
+      graph->common()->Call(module->GetWasmCallDescriptor(graph->zone(), sig));
   TFNode* call = graph->graph()->NewNode(op, static_cast<int>(count), args);
 
   *effect = call;
   return call;
 }
 
-TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
+
+TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   DCHECK_NULL(args[0]);
-  // TODO
-  return nullptr;
+  if (!graph) return nullptr;
+
+  // Add code object as constant.
+  args[0] = Constant(module->GetFunctionCode(index));
+  FunctionSig* sig = module->GetFunctionSignature(index);
+
+  return MakeWasmCall(sig, args);
+}
+
+
+TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
+  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(args[0]);
+  compiler::Graph* g = graph->graph();
+  compiler::MachineOperatorBuilder* machine = graph->machine();
+
+  // Compute the code object by loading it from the function table.
+  TFNode* key = args[0];
+  TFNode* table = FunctionTable();
+
+  // Bounds check the index.
+  int table_size = static_cast<int>(module->FunctionTableSize());
+  {
+    TFNode* size = Int32Constant(static_cast<int>(table_size));
+    TFNode* in_bounds = g->NewNode(machine->Uint32LessThan(), key, size);
+    AddTrapUnless(in_bounds);
+  }
+
+  // Load signature from the table and check.
+  // The table is a FixedArray; signatures are encoded as SMIs.
+  // [sig1, sig2, sig3, ...., code1, code2, code3 ...]
+  compiler::ElementAccess access = compiler::AccessBuilder::ForFixedArrayElement();
+  const int fixed_offset = access.header_size - access.tag();
+  {
+    TFNode* load_sig = g->NewNode(machine->Load(compiler::kMachAnyTagged),
+                                  table,
+                                  g->NewNode(machine->Int32Add(),
+                                             g->NewNode(machine->Word32Shl(),
+                                                        key,
+                                                        Int32Constant(kPointerSizeLog2)),
+                                             Int32Constant(fixed_offset)),
+                                  *effect, *control);
+    TFNode* sig_match = g->NewNode(machine->WordEqual(),
+                                   load_sig,
+                                   graph->SmiConstant(index));
+    AddTrapUnless(sig_match);
+  }
+
+  // Load code object from the table.
+  int offset = fixed_offset + kPointerSize * table_size;
+  TFNode* load_code = g->NewNode(machine->Load(compiler::kMachAnyTagged), 
+                                 table,
+                                 g->NewNode(machine->Int32Add(),
+                                            g->NewNode(machine->Word32Shl(),
+                                                       key,
+                                                       Int32Constant(kPointerSizeLog2)),
+                                            Int32Constant(offset)),
+                                 *effect, *control);
+  
+  args[0] = load_code;
+  FunctionSig* sig = module->GetSignature(index);
+  return MakeWasmCall(sig, args);
 }
 
 TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
@@ -768,6 +821,12 @@ TFNode* TFBuilder::MemSize() {
   return mem_size;
 }
 
+TFNode* TFBuilder::FunctionTable() {
+  if (!function_table)
+    function_table = graph->Constant(module->function_table);
+  return function_table;
+}
+
 TFNode* TFBuilder::LoadGlobal(uint32_t index) {
   if (!graph) return nullptr;
   MemType mem_type = module->GetGlobalType(index);
@@ -836,6 +895,51 @@ TFNode* TFBuilder::StoreMem(MemType type, TFNode* index, TFNode* val) {
 
 void TFBuilder::PrintDebugName(TFNode* node) {
   PrintF("#%d:%s", node->id(), node->op()->mnemonic());
+}
+
+
+void TFBuilder::AddTrapUnless(TFNode* cond) {
+  compiler::Graph* g = graph->graph();
+  TFNode* branch = g->NewNode(graph->common()->Branch(compiler::BranchHint::kTrue),
+                              cond, *control);
+
+  TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
+  if (trap == nullptr) {
+    // First trap.
+
+    /****
+         TODO: Insert a runtime call to throw a JS exception.
+         Runtime::Function const* function =
+         Runtime::FunctionForId(Runtime::kThrow);
+         CallDescriptor const* descriptor = Linkage::GetRuntimeCallDescriptor(
+         zone(), function->function_id, 1, Operator::kNoProperties);
+    ****/
+    TFNode* call_rt = if_false;  // TODO
+
+    // Add a return zero, even though the runtime should never really return.
+    TFNode* ret_zero = g->NewNode(graph->common()->Return(),
+                                  graph->Int32Constant(0xdeadbeef), *effect, call_rt);
+
+    /****
+         TODO: Insert a throw to end the block.
+    TFNode* thrw = g->NewNode(graph->common()->Throw(),
+                              graph->ZeroConstant(), *effect, ret_zero);
+
+    ****/
+    MergeControlToEnd(graph, trap = ret_zero);
+  } else {
+    if (trap->opcode() != compiler::IrOpcode::kMerge) {
+      // Second trap. Introduce a merge.
+      TFNode* merge = g->NewNode(graph->common()->Merge(2), trap->InputAt(2),
+                                 if_false);
+      trap->ReplaceInput(2, merge);  // replace control input to throw.
+      trap = merge;
+    } else {
+      // Third or moreth trap. Append to the merge.
+      AppendToMerge(trap, if_false);
+    }
+  }
+  *control = g->NewNode(graph->common()->IfTrue(), branch);
 }
 }
 }

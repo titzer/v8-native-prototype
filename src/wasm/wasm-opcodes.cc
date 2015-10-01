@@ -148,8 +148,8 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI64Ior:
     case kExprI64Xor:
     case kExprI64Shl:
-    case kExprI64Shr:
-    case kExprI64Sar:
+    case kExprI64ShrU:
+    case kExprI64ShrS:
     case kExprI64Eq:
     case kExprI64Ne:
     case kExprI64LtS:

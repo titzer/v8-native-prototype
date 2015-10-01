@@ -62,6 +62,7 @@ class TestingModule : public ModuleEnv {
     }
     if (module) {
       if (module->globals) delete module->globals;
+      if (module->signatures) delete module->signatures;
       if (module->functions) delete module->functions;
       if (globals_area) free(reinterpret_cast<byte*>(globals_area));
       delete module;
@@ -91,6 +92,16 @@ class TestingModule : public ModuleEnv {
     return reinterpret_cast<T*>(globals_area + global->offset);
   }
 
+  byte AddSignature(FunctionSig* sig) {
+    AllocModule();
+    if (!module->signatures) {
+      module->signatures = new std::vector<FunctionSig*>();
+    }
+    module->signatures->push_back(sig);
+    size_t size = module->signatures->size();
+    CHECK(size < 127);
+    return static_cast<byte>(size - 1);
+  }
 
   template <typename T>
   T* raw_mem_start() {
@@ -1734,69 +1745,6 @@ TEST(Run_WasmCall_Float64Sub) {
 }
 
 
-//==========================================================
-// TODO(titzer): move me to test-run-wasm-module.cc
-//==========================================================
-static const int kModuleHeaderSize = 8;
-static const int kFunctionSize = 24;
-#define MODULE_HEADER(globals_count, functions_count, data_segments_count) \
-  16, 0, static_cast<uint8_t>(globals_count),                              \
-      static_cast<uint8_t>(globals_count >> 8),                            \
-      static_cast<uint8_t>(functions_count),                               \
-      static_cast<uint8_t>(functions_count >> 8),                          \
-      static_cast<uint8_t>(data_segments_count),                           \
-      static_cast<uint8_t>(data_segments_count >> 8)
-
-
-TEST(Run_WasmModule_CallAdd_rev) {
-  static const byte kCodeStartOffset0 =
-      kModuleHeaderSize + 2 + kFunctionSize * 2;
-  static const byte kCodeEndOffset0 = kCodeStartOffset0 + 6;
-  static const byte kCodeStartOffset1 = kCodeEndOffset0;
-  static const byte kCodeEndOffset1 = kCodeEndOffset0 + 7;
-  static const byte data[] = {
-      MODULE_HEADER(0, 2, 0),  // globals, functions, data segments
-      // func#0 (main) ----------------------------------
-      0, kAstI32,                // signature: void -> int
-      0, 0, 0, 0,                  // name offset
-      kCodeStartOffset1, 0, 0, 0,  // code start offset
-      kCodeEndOffset1, 0, 0, 0,    // code end offset
-      0, 0,                        // local int32 count
-      0, 0,                        // local int64 count
-      0, 0,                        // local float32 count
-      0, 0,                        // local float64 count
-      1,                           // exported
-      0,                           // external
-      // func#1 -----------------------------------------
-      2, kAstI32, kAstI32, kAstI32,  // signature: int,int -> int
-      0, 0, 0, 0,                          // name offset
-      kCodeStartOffset0, 0, 0, 0,          // code start offset
-      kCodeEndOffset0, 0, 0, 0,            // code end offset
-      0, 0,                                // local int32 count
-      0, 0,                                // local int64 count
-      0, 0,                                // local float32 count
-      0, 0,                                // local float64 count
-      0,                                   // exported
-      0,                                   // external
-      // body#0 -----------------------------------------
-      kStmtReturn,       // --
-      kExprI32Add,     // --
-      kExprGetLocal, 0,  // --
-      kExprGetLocal, 1,  // --
-      // body#1 -----------------------------------------
-      kStmtReturn,           // --
-      kExprCallFunction, 1,  // --
-      kExprI8Const, 77,    // --
-      kExprI8Const, 22     // --
-  };
-
-  Isolate* isolate = CcTest::InitIsolateOnce();
-  int32_t result =
-      CompileAndRunWasmModule(isolate, data, data + arraysize(data));
-  CHECK_EQ(99, result);
-}
-
-
 #define ADD_CODE(vec, ...)                                              \
   do {                                                                  \
     byte __buf[] = {__VA_ARGS__};                                       \
@@ -2022,5 +1970,48 @@ TEST(Run_Wasm_LoadStoreI64_sx) {
     }
   }
 }
-
 #endif
+
+
+TEST(Run_Wasm_SimpleCallIndirect) {
+  Isolate* isolate = CcTest::InitIsolateOnce();
+
+  WasmRunner<int32_t> r(kMachInt32);
+  TestingModule module;
+  r.env.module = &module;
+  WasmFunctionCompiler t1(r.sigs.i_ii());
+  BUILD(t1, WASM_RETURN(WASM_I32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+  t1.CompileAndAdd(&module);
+
+  WasmFunctionCompiler t2(r.sigs.i_ii());
+  BUILD(t2, WASM_RETURN(WASM_I32_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+  t2.CompileAndAdd(&module);
+
+  // Signature table.
+  module.AddSignature(r.sigs.f_ff());
+  module.AddSignature(r.sigs.i_ii());
+  module.AddSignature(r.sigs.d_dd());
+
+  // Function table.
+  int table_size = 2;
+  std::vector<uint16_t> function_table;
+  module.module->function_table = &function_table;
+  module.module->function_table->push_back(0);
+  module.module->function_table->push_back(1);
+
+  // Function table.
+  Handle<FixedArray> fixed = isolate->factory()->NewFixedArray(2 * table_size);
+  fixed->set(0, Smi::FromInt(1));
+  fixed->set(1, Smi::FromInt(1));
+  fixed->set(2, *module.function_code->at(0));
+  fixed->set(3, *module.function_code->at(1));
+  module.function_table = fixed;
+  
+  // Builder the caller function.
+  BUILD(r, WASM_RETURN(WASM_CALL_INDIRECT(1, WASM_GET_LOCAL(0), WASM_I8(66),
+                                          WASM_I8(22))));
+
+  CHECK_EQ(88, r.Call(0));
+  CHECK_EQ(44, r.Call(1));
+  CHECK_EQ(0xdeadbeef, r.Call(2));  // TODO: that should be a trap.
+}

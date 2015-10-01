@@ -5,6 +5,7 @@
 #include "src/signature.h"
 
 #include "src/v8.h"
+#include "src/handles.h"
 #include "src/zone-containers.h"
 
 #include "src/wasm/encoder.h"

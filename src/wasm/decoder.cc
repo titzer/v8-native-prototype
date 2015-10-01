@@ -961,8 +961,7 @@ class LR_WasmDecoder {
         if (p->done()) {
           uint32_t count = p->tree->count;
           TFNode** buffer = builder_.Buffer(count);
-          buffer[0] = nullptr;  // reserved for computed target.
-          for (int i = 1; i < count; i++) {
+          for (int i = 0; i < count; i++) {
             buffer[i] = p->tree->children[i]->node;
           }
           p->tree->node = builder_.CallIndirect(index, buffer);

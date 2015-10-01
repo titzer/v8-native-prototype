@@ -8,6 +8,8 @@
 #include "wasm-opcodes.h"
 #include "wasm-result.h"
 
+#include "src/handles.h"
+
 namespace v8 {
 namespace internal {
 
@@ -69,6 +71,7 @@ struct WasmModule {
   std::vector<FunctionSig*>* signatures;        // signatures in this module.
   std::vector<WasmFunction>* functions;         // functions in this module.
   std::vector<WasmDataSegment>* data_segments;  // data segments in this module.
+  std::vector<uint16_t>* function_table;         // function table.
 
   // Get a pointer to a string stored in the module bytes representing a name.
   const char* GetName(uint32_t offset) {
@@ -100,6 +103,7 @@ struct ModuleEnv {
   WasmModule* module;
   WasmLinker* linker;
   std::vector<Handle<Code>>* function_code;
+  Handle<FixedArray> function_table;
 
   bool IsValidGlobal(uint32_t index) {
     return module && index < module->globals->size();
@@ -118,13 +122,16 @@ struct ModuleEnv {
     DCHECK(IsValidFunction(index));
     return module->functions->at(index).sig;
   }
-
   FunctionSig* GetSignature(uint32_t index) {
     DCHECK(IsValidSignature(index));
     return module->signatures->at(index);
   }
+  size_t FunctionTableSize() {
+    return module ? module->function_table->size() : 0;
+  }
 
   Handle<Code> GetFunctionCode(uint32_t index);
+  Handle<FixedArray> GetFunctionTable();
 
   compiler::CallDescriptor* GetWasmCallDescriptor(Zone* zone, FunctionSig* sig);
   compiler::CallDescriptor* GetCallDescriptor(Zone* zone, uint32_t index);

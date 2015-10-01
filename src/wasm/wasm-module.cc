@@ -277,17 +277,21 @@ class ModuleDecoder {
     module->mem_size_log2 = 0;
     module->mem_export = false;
     module->mem_external = false;
-    module->functions = new std::vector<WasmFunction>();
     module->globals = new std::vector<WasmGlobal>();
+    module->signatures = new std::vector<FunctionSig*>();
+    module->functions = new std::vector<WasmFunction>();
     module->data_segments = new std::vector<WasmDataSegment>();
+    module->function_table = new std::vector<uint16_t>();
 
     // Decode the module header.
     module->mem_size_log2 = u8();    // read the memory size
     module->mem_export = u8() != 0;  // read memory export option
 
-    uint32_t globals_count = u16();        // read number of globals
-    uint32_t functions_count = u16();      // read number of functions
-    uint32_t data_segments_count = u16();  // read number of data segments
+    uint32_t globals_count = u16();            // read number of globals
+    uint32_t signatures_count = 0/*TODO*/;     // read number of signatures
+    uint32_t functions_count = u16();          // read number of functions
+    uint32_t data_segments_count = u16();      // read number of data segments
+    uint32_t function_table_size = 0/*TODO*/;  // read size of function table
 
     // Decode globals.
     for (uint32_t i = 0; i < globals_count; i++) {
@@ -295,6 +299,13 @@ class ModuleDecoder {
       module->globals->push_back({0, kMemI32, 0, false});
       WasmGlobal* global = &module->globals->back();
       DecodeGlobalInModule(global);
+    }
+
+    // Decode signatures.
+    for (uint32_t i = 0; i < signatures_count; i++) {
+      if (result_.failed()) break;
+      FunctionSig* s = sig();                // read function sig.
+      module->signatures->push_back(s);
     }
 
     // Set up module environment for verification.
@@ -323,6 +334,17 @@ class ModuleDecoder {
       module->data_segments->push_back({0, 0, 0});
       WasmDataSegment* segment = &module->data_segments->back();
       DecodeDataSegmentInModule(segment);
+    }
+
+    // Decode function table.
+    for (uint32_t i = 0; i < function_table_size; i++) {
+      if (result_.failed()) break;
+      uint16_t index = u16();
+      if (index >= functions_count) {
+        error(cur_ - 2, "invalid function index");
+        break;
+      }
+      module->function_table->push_back(index);
     }
 
     return result_;
