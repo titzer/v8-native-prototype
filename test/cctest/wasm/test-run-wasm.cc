@@ -543,6 +543,23 @@ void TestInt32Binop(WasmOpcode opcode, int32_t expected, int32_t a, int32_t b) {
 }
 
 
+void TestInt32Unop(WasmOpcode opcode, int32_t expected, int32_t a) {
+  {
+    WasmRunner<int32_t> r;
+    // return op K
+    BUILD(r, WASM_RETURN(WASM_UNOP(opcode, WASM_I32(a))));
+    CHECK_EQ(expected, r.Call());
+  }
+  {
+    WasmRunner<int32_t> r(kMachInt32);
+    // return a op b
+    BUILD(r, WASM_RETURN(
+                 WASM_UNOP(opcode, WASM_GET_LOCAL(0))));
+    CHECK_EQ(expected, r.Call(a));
+  }
+}
+
+
 TEST(Run_WasmInt32Binops) {
   TestInt32Binop(kExprI32Add, 88888888, 33333333, 55555555);
   TestInt32Binop(kExprI32Sub, -1111111, 7777777, 8888888);
@@ -571,6 +588,10 @@ TEST(Run_WasmInt32Binops) {
   TestInt32Binop(kExprI32GeU, 1, 0xF0000000, 98978);
 }
 
+
+TEST(Run_WasmInt32Unops) {
+  TestInt32Unop(kExprI32Clz, 5, 0x04000000);
+}
 
 #if WASM_64
 void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b) {
