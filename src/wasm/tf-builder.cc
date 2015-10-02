@@ -814,17 +814,20 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
 }
 
 TFNode* TFBuilder::MemBuffer() {
+  if (!graph) return nullptr;
   if (!mem_buffer) mem_buffer = graph->IntPtrConstant(module->mem_start);
   return mem_buffer;
 }
 
 TFNode* TFBuilder::MemSize() {
+  if (!graph) return nullptr;
   if (!mem_size)
     mem_size = graph->IntPtrConstant(module->mem_end - module->mem_start);
   return mem_size;
 }
 
 TFNode* TFBuilder::FunctionTable() {
+  if (!graph) return nullptr;
   if (!function_table)
     function_table = graph->Constant(module->function_table);
   return function_table;

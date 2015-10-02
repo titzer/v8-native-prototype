@@ -422,6 +422,16 @@ TEST(Run_WasmPageSize) {
 }
 
 
+TEST(Run_WasmMemorySize) {
+  WasmRunner<int32_t> r;
+  TestingModule module;
+  module.AddMemory(1024);
+  r.env.module = &module;
+  BUILD(r, kExprMemorySize);
+  CHECK_EQ(1024, r.Call());
+}
+
+
 #if WASM_64
 TEST(Run_WasmInt64Const) {
   WasmRunner<int64_t> r;

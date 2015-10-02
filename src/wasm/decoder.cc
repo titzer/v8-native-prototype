@@ -547,6 +547,9 @@ class LR_WasmDecoder {
           Leaf(kAstI32, builder_.Int32Constant(
                             static_cast<int32_t>(base::OS::CommitPageSize())));
           break;
+        case kExprMemorySize:
+          Leaf(kAstI32, builder_.MemSize());
+          break;
         case kExprResizeMemL:
           Shift(kAstI32, 1);
           break;

@@ -1036,6 +1036,13 @@ TEST_F(WasmDecoderTest, PageSize) {
 }
 
 
+TEST_F(WasmDecoderTest, MemorySize) {
+  byte code[] = {kExprMemorySize};
+  EXPECT_VERIFIES(&env_i_i, code);
+  EXPECT_FAILURE(&env_f_ff, code);
+}
+
+
 TEST_F(WasmDecoderTest, ResizeMemL) {
   byte code[] = {kExprResizeMemL, kExprGetLocal, 0};
   EXPECT_VERIFIES(&env_i_i, code);
