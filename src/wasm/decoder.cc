@@ -378,7 +378,7 @@ class LR_WasmDecoder {
             Shift(kAstStmt, length);
             PrepareForLoop(ssa_env_);
             SsaEnv* cont_env = ssa_env_;
-            ssa_env_ = Split(ssa_env_);
+            SetEnv(Split(ssa_env_));
             ssa_env_->state = SsaEnv::kReached;
             SsaEnv* break_env = UnreachableEnv();
             PushBlock(cont_env, break_env);

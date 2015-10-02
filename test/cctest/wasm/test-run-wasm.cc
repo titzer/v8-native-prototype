@@ -1332,6 +1332,18 @@ TEST(Build_Wasm_Infinite_Loop) {
 }
 
 
+TEST(Build_Wasm_Infinite_Loop_effect) {
+  WasmRunner<int32_t> r(kMachInt32);
+  TestingModule module;
+  module.AddMemoryElems<int8_t>(16);
+  r.env.module = &module;
+
+  // Only build the graph and compile, don't run.
+  BUILD(r, WASM_LOOP(1, WASM_LOAD_MEM(kMemI32, WASM_ZERO)));
+  r.GenerateCode();
+}
+
+
 TEST(Run_Wasm_Infinite_Loop_not_taken1) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_INFINITE_LOOP,
