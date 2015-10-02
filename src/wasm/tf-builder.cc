@@ -494,6 +494,9 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprI32ReinterpretF32:
       op = m->BitcastFloat32ToInt32();
       break;
+    case kExprI32Clz:
+      op = m->Word32Clz();
+      break;
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
