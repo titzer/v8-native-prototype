@@ -1801,14 +1801,14 @@ void Run_WasmMixedCall_N(int start) {
   TestSignatures sigs;
 
 #if WASM_64
-  static MemType mixed[] = {kMemI32,   kMemF32, kMemI64, kMemF64,
-                            kMemF32, kMemI64,   kMemI32, kMemF64,
-                            kMemF32, kMemF64, kMemI32, kMemI64,
-                            kMemI32,   kMemI32};
+  static MemType mixed[] = {kMemI32, kMemF32, kMemI64, kMemF64,
+			    kMemF32, kMemI64, kMemI32, kMemF64,
+			    kMemF32, kMemF64, kMemI32, kMemI64,
+                            kMemI32, kMemI32};
 #else
   static MemType mixed[] = {kMemI32, kMemF32, kMemF64, kMemF32,
                             kMemI32, kMemF64, kMemF32, kMemF64,
-                            kMemI32, kMemI32,   kMemI32};
+                            kMemI32, kMemI32, kMemI32};
 #endif
 
   int num_params = static_cast<int>(arraysize(mixed)) - start;
@@ -1858,7 +1858,7 @@ void Run_WasmMixedCall_N(int start) {
     }
 
     // Run the code.
-    for (int i = 0; i < 10; i++) {
+    for (int t = 0; t < 10; t++) {
       module.RandomizeMemory();
       CHECK_EQ(kExpected, r.Call());
 

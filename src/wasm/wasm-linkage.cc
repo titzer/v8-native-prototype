@@ -265,7 +265,7 @@ CallDescriptor* ModuleEnv::GetWasmCallDescriptor(Zone* zone,
       target_loc,                         // target location
       msig.Build(),                       // machine_sig
       locations.Build(),                  // location_sig
-      0,                                  // js_parameter_count
+      params.stack_offset,                // stack_parameter_count
       compiler::Operator::kNoProperties,  // properties
       kCalleeSaveRegisters,               // callee-saved registers
       kCalleeSaveFPRegisters,             // callee-saved fp regs
