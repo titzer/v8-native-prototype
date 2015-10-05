@@ -18,7 +18,7 @@ namespace internal {
 namespace wasm {
 
 
-class WasmFunctionEncoder {
+class WasmFunctionEncoder : public ZoneObject {
  public:
   uint32_t HeaderSize(void) const;
   uint32_t BodySize(void) const;
@@ -27,11 +27,8 @@ class WasmFunctionEncoder {
   ~WasmFunctionEncoder();
 
  private:
-  WasmFunctionEncoder(uint8_t return_type, const ZoneVector<uint8_t>& params,
-                      uint16_t local_int32_count, uint16_t local_int64_count,
-                      uint16_t local_float32_count,
-                      uint16_t local_float64_count, uint8_t exported,
-                      uint8_t external, const ZoneVector<uint8_t>& body);
+  WasmFunctionEncoder(Zone* z, uint8_t return_type, uint8_t exported,
+                      uint8_t external);
   friend class WasmFunctionBuilder;
   uint8_t return_type_;
   ZoneVector<uint8_t> params_;
@@ -47,32 +44,34 @@ class WasmFunctionEncoder {
   void SerializeFunctionBody(byte* buffer, uint32_t body_begin) const;
 };
 
-class WasmFunctionBuilder {
+class WasmFunctionBuilder : public ZoneObject {
  public:
-  WasmFunctionBuilder(Zone*);
-  void AddParam(uint8_t);
+  uint16_t AddParam(uint8_t);
+  uint16_t AddLocal(uint8_t);
   void ReturnType(uint8_t);
   void AddBody(const byte*, uint32_t);
+  void AddBody(const byte*, uint32_t, const uint32_t*, uint32_t);
   void Exported(uint8_t);
   void External(uint8_t);
-  void LocalInt32Count(uint16_t);
-  WasmFunctionEncoder Build(void) const;
+  WasmFunctionEncoder* Build(Zone*) const;
 
   ~WasmFunctionBuilder();
 
  private:
+  WasmFunctionBuilder(Zone*);
+  friend class WasmModuleBuilder;
+  struct Type;
   uint8_t return_type_;
-  ZoneVector<uint8_t> params_;
-  uint16_t local_int32_count_;
-  uint16_t local_int64_count_;
-  uint16_t local_float32_count_;
-  uint16_t local_float64_count_;
+  ZoneVector<Type> locals_;
   uint8_t exported_;
   uint8_t external_;
   ZoneVector<uint8_t> body_;
+  ZoneVector<uint32_t> local_indices_;
+  uint16_t AddVar(uint8_t, bool);
+  void IndexVars(WasmFunctionEncoder*, uint16_t*) const;
 };
 
-class WasmDataSegmentEncoder {
+class WasmDataSegmentEncoder : public ZoneObject {
  public:
   WasmDataSegmentEncoder(Zone*, const byte*, uint32_t, uint32_t);
   uint32_t HeaderSize() const;
@@ -86,7 +85,7 @@ class WasmDataSegmentEncoder {
   uint32_t dest_;
 };
 
-class WasmModuleIndex {
+class WasmModuleIndex : public ZoneObject {
  public:
   const byte* Begin() const { return begin_; }
   const byte* End() const { return end_; }
@@ -94,26 +93,44 @@ class WasmModuleIndex {
   ~WasmModuleIndex();
 
  private:
-  friend class WasmModuleBuilder;
+  friend class WasmModuleWriter;
   WasmModuleIndex(const byte* begin, const byte* end)
       : begin_(begin), end_(end) {}
   const byte* begin_;
   const byte* end_;
 };
 
-class WasmModuleBuilder {
+class WasmModuleWriter : public ZoneObject {
+ public:
+  WasmModuleIndex* WriteTo(Zone*) const;
+
+  ~WasmModuleWriter();
+
+ private:
+  friend class WasmModuleBuilder;
+  WasmModuleWriter(Zone*);
+  ZoneVector<WasmFunctionEncoder*> functions_;
+  ZoneVector<WasmDataSegmentEncoder*> data_segments_;
+};
+
+class WasmModuleBuilder : public ZoneObject {
  public:
   WasmModuleBuilder(Zone*);
-  void AddFunction(const WasmFunctionEncoder&);
-  void AddDataSegment(const WasmDataSegmentEncoder&);
-  WasmModuleIndex BuildAndWrite(Zone*) const;
+  uint16_t AddFunction();
+  WasmFunctionBuilder* FunctionAt(uint8_t);
+  void AddDataSegment(WasmDataSegmentEncoder*);
+  WasmModuleWriter* Build(Zone*) const;
 
   ~WasmModuleBuilder();
 
  private:
-  ZoneVector<WasmFunctionEncoder> functions_;
-  ZoneVector<WasmDataSegmentEncoder> data_segments_;
+  Zone* zone_;
+  ZoneVector<WasmFunctionBuilder*> functions_;
+  ZoneVector<WasmDataSegmentEncoder*> data_segments_;
 };
+
+std::vector<uint8_t> UnsignedLEB128From(uint32_t);
+
 }
 }
 }

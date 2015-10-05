@@ -104,6 +104,12 @@ inline TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env,
                                const byte* start, const byte* end) {
   return BuildTFGraph(graph, env, nullptr, start, end);
 }
+
+enum ReadUnsignedLEB128ErrorCode {kNoError, kInvalidLEB128, kMissingLEB128};
+
+ReadUnsignedLEB128ErrorCode
+    ReadUnsignedLEB128Operand(const byte*, const byte*, int*, uint32_t*);
+
 }
 }
 }

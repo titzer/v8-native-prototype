@@ -41,12 +41,12 @@ MachineType MachineTypeFor(LocalType type) {
 
 // Platform-specific configuration for C calling convention.
 LinkageLocation regloc(Register reg) {
-  return LinkageLocation::ForRegister(Register::ToAllocationIndex(reg));
+  return LinkageLocation::ForRegister(reg.code());
 }
 
 
 LinkageLocation regloc(DoubleRegister reg) {
-  return LinkageLocation::ForRegister(DoubleRegister::ToAllocationIndex(reg));
+  return LinkageLocation::ForRegister(reg.code());
 }
 
 
