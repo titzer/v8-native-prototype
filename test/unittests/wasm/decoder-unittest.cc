@@ -84,7 +84,7 @@ class WasmDecoderTest : public TestWithZone {
   FunctionEnv env_f_ff;
   FunctionEnv env_d_dd;
 
-  void init_env(FunctionEnv* env, FunctionSig* sig) {
+  static void init_env(FunctionEnv* env, FunctionSig* sig) {
     env->module = nullptr;
     env->sig = sig;
     env->local_int32_count = 0;
@@ -1612,14 +1612,14 @@ TEST_F(WasmDecoderTest, ExprBreak_TypeCheckAll) {
                                  WASM_IF(WASM_ZERO,
                                          WASM_EXPR_BREAK(0, WASM_GET_LOCAL(0))),
                                  WASM_GET_LOCAL(1))};
-  
+
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
       FunctionEnv env;
       LocalType storage[] = {kLocalTypes[i], kLocalTypes[i], kLocalTypes[j]};
       FunctionSig sig(1, 2, storage);
       init_env(&env, &sig);
-      
+
       if (i == j) EXPECT_VERIFIES(&env, code);
       if (i != j) EXPECT_FAILURE(&env, code);
     }
@@ -1680,8 +1680,483 @@ TEST_F(WasmDecoderTest, ExprBreakNesting1) {
                          WASM_LOOP(1, WASM_BREAK(0)));
 }
 
+class WasmOpcodeLengthTest : public TestWithZone {
+ public:
+  WasmOpcodeLengthTest() : TestWithZone() { }
+};
 
 
+#define EXPECT_LENGTH(expected, opcode) {				\
+    static const byte code[] = { opcode, 0, 0, 0, 0, 0, 0, 0, 0 };	\
+    EXPECT_EQ(expected, OpcodeLength(code));				\
+  }
+
+
+TEST_F(WasmOpcodeLengthTest, Statements) {
+  EXPECT_LENGTH(1, kStmtNop);
+  EXPECT_LENGTH(1, kStmtIf);
+  EXPECT_LENGTH(1, kStmtIfThen);
+  EXPECT_LENGTH(2, kStmtBlock);
+  EXPECT_LENGTH(2, kStmtSwitch);
+  EXPECT_LENGTH(2, kStmtSwitchNf);
+  EXPECT_LENGTH(2, kStmtLoop);
+  EXPECT_LENGTH(2, kStmtContinue);
+  EXPECT_LENGTH(2, kStmtBreak);
+  EXPECT_LENGTH(1, kStmtReturn);
+}
+
+
+TEST_F(WasmOpcodeLengthTest, MiscExpressions) {
+  EXPECT_LENGTH(2, kExprI8Const);
+  EXPECT_LENGTH(5, kExprI32Const);
+  EXPECT_LENGTH(5, kExprF32Const);
+  EXPECT_LENGTH(9, kExprI64Const);
+  EXPECT_LENGTH(9, kExprF64Const);
+  EXPECT_LENGTH(2, kExprGetLocal);
+  EXPECT_LENGTH(2, kExprSetLocal);
+  EXPECT_LENGTH(2, kExprLoadGlobal);
+  EXPECT_LENGTH(2, kExprStoreGlobal);
+  EXPECT_LENGTH(2, kExprCallFunction);
+  EXPECT_LENGTH(2, kExprCallIndirect);
+  EXPECT_LENGTH(1, kExprIf);
+  EXPECT_LENGTH(1, kExprComma);
+  EXPECT_LENGTH(2, kExprBlock);
+  EXPECT_LENGTH(2, kExprLoop);
+  EXPECT_LENGTH(2, kExprBreak);
+}
+
+
+TEST_F(WasmOpcodeLengthTest, VariableLength) {
+  byte size2[] = {kExprLoadGlobal, 1};
+  byte size3[] = {kExprLoadGlobal, 1|0x80, 2};
+  byte size4[] = {kExprLoadGlobal, 1|0x80, 2|0x80, 3};
+  byte size5[] = {kExprLoadGlobal, 1|0x80, 2|0x80, 3|0x80, 4};
+  byte size6[] = {kExprLoadGlobal, 1|0x80, 2|0x80, 3|0x80, 4|0x80, 5};
+
+  EXPECT_EQ(2, OpcodeLength(size2));
+  EXPECT_EQ(3, OpcodeLength(size3));
+  EXPECT_EQ(4, OpcodeLength(size4));
+  EXPECT_EQ(5, OpcodeLength(size5));
+  EXPECT_EQ(6, OpcodeLength(size6));
+}
+
+
+TEST_F(WasmOpcodeLengthTest, LoadsAndStores) {
+  EXPECT_LENGTH(2, kExprI32LoadMemL);
+  EXPECT_LENGTH(2, kExprI64LoadMemL);
+  EXPECT_LENGTH(2, kExprF32LoadMemL);
+  EXPECT_LENGTH(2, kExprF64LoadMemL);
+
+  EXPECT_LENGTH(2, kExprI32StoreMemL);
+  EXPECT_LENGTH(2, kExprI64StoreMemL);
+  EXPECT_LENGTH(2, kExprF32StoreMemL);
+  EXPECT_LENGTH(2, kExprF64StoreMemL);
+
+  EXPECT_LENGTH(2, kExprI32LoadMemH);
+  EXPECT_LENGTH(2, kExprI64LoadMemH);
+  EXPECT_LENGTH(2, kExprF32LoadMemH);
+  EXPECT_LENGTH(2, kExprF64LoadMemH);
+
+  EXPECT_LENGTH(2, kExprI32StoreMemH);
+  EXPECT_LENGTH(2, kExprI64StoreMemH);
+  EXPECT_LENGTH(2, kExprF32StoreMemH);
+  EXPECT_LENGTH(2, kExprF64StoreMemH);
+}
+
+
+TEST_F(WasmOpcodeLengthTest, MiscMemExpressions) {
+  EXPECT_LENGTH(1, kExprPageSize);
+  EXPECT_LENGTH(1, kExprMemorySize);
+  EXPECT_LENGTH(1, kExprResizeMemL);
+  EXPECT_LENGTH(1, kExprResizeMemH);
+}
+
+
+TEST_F(WasmOpcodeLengthTest, SimpleExpressions) {
+  EXPECT_LENGTH(1, kExprI32Add);
+  EXPECT_LENGTH(1, kExprI32Sub);
+  EXPECT_LENGTH(1, kExprI32Mul);
+  EXPECT_LENGTH(1, kExprI32DivS);
+  EXPECT_LENGTH(1, kExprI32DivU);
+  EXPECT_LENGTH(1, kExprI32RemS);
+  EXPECT_LENGTH(1, kExprI32RemU);
+  EXPECT_LENGTH(1, kExprI32And);
+  EXPECT_LENGTH(1, kExprI32Ior);
+  EXPECT_LENGTH(1, kExprI32Xor);
+  EXPECT_LENGTH(1, kExprI32Shl);
+  EXPECT_LENGTH(1, kExprI32ShrU);
+  EXPECT_LENGTH(1, kExprI32ShrS);
+  EXPECT_LENGTH(1, kExprI32Eq);
+  EXPECT_LENGTH(1, kExprI32Ne);
+  EXPECT_LENGTH(1, kExprI32LtS);
+  EXPECT_LENGTH(1, kExprI32LeS);
+  EXPECT_LENGTH(1, kExprI32LtU);
+  EXPECT_LENGTH(1, kExprI32LeU);
+  EXPECT_LENGTH(1, kExprI32GtS);
+  EXPECT_LENGTH(1, kExprI32GeS);
+  EXPECT_LENGTH(1, kExprI32GtU);
+  EXPECT_LENGTH(1, kExprI32GeU);
+  EXPECT_LENGTH(1, kExprI32Clz);
+  EXPECT_LENGTH(1, kExprI32Ctz);
+  EXPECT_LENGTH(1, kExprI32PopCnt);
+  EXPECT_LENGTH(1, kExprBoolNot);
+  EXPECT_LENGTH(1, kExprI64Add);
+  EXPECT_LENGTH(1, kExprI64Sub);
+  EXPECT_LENGTH(1, kExprI64Mul);
+  EXPECT_LENGTH(1, kExprI64DivS);
+  EXPECT_LENGTH(1, kExprI64DivU);
+  EXPECT_LENGTH(1, kExprI64RemS);
+  EXPECT_LENGTH(1, kExprI64RemU);
+  EXPECT_LENGTH(1, kExprI64And);
+  EXPECT_LENGTH(1, kExprI64Ior);
+  EXPECT_LENGTH(1, kExprI64Xor);
+  EXPECT_LENGTH(1, kExprI64Shl);
+  EXPECT_LENGTH(1, kExprI64ShrU);
+  EXPECT_LENGTH(1, kExprI64ShrS);
+  EXPECT_LENGTH(1, kExprI64Eq);
+  EXPECT_LENGTH(1, kExprI64Ne);
+  EXPECT_LENGTH(1, kExprI64LtS);
+  EXPECT_LENGTH(1, kExprI64LeS);
+  EXPECT_LENGTH(1, kExprI64LtU);
+  EXPECT_LENGTH(1, kExprI64LeU);
+  EXPECT_LENGTH(1, kExprI64GtS);
+  EXPECT_LENGTH(1, kExprI64GeS);
+  EXPECT_LENGTH(1, kExprI64GtU);
+  EXPECT_LENGTH(1, kExprI64GeU);
+  EXPECT_LENGTH(1, kExprI64Clz);
+  EXPECT_LENGTH(1, kExprI64Ctz);
+  EXPECT_LENGTH(1, kExprI64PopCnt);
+  EXPECT_LENGTH(1, kExprF32Add);
+  EXPECT_LENGTH(1, kExprF32Sub);
+  EXPECT_LENGTH(1, kExprF32Mul);
+  EXPECT_LENGTH(1, kExprF32Div);
+  EXPECT_LENGTH(1, kExprF32Min);
+  EXPECT_LENGTH(1, kExprF32Max);
+  EXPECT_LENGTH(1, kExprF32Abs);
+  EXPECT_LENGTH(1, kExprF32Neg);
+  EXPECT_LENGTH(1, kExprF32CopySign);
+  EXPECT_LENGTH(1, kExprF32Ceil);
+  EXPECT_LENGTH(1, kExprF32Floor);
+  EXPECT_LENGTH(1, kExprF32Trunc);
+  EXPECT_LENGTH(1, kExprF32NearestInt);
+  EXPECT_LENGTH(1, kExprF32Sqrt);
+  EXPECT_LENGTH(1, kExprF32Eq);
+  EXPECT_LENGTH(1, kExprF32Ne);
+  EXPECT_LENGTH(1, kExprF32Lt);
+  EXPECT_LENGTH(1, kExprF32Le);
+  EXPECT_LENGTH(1, kExprF32Gt);
+  EXPECT_LENGTH(1, kExprF32Ge);
+  EXPECT_LENGTH(1, kExprF64Add);
+  EXPECT_LENGTH(1, kExprF64Sub);
+  EXPECT_LENGTH(1, kExprF64Mul);
+  EXPECT_LENGTH(1, kExprF64Div);
+  EXPECT_LENGTH(1, kExprF64Min);
+  EXPECT_LENGTH(1, kExprF64Max);
+  EXPECT_LENGTH(1, kExprF64Abs);
+  EXPECT_LENGTH(1, kExprF64Neg);
+  EXPECT_LENGTH(1, kExprF64CopySign);
+  EXPECT_LENGTH(1, kExprF64Ceil);
+  EXPECT_LENGTH(1, kExprF64Floor);
+  EXPECT_LENGTH(1, kExprF64Trunc);
+  EXPECT_LENGTH(1, kExprF64NearestInt);
+  EXPECT_LENGTH(1, kExprF64Sqrt);
+  EXPECT_LENGTH(1, kExprF64Eq);
+  EXPECT_LENGTH(1, kExprF64Ne);
+  EXPECT_LENGTH(1, kExprF64Lt);
+  EXPECT_LENGTH(1, kExprF64Le);
+  EXPECT_LENGTH(1, kExprF64Gt);
+  EXPECT_LENGTH(1, kExprF64Ge);
+  EXPECT_LENGTH(1, kExprI32SConvertF32);
+  EXPECT_LENGTH(1, kExprI32SConvertF64);
+  EXPECT_LENGTH(1, kExprI32UConvertF32);
+  EXPECT_LENGTH(1, kExprI32UConvertF64);
+  EXPECT_LENGTH(1, kExprI32ConvertI64);
+  EXPECT_LENGTH(1, kExprI64SConvertF32);
+  EXPECT_LENGTH(1, kExprI64SConvertF64);
+  EXPECT_LENGTH(1, kExprI64UConvertF32);
+  EXPECT_LENGTH(1, kExprI64UConvertF64);
+  EXPECT_LENGTH(1, kExprI64SConvertI32);
+  EXPECT_LENGTH(1, kExprI64UConvertI32);
+  EXPECT_LENGTH(1, kExprF32SConvertI32);
+  EXPECT_LENGTH(1, kExprF32UConvertI32);
+  EXPECT_LENGTH(1, kExprF32SConvertI64);
+  EXPECT_LENGTH(1, kExprF32UConvertI64);
+  EXPECT_LENGTH(1, kExprF32ConvertF64);
+  EXPECT_LENGTH(1, kExprF32ReinterpretI32);
+  EXPECT_LENGTH(1, kExprF64SConvertI32);
+  EXPECT_LENGTH(1, kExprF64UConvertI32);
+  EXPECT_LENGTH(1, kExprF64SConvertI64);
+  EXPECT_LENGTH(1, kExprF64UConvertI64);
+  EXPECT_LENGTH(1, kExprF64ConvertF32);
+  EXPECT_LENGTH(1, kExprF64ReinterpretI64);
+  EXPECT_LENGTH(1, kExprI32ReinterpretF32);
+  EXPECT_LENGTH(1, kExprI64ReinterpretF64);
+}
+
+
+class WasmOpcodeArityTest : public TestWithZone {
+ public:
+  WasmOpcodeArityTest() : TestWithZone() { }
+};
+
+
+#define EXPECT_ARITY(expected, ...) {		\
+    static const byte code[] = { __VA_ARGS__ };				\
+    EXPECT_EQ(expected, OpcodeArity(&env, code));			\
+  }
+
+
+TEST_F(WasmOpcodeArityTest, Statements) {
+  FunctionEnv env;
+  EXPECT_ARITY(0, kStmtNop);
+  EXPECT_ARITY(2, kStmtIf);
+  EXPECT_ARITY(3, kStmtIfThen);
+
+  EXPECT_ARITY(0, kStmtBlock, 0);
+  EXPECT_ARITY(1, kStmtBlock, 1);
+  EXPECT_ARITY(2, kStmtBlock, 2);
+  EXPECT_ARITY(5, kStmtBlock, 5);
+  EXPECT_ARITY(10, kStmtBlock, 10);
+
+  EXPECT_ARITY(1, kStmtSwitch, 0);
+  EXPECT_ARITY(2, kStmtSwitch, 1);
+  EXPECT_ARITY(3, kStmtSwitch, 2);
+  EXPECT_ARITY(4, kStmtSwitch, 3);
+  EXPECT_ARITY(5, kStmtSwitch, 4);
+
+  EXPECT_ARITY(1, kStmtSwitchNf, 0);
+  EXPECT_ARITY(2, kStmtSwitchNf, 1);
+  EXPECT_ARITY(3, kStmtSwitchNf, 2);
+  EXPECT_ARITY(4, kStmtSwitchNf, 3);
+  EXPECT_ARITY(5, kStmtSwitchNf, 4);
+
+  EXPECT_ARITY(0, kStmtLoop, 0);
+  EXPECT_ARITY(1, kStmtLoop, 1);
+  EXPECT_ARITY(2, kStmtLoop, 2);
+  EXPECT_ARITY(7, kStmtLoop, 7);
+  EXPECT_ARITY(11, kStmtLoop, 11);
+
+  EXPECT_ARITY(0, kStmtContinue);
+  EXPECT_ARITY(0, kStmtBreak);
+}
+
+TEST_F(WasmOpcodeArityTest, MiscExpressions) {
+  FunctionEnv env;
+
+  EXPECT_ARITY(0, kExprI8Const);
+  EXPECT_ARITY(0, kExprI32Const);
+  EXPECT_ARITY(0, kExprF32Const);
+  EXPECT_ARITY(0, kExprI64Const);
+  EXPECT_ARITY(0, kExprF64Const);
+  EXPECT_ARITY(0, kExprGetLocal);
+  EXPECT_ARITY(1, kExprSetLocal);
+  EXPECT_ARITY(0, kExprLoadGlobal);
+  EXPECT_ARITY(1, kExprStoreGlobal);
+
+  EXPECT_ARITY(3, kExprIf);
+  EXPECT_ARITY(2, kExprComma);
+
+  EXPECT_ARITY(1, kExprBlock, 1);
+  EXPECT_ARITY(2, kExprBlock, 2);
+  EXPECT_ARITY(6, kExprBlock, 6);
+  EXPECT_ARITY(9, kExprBlock, 9);
+
+  EXPECT_ARITY(1, kExprLoop, 1);
+  EXPECT_ARITY(2, kExprLoop, 2);
+  EXPECT_ARITY(6, kExprLoop, 6);
+  EXPECT_ARITY(9, kExprLoop, 9);
+
+  EXPECT_ARITY(1, kExprBreak);
+}
+
+
+TEST_F(WasmOpcodeArityTest, Calls) {
+  TestSignatures sigs;
+  TestModuleEnv module;
+  module.AddFunction(sigs.i_ii());
+  module.AddFunction(sigs.i_i());
+
+  module.AddSignature(sigs.f_ff());
+  module.AddSignature(sigs.i_d());
+
+  {
+    FunctionEnv env;
+    WasmDecoderTest::init_env(&env, sigs.i_ii());
+    env.module = &module;
+
+    EXPECT_ARITY(2, kExprCallFunction, 0);
+    EXPECT_ARITY(3, kExprCallIndirect, 0);
+    EXPECT_ARITY(1, kStmtReturn);
+  }
+
+  {
+    FunctionEnv env;
+    WasmDecoderTest::init_env(&env, sigs.v_v());
+    env.module = &module;
+
+    EXPECT_ARITY(1, kExprCallFunction, 1);
+    EXPECT_ARITY(2, kExprCallIndirect, 1);
+    EXPECT_ARITY(0, kStmtReturn);
+  }
+}
+
+TEST_F(WasmOpcodeArityTest, LoadsAndStores) {
+  FunctionEnv env;
+
+  EXPECT_ARITY(1, kExprI32LoadMemL);
+  EXPECT_ARITY(1, kExprI64LoadMemL);
+  EXPECT_ARITY(1, kExprF32LoadMemL);
+  EXPECT_ARITY(1, kExprF64LoadMemL);
+
+  EXPECT_ARITY(2, kExprI32StoreMemL);
+  EXPECT_ARITY(2, kExprI64StoreMemL);
+  EXPECT_ARITY(2, kExprF32StoreMemL);
+  EXPECT_ARITY(2, kExprF64StoreMemL);
+
+  EXPECT_ARITY(1, kExprI32LoadMemH);
+  EXPECT_ARITY(1, kExprI64LoadMemH);
+  EXPECT_ARITY(1, kExprF32LoadMemH);
+  EXPECT_ARITY(1, kExprF64LoadMemH);
+
+  EXPECT_ARITY(2, kExprI32StoreMemH);
+  EXPECT_ARITY(2, kExprI64StoreMemH);
+  EXPECT_ARITY(2, kExprF32StoreMemH);
+  EXPECT_ARITY(2, kExprF64StoreMemH);
+}
+
+
+TEST_F(WasmOpcodeArityTest, MiscMemExpressions) {
+  FunctionEnv env;
+
+  EXPECT_ARITY(0, kExprPageSize);
+  EXPECT_ARITY(0, kExprMemorySize);
+  EXPECT_ARITY(1, kExprResizeMemL);
+  EXPECT_ARITY(1, kExprResizeMemH);
+}
+
+
+TEST_F(WasmOpcodeArityTest, SimpleExpressions) {
+  FunctionEnv env;
+
+  EXPECT_ARITY(2, kExprI32Add);
+  EXPECT_ARITY(2, kExprI32Sub);
+  EXPECT_ARITY(2, kExprI32Mul);
+  EXPECT_ARITY(2, kExprI32DivS);
+  EXPECT_ARITY(2, kExprI32DivU);
+  EXPECT_ARITY(2, kExprI32RemS);
+  EXPECT_ARITY(2, kExprI32RemU);
+  EXPECT_ARITY(2, kExprI32And);
+  EXPECT_ARITY(2, kExprI32Ior);
+  EXPECT_ARITY(2, kExprI32Xor);
+  EXPECT_ARITY(2, kExprI32Shl);
+  EXPECT_ARITY(2, kExprI32ShrU);
+  EXPECT_ARITY(2, kExprI32ShrS);
+  EXPECT_ARITY(2, kExprI32Eq);
+  EXPECT_ARITY(2, kExprI32Ne);
+  EXPECT_ARITY(2, kExprI32LtS);
+  EXPECT_ARITY(2, kExprI32LeS);
+  EXPECT_ARITY(2, kExprI32LtU);
+  EXPECT_ARITY(2, kExprI32LeU);
+  EXPECT_ARITY(2, kExprI32GtS);
+  EXPECT_ARITY(2, kExprI32GeS);
+  EXPECT_ARITY(2, kExprI32GtU);
+  EXPECT_ARITY(2, kExprI32GeU);
+  EXPECT_ARITY(1, kExprI32Clz);
+  EXPECT_ARITY(1, kExprI32Ctz);
+  EXPECT_ARITY(1, kExprI32PopCnt);
+  EXPECT_ARITY(1, kExprBoolNot);
+  EXPECT_ARITY(2, kExprI64Add);
+  EXPECT_ARITY(2, kExprI64Sub);
+  EXPECT_ARITY(2, kExprI64Mul);
+  EXPECT_ARITY(2, kExprI64DivS);
+  EXPECT_ARITY(2, kExprI64DivU);
+  EXPECT_ARITY(2, kExprI64RemS);
+  EXPECT_ARITY(2, kExprI64RemU);
+  EXPECT_ARITY(2, kExprI64And);
+  EXPECT_ARITY(2, kExprI64Ior);
+  EXPECT_ARITY(2, kExprI64Xor);
+  EXPECT_ARITY(2, kExprI64Shl);
+  EXPECT_ARITY(2, kExprI64ShrU);
+  EXPECT_ARITY(2, kExprI64ShrS);
+  EXPECT_ARITY(2, kExprI64Eq);
+  EXPECT_ARITY(2, kExprI64Ne);
+  EXPECT_ARITY(2, kExprI64LtS);
+  EXPECT_ARITY(2, kExprI64LeS);
+  EXPECT_ARITY(2, kExprI64LtU);
+  EXPECT_ARITY(2, kExprI64LeU);
+  EXPECT_ARITY(2, kExprI64GtS);
+  EXPECT_ARITY(2, kExprI64GeS);
+  EXPECT_ARITY(2, kExprI64GtU);
+  EXPECT_ARITY(2, kExprI64GeU);
+  EXPECT_ARITY(1, kExprI64Clz);
+  EXPECT_ARITY(1, kExprI64Ctz);
+  EXPECT_ARITY(1, kExprI64PopCnt);
+  EXPECT_ARITY(2, kExprF32Add);
+  EXPECT_ARITY(2, kExprF32Sub);
+  EXPECT_ARITY(2, kExprF32Mul);
+  EXPECT_ARITY(2, kExprF32Div);
+  EXPECT_ARITY(2, kExprF32Min);
+  EXPECT_ARITY(2, kExprF32Max);
+  EXPECT_ARITY(1, kExprF32Abs);
+  EXPECT_ARITY(1, kExprF32Neg);
+  EXPECT_ARITY(1, kExprF32CopySign);
+  EXPECT_ARITY(1, kExprF32Ceil);
+  EXPECT_ARITY(1, kExprF32Floor);
+  EXPECT_ARITY(1, kExprF32Trunc);
+  EXPECT_ARITY(1, kExprF32NearestInt);
+  EXPECT_ARITY(1, kExprF32Sqrt);
+  EXPECT_ARITY(2, kExprF32Eq);
+  EXPECT_ARITY(2, kExprF32Ne);
+  EXPECT_ARITY(2, kExprF32Lt);
+  EXPECT_ARITY(2, kExprF32Le);
+  EXPECT_ARITY(2, kExprF32Gt);
+  EXPECT_ARITY(2, kExprF32Ge);
+  EXPECT_ARITY(2, kExprF64Add);
+  EXPECT_ARITY(2, kExprF64Sub);
+  EXPECT_ARITY(2, kExprF64Mul);
+  EXPECT_ARITY(2, kExprF64Div);
+  EXPECT_ARITY(2, kExprF64Min);
+  EXPECT_ARITY(2, kExprF64Max);
+  EXPECT_ARITY(1, kExprF64Abs);
+  EXPECT_ARITY(1, kExprF64Neg);
+  EXPECT_ARITY(1, kExprF64CopySign);
+  EXPECT_ARITY(1, kExprF64Ceil);
+  EXPECT_ARITY(1, kExprF64Floor);
+  EXPECT_ARITY(1, kExprF64Trunc);
+  EXPECT_ARITY(1, kExprF64NearestInt);
+  EXPECT_ARITY(1, kExprF64Sqrt);
+  EXPECT_ARITY(2, kExprF64Eq);
+  EXPECT_ARITY(2, kExprF64Ne);
+  EXPECT_ARITY(2, kExprF64Lt);
+  EXPECT_ARITY(2, kExprF64Le);
+  EXPECT_ARITY(2, kExprF64Gt);
+  EXPECT_ARITY(2, kExprF64Ge);
+  EXPECT_ARITY(1, kExprI32SConvertF32);
+  EXPECT_ARITY(1, kExprI32SConvertF64);
+  EXPECT_ARITY(1, kExprI32UConvertF32);
+  EXPECT_ARITY(1, kExprI32UConvertF64);
+  EXPECT_ARITY(1, kExprI32ConvertI64);
+  EXPECT_ARITY(1, kExprI64SConvertF32);
+  EXPECT_ARITY(1, kExprI64SConvertF64);
+  EXPECT_ARITY(1, kExprI64UConvertF32);
+  EXPECT_ARITY(1, kExprI64UConvertF64);
+  EXPECT_ARITY(1, kExprI64SConvertI32);
+  EXPECT_ARITY(1, kExprI64UConvertI32);
+  EXPECT_ARITY(1, kExprF32SConvertI32);
+  EXPECT_ARITY(1, kExprF32UConvertI32);
+  EXPECT_ARITY(1, kExprF32SConvertI64);
+  EXPECT_ARITY(1, kExprF32UConvertI64);
+  EXPECT_ARITY(1, kExprF32ConvertF64);
+  EXPECT_ARITY(1, kExprF32ReinterpretI32);
+  EXPECT_ARITY(1, kExprF64SConvertI32);
+  EXPECT_ARITY(1, kExprF64UConvertI32);
+  EXPECT_ARITY(1, kExprF64SConvertI64);
+  EXPECT_ARITY(1, kExprF64UConvertI64);
+  EXPECT_ARITY(1, kExprF64ConvertF32);
+  EXPECT_ARITY(1, kExprF64ReinterpretI64);
+  EXPECT_ARITY(1, kExprI32ReinterpretF32);
+  EXPECT_ARITY(1, kExprI64ReinterpretF64);
+}
 
 }
 }

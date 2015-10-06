@@ -264,6 +264,7 @@ typedef Signature<LocalType> FunctionSig;
   V(i_dd, kAstI32, kAstF64, kAstF64) \
   V(i_d, kAstI32, kAstF64)           \
   V(i_l, kAstI32, kAstI64)           \
+  V(i_li, kAstI32, kAstI64, kAstI32) \
   V(l_ll, kAstI64, kAstI64, kAstI64) \
   V(i_ll, kAstI32, kAstI64, kAstI64) \
   V(l_l, kAstI64, kAstI64)           \
@@ -420,6 +421,7 @@ class WasmOpcodes {
         return 'v';
     }
   }
+
 };
 }
 }

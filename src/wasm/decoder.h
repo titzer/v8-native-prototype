@@ -17,13 +17,11 @@ namespace v8 {
 namespace internal {
 
 namespace compiler {  // external declarations from compiler.
-class Node;
 class JSGraph;
 }
 
 namespace wasm {
 
-typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
 typedef Signature<LocalType> FunctionSig;
 
@@ -105,11 +103,16 @@ inline TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env,
   return BuildTFGraph(graph, env, nullptr, start, end);
 }
 
-enum ReadUnsignedLEB128ErrorCode {kNoError, kInvalidLEB128, kMissingLEB128};
+enum ReadUnsignedLEB128ErrorCode { kNoError, kInvalidLEB128, kMissingLEB128 };
 
-ReadUnsignedLEB128ErrorCode
-    ReadUnsignedLEB128Operand(const byte*, const byte*, int*, uint32_t*);
+ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte*, const byte*,
+                                                      int*, uint32_t*);
 
+// Computes the length of the opcode at the given address.
+int OpcodeLength(const byte* pc);
+
+// Computes the arity (number of sub-nodes) of the opcode at the given address.
+int OpcodeArity(FunctionEnv* env, const byte* pc);
 }
 }
 }

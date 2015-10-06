@@ -1297,7 +1297,7 @@ class LR_WasmDecoder {
   uint32_t UnsignedLEB128Operand(const byte* pc, int* length) {
     uint32_t result = 0;
     ReadUnsignedLEB128ErrorCode error_code =
-        ReadUnsignedLEB128Operand(pc+1, limit_, length, &result);
+        ReadUnsignedLEB128Operand(pc + 1, limit_, length, &result);
     if (error_code == kInvalidLEB128) error(pc, "invalid LEB128 varint");
     if (error_code == kMissingLEB128) error(pc, "expected LEB128 varint");
     (*length)++;
@@ -1418,11 +1418,10 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree) {
   return os;
 }
 
-ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(
-    const byte* pc,
-    const byte* limit,
-    int* length,
-    uint32_t* result) {
+ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte* pc,
+                                                      const byte* limit,
+                                                      int* length,
+                                                      uint32_t* result) {
   *result = 0;
   const byte* ptr = pc;
   const byte* end = pc + 5;  // maximum 5 bytes.
@@ -1446,6 +1445,119 @@ ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(
   }
 }
 
+int OpcodeLength(const byte* pc) {
+  switch (static_cast<WasmOpcode>(*pc)) {
+#define DECLARE_OPCODE_CASE(name, opcode, sig) case kExpr##name:
+    FOREACH_LOAD_MEM_EXPR_OPCODE(DECLARE_OPCODE_CASE)
+    FOREACH_STORE_MEM_EXPR_OPCODE(DECLARE_OPCODE_CASE)
+#undef DECLARE_OPCODE_CASE
+
+    case kStmtBlock:
+    case kStmtSwitch:
+    case kStmtSwitchNf:
+    case kStmtLoop:
+    case kStmtContinue:
+    case kStmtBreak:
+    case kExprI8Const:
+    case kExprBlock:
+    case kExprLoop:
+    case kExprBreak:
+      return 2;
+    case kExprI32Const:
+      return 5;
+    case kExprI64Const:
+    case kExprF64Const:
+      return 9;
+    case kExprF32Const:
+      return 5;
+    case kExprStoreGlobal:
+    case kExprSetLocal:
+    case kExprLoadGlobal:
+    case kExprCallFunction:
+    case kExprCallIndirect:
+    case kExprGetLocal: {
+      int length;
+      uint32_t result = 0;
+      ReadUnsignedLEB128Operand(pc + 1, pc + 6, &length, &result);
+      return 1 + length;
+    }
+
+    default:
+      return 1;
+  }
+}
+
+int OpcodeArity(FunctionEnv* env, const byte* pc) {
+#define DECLARE_ARITY(name, ...)                          \
+  static const LocalType kTypes_##name[] = {__VA_ARGS__}; \
+  static const int kArity_##name =                        \
+      static_cast<int>(arraysize(kTypes_##name) - 1);
+
+  FOREACH_SIGNATURE(DECLARE_ARITY);
+#undef DECLARE_ARITY
+
+  switch (static_cast<WasmOpcode>(*pc)) {
+    case kStmtContinue:
+    case kStmtBreak:
+    case kExprI8Const:
+    case kExprI32Const:
+    case kExprI64Const:
+    case kExprF64Const:
+    case kExprF32Const:
+    case kExprGetLocal:
+    case kExprLoadGlobal:
+    case kStmtNop:
+      return 0;
+
+    case kExprStoreGlobal:
+    case kExprSetLocal:
+      return 1;
+
+    case kStmtIf:
+      return 2;
+    case kStmtIfThen:
+      return 3;
+    case kStmtBlock:
+      return *(pc + 1);
+    case kStmtSwitch:
+      return 1 + *(pc + 1);
+    case kStmtSwitchNf:
+      return 1 + *(pc + 1);
+    case kStmtLoop:
+      return *(pc + 1);
+    case kStmtReturn:
+      return env->sig->return_count();
+
+    case kExprCallFunction: {
+      int index = *(pc + 1);
+      return env->module->GetFunctionSignature(index)->parameter_count();
+    }
+    case kExprCallIndirect: {
+      int index = *(pc + 1);
+      return 1 + env->module->GetSignature(index)->parameter_count();
+    }
+    case kExprIf:
+      return 3;
+    case kExprComma:
+      return 2;
+    case kExprBlock:
+      return *(pc + 1);
+    case kExprLoop:
+      return *(pc + 1);
+    case kExprBreak:
+      return 1;
+
+#define DECLARE_OPCODE_CASE(name, opcode, sig) \
+  case kExpr##name:                            \
+    return kArity_##sig;
+
+      FOREACH_LOAD_MEM_EXPR_OPCODE(DECLARE_OPCODE_CASE)
+      FOREACH_STORE_MEM_EXPR_OPCODE(DECLARE_OPCODE_CASE)
+      FOREACH_MISC_MEM_EXPR_OPCODE(DECLARE_OPCODE_CASE)
+      FOREACH_SIMPLE_EXPR_OPCODE(DECLARE_OPCODE_CASE)
+#undef DECLARE_OPCODE_CASE
+  }
+}
 }
 }
 }
