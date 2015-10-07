@@ -120,7 +120,7 @@ WasmFunctionEncoder* WasmFunctionBuilder::Build(Zone* z) const {
       i++;
     }
   }
-  delete var_index;
+  delete[] var_index;
   return e;
 }
 
