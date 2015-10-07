@@ -97,7 +97,7 @@ void WasmFunctionBuilder::External(uint8_t flag) { external_ = flag; }
 WasmFunctionEncoder* WasmFunctionBuilder::Build(Zone* z) const {
   WasmFunctionEncoder* e = new (z) WasmFunctionEncoder(
       z, return_type_, exported_, external_);
-  uint16_t var_index[locals_.size()];
+  auto var_index = new uint16_t[locals_.size()];
   IndexVars(e, var_index);
   const byte* start = body_.data();
   const byte* end = start + body_.size();
@@ -120,6 +120,7 @@ WasmFunctionEncoder* WasmFunctionBuilder::Build(Zone* z) const {
       i++;
     }
   }
+  delete var_index;
   return e;
 }
 
