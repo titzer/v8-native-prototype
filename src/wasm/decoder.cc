@@ -1526,15 +1526,15 @@ int OpcodeArity(FunctionEnv* env, const byte* pc) {
     case kStmtLoop:
       return *(pc + 1);
     case kStmtReturn:
-      return env->sig->return_count();
+      return static_cast<int>(env->sig->return_count());
 
     case kExprCallFunction: {
       int index = *(pc + 1);
-      return env->module->GetFunctionSignature(index)->parameter_count();
+      return static_cast<int>(env->module->GetFunctionSignature(index)->parameter_count());
     }
     case kExprCallIndirect: {
       int index = *(pc + 1);
-      return 1 + env->module->GetSignature(index)->parameter_count();
+      return 1 + static_cast<int>(env->module->GetSignature(index)->parameter_count());
     }
     case kExprIf:
       return 3;
