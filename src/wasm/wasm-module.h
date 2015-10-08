@@ -63,7 +63,8 @@ struct WasmModule {
   Isolate* shared_isolate;   // isolate for storing shared code.
   const byte* module_start;  // starting address for the module bytes.
   const byte* module_end;    // end address for the module bytes.
-  uint8_t mem_size_log2;     // size of the memory (log base 2).
+  uint8_t min_mem_size_log2; // minimum size of the memory (log base 2).
+  uint8_t max_mem_size_log2; // maximum size of the memory (log base 2).
   bool mem_export;           // true if the memory is exported.
   bool mem_external;         // true if the memory is external.
 

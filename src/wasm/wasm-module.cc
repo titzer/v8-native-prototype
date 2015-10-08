@@ -36,7 +36,8 @@ namespace wasm {
 
 std::ostream& operator<<(std::ostream& os, const WasmModule& module) {
   os << "WASM module with ";
-  os << (1 << module.mem_size_log2) << " mem bytes";
+  os << (1 << module.min_mem_size_log2) << " min mem";
+  os << (1 << module.max_mem_size_log2) << " max mem";
   if (module.functions) os << module.functions->size() << " functions";
   if (module.globals) os << module.functions->size() << " globals";
   if (module.data_segments) os << module.functions->size() << " data segments";
@@ -274,7 +275,8 @@ class ModuleDecoder {
     result_.val = module;
     module->module_start = start_;
     module->module_end = end_;
-    module->mem_size_log2 = 0;
+    module->min_mem_size_log2 = 0;
+    module->max_mem_size_log2 = 0;
     module->mem_export = false;
     module->mem_external = false;
     module->globals = new std::vector<WasmGlobal>();
@@ -284,7 +286,9 @@ class ModuleDecoder {
     module->function_table = new std::vector<uint16_t>();
 
     // Decode the module header.
-    module->mem_size_log2 = u8();    // read the memory size
+    module->min_mem_size_log2 = u8();                      // read min size
+    // TODO: read the minimum/maximum memory size from the bytes
+    module->max_mem_size_log2 = module->min_mem_size_log2; // read max size
     module->mem_export = u8() != 0;  // read memory export option
 
     uint32_t globals_count = u16();            // read number of globals
@@ -645,7 +649,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
 
   Factory* factory = isolate->factory();
   // Memory is bigger than maximum supported size.
-  if (mem_size_log2 > kMaxMemSize) {
+  if (min_mem_size_log2 > kMaxMemSize) {
     thrower.Error("Out of memory: wasm memory too large");
     return MaybeHandle<JSObject>();
   }
@@ -664,7 +668,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   //-------------------------------------------------------------------------
   // Allocate the linear memory.
   //-------------------------------------------------------------------------
-  uint32_t mem_size = 1 << mem_size_log2;
+  uint32_t mem_size = 1 << min_mem_size_log2;
   byte* mem_addr = nullptr;
   Handle<JSArrayBuffer> mem_buffer =
       NewArrayBuffer(isolate, mem_size, &mem_addr);
@@ -888,7 +892,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   ErrorThrower thrower(isolate, "CompileAndRunWasmModule");
 
   // Allocate temporary linear memory and globals.
-  size_t mem_size = 1 << module->mem_size_log2;
+  size_t mem_size = 1 << module->min_mem_size_log2;
   size_t globals_size = AllocateGlobalsOffsets(module->globals);
 
   base::SmartArrayPointer<byte> mem_addr(new byte[mem_size]);
