@@ -17,7 +17,7 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-
+//TODO: name all variables
 class WasmFunctionEncoder : public ZoneObject {
  public:
   uint32_t HeaderSize(void) const;
@@ -51,6 +51,7 @@ class WasmFunctionBuilder : public ZoneObject {
   void ReturnType(uint8_t);
   void AddBody(const byte*, uint32_t);
   void AddBody(const byte*, uint32_t, const uint32_t*, uint32_t);
+  void AppendCode(const byte opcode, bool add_local_operand);
   void Exported(uint8_t);
   void External(uint8_t);
   WasmFunctionEncoder* Build(Zone*) const;
