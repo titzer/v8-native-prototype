@@ -12,6 +12,7 @@
 #include "src/objects.h"
 #include "src/parser.h"
 #include "src/scopes.h"
+#include "src/typing-asm.h"
 
 #include "src/wasm/asm-wasm-builder.h"
 #include "src/wasm/encoder.h"
@@ -158,6 +159,10 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   CHECK(i::Compiler::ParseAndAnalyze(&info));
   info.set_literal(
       info.scope()->declarations()->at(0)->AsFunctionDeclaration()->fun());
+
+  v8::internal::AsmTyper typer(info.isolate(), info.zone(), *(info.script()),
+                         info.literal());
+  typer.Validate();
 
   v8::internal::wasm::WasmModuleIndex* module =
       v8::internal::wasm::AsmWasmBuilder(info.isolate(), info.zone(),
