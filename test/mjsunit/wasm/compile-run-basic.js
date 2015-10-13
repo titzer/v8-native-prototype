@@ -11,34 +11,45 @@ function bytes() {
   return buffer;
 }
 
+var kDeclMemory = 0x00;
+var kDeclSignatures = 0x01;
+var kDeclFunctions = 0x02;
+var kDeclGlobals = 0x03;
+var kDeclDataSegments = 0x04;
+var kDeclFunctionTable = 0x05;
+var kDeclEnd = 0x06;
+
+var kDeclFunctionName   = 0x01;
+var kDeclFunctionImport = 0x02;
+var kDeclFunctionLocals = 0x04;
+var kDeclFunctionExport = 0x08;
+
+var kHeaderSize = 13;
 var kAstStmt = 0;
 var kAstI32 = 1;
 var kStmtNop = 0;
 var kExprI8Const = 0x10;
 var kStmtReturn = 0x9;
 var kReturnValue = 97;
-var kCodeStartOffset = 32;
-var kCodeEndOffset = 35;
-var kNameOffset = kCodeEndOffset;
+
+var kBodySize = 3;
+var kNameOffset = 15 + kBodySize + 1;
 
 var data = bytes(
-  0, 0,                       // memory
-  0, 0,                       // globals
-  1, 0,                       // functions
-  0, 0,                       // data segments
-  0, kAstI32,               // signature: void -> int
+  // -- signatures
+  kDeclSignatures, 1,
+  0, kAstI32,                 // signature: void -> int
+  // -- main function
+  kDeclFunctions, 1,
+  kDeclFunctionName | kDeclFunctionExport,
+  0, 0,                       // signature index
   kNameOffset, 0, 0, 0,       // name offset
-  kCodeStartOffset, 0, 0, 0,  // code start offset
-  kCodeEndOffset, 0, 0, 0,    // code end offset
-  0, 0,                       // local int32 count
-  0, 0,                       // local int64 count
-  0, 0,                       // local float32 count
-  0, 0,                       // local float64 count
-  1,                          // exported
-  0,                          // external
-  kStmtReturn,                // body
-  kExprI8Const,             // --
+  kBodySize, 0,               // body size
+  // -- body
+  kStmtReturn,                // --
+  kExprI8Const,               // --
   kReturnValue,               // --
+  kDeclEnd,
   'm', 'a', 'i', 'n', 0       // name
 );
 

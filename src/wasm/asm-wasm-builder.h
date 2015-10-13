@@ -28,7 +28,6 @@ class AsmWasmBuilder {
   Zone* zone_;
   FunctionLiteral* literal_;
 };
-
 }
 }
 }

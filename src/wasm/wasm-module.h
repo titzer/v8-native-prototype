@@ -18,14 +18,38 @@ class CallDescriptor;
 }
 
 namespace wasm {
-const size_t kMinModuleSize = 8;
 const size_t kMaxModuleSize = 1024 * 1024 * 1024;
 const size_t kMaxFunctionSize = 128 * 1024;
 const size_t kMaxStringSize = 256;
 
+enum WasmSectionDeclCode {
+  kDeclMemory = 0x00,
+  kDeclSignatures = 0x01,
+  kDeclFunctions = 0x02,
+  kDeclGlobals = 0x03,
+  kDeclDataSegments = 0x04,
+  kDeclFunctionTable = 0x05,
+  kDeclEnd = 0x06,
+};
+
+static const int kMaxModuleSectionCode = 6;
+
+enum WasmFunctionDeclBit {
+  kDeclFunctionName   = 0x01,
+  kDeclFunctionImport = 0x02,
+  kDeclFunctionLocals = 0x04,
+  kDeclFunctionExport = 0x08
+};
+
+// Constants for fixed-size elements within a module.
+static const size_t kDeclMemorySize = 3;
+static const size_t kDeclGlobalSize = 6;
+static const size_t kDeclDataSegmentSize = 13;
+
 // Static representation of a wasm function.
 struct WasmFunction {
   FunctionSig* sig;      // signature of the function.
+  uint16_t sig_index;    // index into the signature table.
   uint32_t name_offset;  // offset in the module bytes of the name, if any.
   uint32_t code_start_offset;    // offset in the module bytes of code start.
   uint32_t code_end_offset;      // offset in the module bytes of code end.
@@ -60,19 +84,19 @@ struct WasmModule {
   static const uint8_t kMinMemSize = 12;  // Minimum memory size = 4kb
   static const uint8_t kMaxMemSize = 30;  // Maximum memory size = 1gb
 
-  Isolate* shared_isolate;   // isolate for storing shared code.
-  const byte* module_start;  // starting address for the module bytes.
-  const byte* module_end;    // end address for the module bytes.
-  uint8_t min_mem_size_log2; // minimum size of the memory (log base 2).
-  uint8_t max_mem_size_log2; // maximum size of the memory (log base 2).
-  bool mem_export;           // true if the memory is exported.
-  bool mem_external;         // true if the memory is external.
+  Isolate* shared_isolate;    // isolate for storing shared code.
+  const byte* module_start;   // starting address for the module bytes.
+  const byte* module_end;     // end address for the module bytes.
+  uint8_t min_mem_size_log2;  // minimum size of the memory (log base 2).
+  uint8_t max_mem_size_log2;  // maximum size of the memory (log base 2).
+  bool mem_export;            // true if the memory is exported.
+  bool mem_external;          // true if the memory is external.
 
   std::vector<WasmGlobal>* globals;             // globals in this module.
   std::vector<FunctionSig*>* signatures;        // signatures in this module.
   std::vector<WasmFunction>* functions;         // functions in this module.
   std::vector<WasmDataSegment>* data_segments;  // data segments in this module.
-  std::vector<uint16_t>* function_table;         // function table.
+  std::vector<uint16_t>* function_table;        // function table.
 
   // Get a pointer to a string stored in the module bytes representing a name.
   const char* GetName(uint32_t offset) {
