@@ -13,6 +13,19 @@ function bytes() {
   return buffer;
 }
 
+var kDeclMemory = 0x00;
+var kDeclSignatures = 0x01;
+var kDeclFunctions = 0x02;
+var kDeclGlobals = 0x03;
+var kDeclDataSegments = 0x04;
+var kDeclFunctionTable = 0x05;
+var kDeclEnd = 0x06;
+
+var kDeclFunctionName   = 0x01;
+var kDeclFunctionImport = 0x02;
+var kDeclFunctionLocals = 0x04;
+var kDeclFunctionExport = 0x08;
+
 var kAstStmt = 0;
 var kAstI32 = 1;
 var kAstI64 = 2;
@@ -30,31 +43,28 @@ function runSelect2(module, which, a, b) {
 }
 
 function testSelect2(type) {
-  var kCodeStartOffset = 34;
-  var kCodeSize = 3;
-  var kCodeEndOffset = kCodeStartOffset + kCodeSize;
-  var kNameOffset = kCodeEndOffset;
+  var kBodySize = 3;
+  var kNameOffset = 21 + kBodySize + 1;
 
   for (var which = 0; which < 2; which++) {
     print("type = " + type + ", which = " + which);
 
     var data = bytes(
-      12, 1,                      // memory
-      0, 0,                       // globals
-      1, 0,                       // functions
-      0, 0,                       // data segments
+      // -- memory
+      kDeclMemory,
+      12, 12, 1,                  // memory
+      // -- signatures
+      kDeclSignatures, 1,
       2, type, type, type,        // signature: (t,t)->t
+      // -- select
+      kDeclFunctions, 1,
+      kDeclFunctionName | kDeclFunctionExport,
+      0, 0,
       kNameOffset, 0, 0, 0,       // name offset
-      kCodeStartOffset, 0, 0, 0,  // code start offset
-      kCodeEndOffset, 0, 0, 0,    // code end offset
-      0, 0,                       // local int32 count
-      0, 0,                       // local int64 count
-      0, 0,                       // local float32 count
-      0, 0,                       // local float64 count
-      1,                          // exported
-      0,                          // external
+      kBodySize, 0,               // body size
       kStmtReturn,                // --       
       kExprGetLocal, which,       // --
+      kDeclEnd,
       's','e','l','e','c','t',0   // name
     );
     
@@ -82,7 +92,6 @@ function testSelect2(type) {
 
 
 testSelect2(kAstI32);
-testSelect2(kAstI64);
 testSelect2(kAstF32);
 testSelect2(kAstF64);
 
@@ -111,32 +120,28 @@ function runSelect10(module, which, a, b) {
 }
 
 function testSelect10(type) {
-  var kCodeStartOffset = 42;
-  var kCodeSize = 3;
-  var kCodeEndOffset = kCodeStartOffset + kCodeSize;
-  var kNameOffset = kCodeEndOffset;
+  var kBodySize = 3;
+  var kNameOffset = 29 + kBodySize + 1;
 
   for (var which = 0; which < 10; which++) {
     print("type = " + type + ", which = " + which);
 
     var t = type;
     var data = bytes(
-      12, 1,                      // memory
-      0, 0,                       // globals
-      1, 0,                       // functions
-      0, 0,                       // data segments
-      10, t,t,t,t,t,t,t,t,t,t,t,  // signature: (tx10)->t
+      kDeclMemory,
+      12, 12, 1,                  // memory
+      // signatures
+      kDeclSignatures, 1,
+      10, t,t,t,t,t,t,t,t,t,t,t,  // (tx10)->t
+      // main function
+      kDeclFunctions, 1,
+      kDeclFunctionName | kDeclFunctionExport,
+      0, 0,
       kNameOffset, 0, 0, 0,       // name offset
-      kCodeStartOffset, 0, 0, 0,  // code start offset
-      kCodeEndOffset, 0, 0, 0,    // code end offset
-      0, 0,                       // local int32 count
-      0, 0,                       // local int64 count
-      0, 0,                       // local float32 count
-      0, 0,                       // local float64 count
-      1,                          // exported
-      0,                          // external
+      kBodySize, 0,               // body size
       kStmtReturn,                // --       
       kExprGetLocal, which,       // --
+      kDeclEnd,
       's','e','l','e','c','t',0   // name
     );
     
@@ -164,6 +169,7 @@ function testSelect10(type) {
 
 
 testSelect10(kAstI32);
-testSelect10(kAstI64);
 testSelect10(kAstF32);
 testSelect10(kAstF64);
+
+

@@ -719,33 +719,31 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   // Load signature from the table and check.
   // The table is a FixedArray; signatures are encoded as SMIs.
   // [sig1, sig2, sig3, ...., code1, code2, code3 ...]
-  compiler::ElementAccess access = compiler::AccessBuilder::ForFixedArrayElement();
+  compiler::ElementAccess access =
+      compiler::AccessBuilder::ForFixedArrayElement();
   const int fixed_offset = access.header_size - access.tag();
   {
-    TFNode* load_sig = g->NewNode(machine->Load(compiler::kMachAnyTagged),
-                                  table,
-                                  g->NewNode(machine->Int32Add(),
-                                             g->NewNode(machine->Word32Shl(),
-                                                        key,
-                                                        Int32Constant(kPointerSizeLog2)),
-                                             Int32Constant(fixed_offset)),
-                                  *effect, *control);
-    TFNode* sig_match = g->NewNode(machine->WordEqual(),
-                                   load_sig,
-                                   graph->SmiConstant(index));
+    TFNode* load_sig =
+        g->NewNode(machine->Load(compiler::kMachAnyTagged), table,
+                   g->NewNode(machine->Int32Add(),
+                              g->NewNode(machine->Word32Shl(), key,
+                                         Int32Constant(kPointerSizeLog2)),
+                              Int32Constant(fixed_offset)),
+                   *effect, *control);
+    TFNode* sig_match =
+        g->NewNode(machine->WordEqual(), load_sig, graph->SmiConstant(index));
     AddTrapUnless(sig_match);
   }
 
   // Load code object from the table.
   int offset = fixed_offset + kPointerSize * table_size;
-  TFNode* load_code = g->NewNode(machine->Load(compiler::kMachAnyTagged),
-                                 table,
-                                 g->NewNode(machine->Int32Add(),
-                                            g->NewNode(machine->Word32Shl(),
-                                                       key,
-                                                       Int32Constant(kPointerSizeLog2)),
-                                            Int32Constant(offset)),
-                                 *effect, *control);
+  TFNode* load_code =
+      g->NewNode(machine->Load(compiler::kMachAnyTagged), table,
+                 g->NewNode(machine->Int32Add(),
+                            g->NewNode(machine->Word32Shl(), key,
+                                       Int32Constant(kPointerSizeLog2)),
+                            Int32Constant(offset)),
+                 *effect, *control);
 
   args[0] = load_code;
   FunctionSig* sig = module->GetSignature(index);
@@ -929,8 +927,7 @@ TFNode* TFBuilder::MemSize() {
 
 TFNode* TFBuilder::FunctionTable() {
   if (!graph) return nullptr;
-  if (!function_table)
-    function_table = graph->Constant(module->function_table);
+  if (!function_table) function_table = graph->Constant(module->function_table);
   return function_table;
 }
 
@@ -1007,8 +1004,8 @@ void TFBuilder::PrintDebugName(TFNode* node) {
 
 void TFBuilder::AddTrapUnless(TFNode* cond) {
   compiler::Graph* g = graph->graph();
-  TFNode* branch = g->NewNode(graph->common()->Branch(compiler::BranchHint::kTrue),
-                              cond, *control);
+  TFNode* branch = g->NewNode(
+      graph->common()->Branch(compiler::BranchHint::kTrue), cond, *control);
 
   TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
   if (trap == nullptr) {
@@ -1024,8 +1021,9 @@ void TFBuilder::AddTrapUnless(TFNode* cond) {
     TFNode* call_rt = if_false;  // TODO
 
     // Add a return zero, even though the runtime should never really return.
-    TFNode* ret_zero = g->NewNode(graph->common()->Return(),
-                                  graph->Int32Constant(0xdeadbeef), *effect, call_rt);
+    TFNode* ret_zero =
+        g->NewNode(graph->common()->Return(), graph->Int32Constant(0xdeadbeef),
+                   *effect, call_rt);
 
     /****
          TODO: Insert a throw to end the block.
@@ -1037,8 +1035,8 @@ void TFBuilder::AddTrapUnless(TFNode* cond) {
   } else {
     if (trap->opcode() != compiler::IrOpcode::kMerge) {
       // Second trap. Introduce a merge.
-      TFNode* merge = g->NewNode(graph->common()->Merge(2), trap->InputAt(2),
-                                 if_false);
+      TFNode* merge =
+          g->NewNode(graph->common()->Merge(2), trap->InputAt(2), if_false);
       trap->ReplaceInput(2, merge);  // replace control input to throw.
       trap = merge;
     } else {

@@ -99,7 +99,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitBreakStatement(BreakStatement* stmt) {}
 
   void VisitReturnStatement(ReturnStatement* stmt) {
-    if(in_function_) {
+    if (in_function_) {
       current_function_builder_->AppendCode(kStmtReturn, false);
     } else {
       marking_exported = true;
@@ -183,7 +183,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     // TODO: confirm where to get type
     if (in_function_) {
       current_function_builder_->ReturnType(kAstI32);
-      for(int i = 0; i < expr->parameter_count(); i++) {
+      for (int i = 0; i < expr->parameter_count(); i++) {
         LookupOrInsertLocal(scope->parameter(i), true);
       }
     }
@@ -205,8 +205,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
       if (var->is_function()) {
         std::vector<uint8_t> index =
             UnsignedLEB128From(LookupOrInsertFunction(var));
-        current_function_builder_->AddBody(
-            index.data(), static_cast<uint32_t>(index.size()));
+        current_function_builder_->AddBody(index.data(),
+                                           static_cast<uint32_t>(index.size()));
       } else {
         if (!is_set_op_) {
           current_function_builder_->AppendCode(kExprGetLocal, false);
@@ -227,15 +227,18 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitLiteral(Literal* expr) {
-    if(in_function_) {
+    if (in_function_) {
       if (expr->raw_value()->IsNumber()) {
         // TODO: deal with type
         int val = static_cast<int>(expr->raw_value()->AsNumber());
         current_function_builder_->AppendCode(kExprI32Const, false);
         current_function_builder_->AppendCode(static_cast<byte>(val), false);
-        current_function_builder_->AppendCode(static_cast<byte>(val >> 8), false);
-        current_function_builder_->AppendCode(static_cast<byte>(val >> 16), false);
-        current_function_builder_->AppendCode(static_cast<byte>(val >> 24), false);
+        current_function_builder_->AppendCode(static_cast<byte>(val >> 8),
+                                              false);
+        current_function_builder_->AppendCode(static_cast<byte>(val >> 16),
+                                              false);
+        current_function_builder_->AppendCode(static_cast<byte>(val >> 24),
+                                              false);
       }
     }
   }
@@ -365,8 +368,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitSuperCallReference(SuperCallReference* expr) {}
 
-  void VisitSloppyBlockFunctionStatement(
-      SloppyBlockFunctionStatement* expr) {}
+  void VisitSloppyBlockFunctionStatement(SloppyBlockFunctionStatement* expr) {}
 
   void VisitDoExpression(DoExpression* expr) {
   }
@@ -388,8 +390,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
       }
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
-      entry = local_variables_.LookupOrInsert(
-          v, ComputePointerHash(v), ZoneAllocationPolicy(zone()));
+      entry = local_variables_.LookupOrInsert(v, ComputePointerHash(v),
+                                              ZoneAllocationPolicy(zone()));
       entry->value = container;
     }
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;
@@ -402,16 +404,14 @@ class AsmWasmBuilderImpl : public AstVisitor {
       uint16_t index = builder_->AddFunction();
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
-      entry = functions_.LookupOrInsert(
-          v, ComputePointerHash(v), ZoneAllocationPolicy(zone()));
+      entry = functions_.LookupOrInsert(v, ComputePointerHash(v),
+                                        ZoneAllocationPolicy(zone()));
       entry->value = container;
     }
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;
   }
 
-  uint8_t TypeOf(Variable* v) {
-    return kAstI32;
-  }
+  uint8_t TypeOf(Variable* v) { return kAstI32; }
 
   Zone* zone() { return zone_; }
 
@@ -425,6 +425,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   FunctionLiteral* literal_;
   Isolate* isolate_;
   Zone* zone_;
+
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };

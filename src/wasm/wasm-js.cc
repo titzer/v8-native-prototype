@@ -139,12 +139,11 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   i::Factory* factory = isolate->factory();
   i::Zone zone;
   Local<String> source = Local<String>::Cast(args[0]);
-  i::Handle<i::Script> script = factory->NewScript(
-      Utils::OpenHandle(*source));
+  i::Handle<i::Script> script = factory->NewScript(Utils::OpenHandle(*source));
 
   i::ParseInfo info(&zone, script);
   i::Parser parser(&info);
-  //parser.set_allow_harmony_arrow_functions(true);
+  // parser.set_allow_harmony_arrow_functions(true);
   parser.set_allow_harmony_sloppy(true);
   info.set_global();
   info.set_lazy(false);
