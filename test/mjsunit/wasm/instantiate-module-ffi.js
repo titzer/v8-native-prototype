@@ -13,6 +13,19 @@ function bytes() {
   return buffer;
 }
 
+var kDeclMemory = 0x00;
+var kDeclSignatures = 0x01;
+var kDeclFunctions = 0x02;
+var kDeclGlobals = 0x03;
+var kDeclDataSegments = 0x04;
+var kDeclFunctionTable = 0x05;
+var kDeclEnd = 0x06;
+
+var kDeclFunctionName   = 0x01;
+var kDeclFunctionImport = 0x02;
+var kDeclFunctionLocals = 0x04;
+var kDeclFunctionExport = 0x08;
+
 var kAstStmt = 0;
 var kAstI32 = 1;
 var kAstI64 = 2;
@@ -28,49 +41,34 @@ var kStmtReturn = 0x9;
 var kExprCallFunction = 0x19;
 
 function testCallFFI(func, check) {
-  var kModuleHeaderSize = 8;
-  var kFunctionSize = 24;
-  var kCodeStart = kModuleHeaderSize + (kFunctionSize + 2) + (kFunctionSize + 2);
-  var kCodeEnd = kCodeStart + 7;
-  var kNameAddOffset = kCodeEnd;
-  var kNameMainOffset = kNameAddOffset + 4;
+  var kBodySize = 7;
+  var kNameFunOffset = 24 + kBodySize + 1;
+  var kNameMainOffset = kNameFunOffset + 4;
 
   var ffi = new Object();
   ffi.fun = func;
 
   var data = bytes(
-    12, 1,                      // memory
-    0, 0,                       // globals
-    2, 0,                       // functions
-    0, 0,                       // data segments
+    // signatures
+    kDeclSignatures, 1,
+    2, kAstI32, kAstF64, kAstF64, // (f64,f64) -> int
     // -- foreign function
-    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
-    kNameAddOffset, 0, 0, 0,    // name offset
-    0, 0, 0, 0,                 // code start offset
-    0, 0, 0, 0,                 // code end offset
-    0, 0,                       // local int32 count
-    0, 0,                       // local int64 count
-    0, 0,                       // local float32 count
-    0, 0,                       // local float64 count
-    0,                          // exported
-    1,                          // external
+    kDeclFunctions, 2,
+    kDeclFunctionName | kDeclFunctionImport,
+    0, 0,
+    kNameFunOffset, 0, 0, 0,    // name offset
     // -- main function
-    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
+    kDeclFunctionName | kDeclFunctionExport,
+    0, 0,
     kNameMainOffset, 0, 0, 0,   // name offset
-    kCodeStart, 0, 0, 0,        // code start offset
-    kCodeEnd, 0, 0, 0,          // code end offset
-    0, 0,                       // local int32 count
-    0, 0,                       // local int64 count
-    0, 0,                       // local float32 count
-    0, 0,                       // local float64 count
-    1,                          // exported
-    0,                          // external
+    kBodySize, 0,
     // main body
     kStmtReturn,                // --
     kExprCallFunction, 0,       // --
     kExprGetLocal, 0,           // --
     kExprGetLocal, 1,           // --
     // names
+    kDeclEnd,
     'f', 'u', 'n', 0,           //  --
     'm', 'a', 'i', 'n', 0       //  --
   );
@@ -229,12 +227,9 @@ testCallFFI(returnValue(objWithValueOf), checkReturn(198));
 
 
 function testCallBinopVoid(type, func, check) {
-  var kModuleHeaderSize = 8;
-  var kFunctionSize = 24;
-  var kCodeStart = kModuleHeaderSize + (kFunctionSize + 2) + (kFunctionSize + 2);
-  var kCodeEnd = kCodeStart + 11;
-  var kNameAddOffset = kCodeEnd;
-  var kNameMainOffset = kNameAddOffset + 4;
+  var kBodySize = 11;
+  var kNameFunOffset = 28 + kBodySize + 1;
+  var kNameMainOffset = kNameFunOffset + 4;
 
   var ffi = new Object();
 
@@ -253,42 +248,31 @@ function testCallBinopVoid(type, func, check) {
   }
 
   var data = bytes(
-    12, 1,                      // memory
-    0, 0,                       // globals
-    2, 0,                       // functions
-    0, 0,                       // data segments
+    // -- signatures
+    kDeclSignatures, 2,
+    2, kAstStmt, type, type,    // (type,type)->void
+    2, kAstI32, type, type,     // (type,type)->int
     // -- foreign function
-    2, kAstStmt, type, type,    // signature: (type,type)->void
-    kNameAddOffset, 0, 0, 0,    // name offset
-    0, 0, 0, 0,                 // code start offset
-    0, 0, 0, 0,                 // code end offset
-    0, 0,                       // local int32 count
-    0, 0,                       // local int64 count
-    0, 0,                       // local float32 count
-    0, 0,                       // local float64 count
-    0,                          // exported
-    1,                          // external
+    kDeclFunctions, 2,
+    kDeclFunctionName | kDeclFunctionImport,
+    0, 0,                       // signature index
+    kNameFunOffset, 0, 0, 0,    // name offset
     // -- main function
-    2, kAstI32, type, type,   // signature: (type,type)->int
+    kDeclFunctionName | kDeclFunctionExport,
+    1, 0,                       // signature index
     kNameMainOffset, 0, 0, 0,   // name offset
-    kCodeStart, 0, 0, 0,        // code start offset
-    kCodeEnd, 0, 0, 0,          // code end offset
-    0, 0,                       // local int32 count
-    0, 0,                       // local int64 count
-    0, 0,                       // local float32 count
-    0, 0,                       // local float64 count
-    1,                          // exported
-    0,                          // external
+    kBodySize, 0,               // body size
     // main body
     kStmtBlock, 2,              // --
     kExprCallFunction, 0,       // --
     kExprGetLocal, 0,           // --
     kExprGetLocal, 1,           // --
     kStmtReturn,                // --
-    kExprI8Const, 99,         // --
+    kExprI8Const, 99,           // --
     // names
-    'f', 'u', 'n', 0,           //  --
-    'm', 'a', 'i', 'n', 0       //  --
+    kDeclEnd,
+    'f', 'u', 'n', 0,           // --
+    'm', 'a', 'i', 'n', 0       // --
   );
 
   var module = WASM.instantiateModule(data, ffi);

@@ -10,6 +10,7 @@
 
 #include "src/base/smart-pointers.h"
 
+#include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"
 #include "src/wasm/wasm-result.h"
 
@@ -17,21 +18,20 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-//TODO: name all variables
+class WasmModuleBuilder;
+
 class WasmFunctionEncoder : public ZoneObject {
  public:
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;
-  void Serialize(byte* buffer, uint32_t header_begin,
-                 uint32_t body_begin) const;
-
-  ~WasmFunctionEncoder();
+  void Serialize(byte* buffer, byte** header,
+                 byte** body) const;
 
  private:
-  WasmFunctionEncoder(Zone* z, uint8_t return_type, uint8_t exported,
+  WasmFunctionEncoder(Zone* zone, uint8_t return_type, uint8_t exported,
                       uint8_t external);
   friend class WasmFunctionBuilder;
-  uint8_t return_type_;
+  uint16_t signature_index_;
   ZoneVector<uint8_t> params_;
   uint16_t local_int32_count_;
   uint16_t local_int64_count_;
@@ -40,9 +40,13 @@ class WasmFunctionEncoder : public ZoneObject {
   uint8_t exported_;
   uint8_t external_;
   ZoneVector<uint8_t> body_;
-  void SerializeFunctionHeader(byte* buffer, uint32_t header_begin,
-                               uint32_t body_begin) const;
-  void SerializeFunctionBody(byte* buffer, uint32_t body_begin) const;
+
+  bool HasLocals() const {
+    return (local_int32_count_ +
+	    local_int64_count_ +
+	    local_float32_count_ +
+	    local_float64_count_) > 0;
+  }
 };
 
 class WasmFunctionBuilder : public ZoneObject {
@@ -56,12 +60,10 @@ class WasmFunctionBuilder : public ZoneObject {
   void AppendCode(const byte opcode, bool add_local_operand);
   void Exported(uint8_t flag);
   void External(uint8_t flag);
-  WasmFunctionEncoder* Build(Zone* z) const;
-
-  ~WasmFunctionBuilder();
+  WasmFunctionEncoder* Build(Zone* zone, WasmModuleBuilder* mb) const;
 
  private:
-  WasmFunctionBuilder(Zone* z);
+  WasmFunctionBuilder(Zone* zone);
   friend class WasmModuleBuilder;
   struct Type;
   uint8_t return_type_;
@@ -76,14 +78,12 @@ class WasmFunctionBuilder : public ZoneObject {
 
 class WasmDataSegmentEncoder : public ZoneObject {
  public:
-  WasmDataSegmentEncoder(Zone* z, const byte* data, uint32_t size,
+  WasmDataSegmentEncoder(Zone* zone, const byte* data, uint32_t size,
                          uint32_t dest);
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;
-  void Serialize(byte* buffer, uint32_t header_begin,
-                 uint32_t body_begin) const;
-
-  ~WasmDataSegmentEncoder();
+  void Serialize(byte* buffer, byte** header,
+                 byte** body) const;
 
  private:
   ZoneVector<byte> data_;
@@ -95,8 +95,6 @@ class WasmModuleIndex : public ZoneObject {
   const byte* Begin() const { return begin_; }
   const byte* End() const { return end_; }
 
-  ~WasmModuleIndex();
-
  private:
   friend class WasmModuleWriter;
   WasmModuleIndex(const byte* begin, const byte* end)
@@ -107,31 +105,39 @@ class WasmModuleIndex : public ZoneObject {
 
 class WasmModuleWriter : public ZoneObject {
  public:
-  WasmModuleIndex* WriteTo(Zone* z) const;
-
-  ~WasmModuleWriter();
+  WasmModuleIndex* WriteTo(Zone* zone) const;
 
  private:
   friend class WasmModuleBuilder;
-  WasmModuleWriter(Zone* z);
+  WasmModuleWriter(Zone* zone);
   ZoneVector<WasmFunctionEncoder*> functions_;
   ZoneVector<WasmDataSegmentEncoder*> data_segments_;
+  ZoneVector<FunctionSig*> signatures_;
+  ZoneVector<uint16_t> indirect_functions_;
 };
 
 class WasmModuleBuilder : public ZoneObject {
  public:
-  WasmModuleBuilder(Zone* z);
+  WasmModuleBuilder(Zone* zone);
   uint16_t AddFunction();
-  WasmFunctionBuilder* FunctionAt(uint16_t index);
-  void AddDataSegment(WasmDataSegmentEncoder* d);
-  WasmModuleWriter* Build(Zone* z) const;
-
-  ~WasmModuleBuilder();
+  WasmFunctionBuilder* FunctionAt(size_t index);
+  void AddDataSegment(WasmDataSegmentEncoder* data);
+  uint16_t AddSignature(FunctionSig* sig);
+  void AddIndirectFunction(uint16_t index);
+  WasmModuleWriter* Build(Zone* zone);
 
  private:
+  struct CompareFunctionSigs {
+    int operator()(FunctionSig* a, FunctionSig* b);
+  };
+  typedef ZoneMap<FunctionSig*, uint16_t, CompareFunctionSigs> SignatureMap;
+
   Zone* zone_;
+  ZoneVector<FunctionSig*> signatures_;
   ZoneVector<WasmFunctionBuilder*> functions_;
   ZoneVector<WasmDataSegmentEncoder*> data_segments_;
+  ZoneVector<uint16_t> indirect_functions_;
+  SignatureMap signature_map_;
 };
 
 std::vector<uint8_t> UnsignedLEB128From(uint32_t result);

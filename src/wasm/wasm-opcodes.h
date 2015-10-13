@@ -421,7 +421,6 @@ class WasmOpcodes {
         return 'v';
     }
   }
-
 };
 }
 }

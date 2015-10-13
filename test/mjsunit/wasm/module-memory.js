@@ -15,6 +15,19 @@ function bytes() {
   return buffer;
 }
 
+var kDeclMemory = 0x00;
+var kDeclSignatures = 0x01;
+var kDeclFunctions = 0x02;
+var kDeclGlobals = 0x03;
+var kDeclDataSegments = 0x04;
+var kDeclFunctionTable = 0x05;
+var kDeclEnd = 0x06;
+
+var kDeclFunctionName   = 0x01;
+var kDeclFunctionImport = 0x02;
+var kDeclFunctionLocals = 0x04;
+var kDeclFunctionExport = 0x08;
+
 var kAstStmt = 0;
 var kAstI32 = 1;
 var kAstI64 = 2;
@@ -39,41 +52,38 @@ var kExprCallFunction = 0x19;
 var kMemSize = 4096;
 
 function genModule() {
-  var kModuleHeaderSize = 8;
-  var kFunctionSize = 24;
-  var kCodeStart = kModuleHeaderSize + (kFunctionSize + 1);
-  var kCodeEnd = kCodeStart + 30;
-  var kNameAddOffset = kCodeEnd;
-  var kNameMainOffset = kCodeEnd;
+  var kBodySize = 30;
+  var kNameMainOffset = 28 + kBodySize + 1;
 
   var data = bytes(
-    12, 1,                      // memory
-    0, 0,                       // globals
-    1, 0,                       // functions
-    0, 0,                       // data segments
+    kDeclMemory,
+    12, 12, 1,                  // memory
+    // -- signatures
+    kDeclSignatures, 1,
+    1, kAstI32, kAstI32,        // int->int
     // -- main function
-    1, kAstI32, kAstI32,    // signature: int->int
+    kDeclFunctions, 1,
+    kDeclFunctionLocals | kDeclFunctionName | kDeclFunctionExport,
+    0, 0,
     kNameMainOffset, 0, 0, 0,   // name offset
-    kCodeStart, 0, 0, 0,        // code start offset
-    kCodeEnd, 0, 0, 0,          // code end offset
     1, 0,                       // local int32 count
     0, 0,                       // local int64 count
     0, 0,                       // local float32 count
     0, 0,                       // local float64 count
-    1,                          // exported
-    0,                          // external
+    kBodySize, 0,               // code size
     // main body: while(i) { if(mem[i]) return -1; i -= 4; } return 0;
     kStmtBlock,2,
       kStmtLoop,1,
         kStmtIfThen,kExprGetLocal,0,
           kStmtBlock,2,
             kStmtIfThen,kExprI32LoadMemL,6,kExprGetLocal,0,
-              kStmtReturn, kExprI8Const,-1,
+              kStmtReturn, kExprI8Const, -1,
               kStmtNop,
             kExprSetLocal,0,kExprI32Sub,kExprGetLocal,0,kExprI8Const,4,
           kStmtBreak,0,
       kStmtReturn,kExprI8Const,0,
     // names
+    kDeclEnd,
     'm', 'a', 'i', 'n', 0       //  --
   );
 

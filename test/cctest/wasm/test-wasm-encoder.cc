@@ -37,17 +37,19 @@ TEST(Function_Builder_Variable_Indexing) {
   code[1] = static_cast<uint8_t>(local_float64);
   function->AddBody(code, sizeof(code), local_indices, 1);
 
-  WasmFunctionEncoder* f = function->Build(&zone);
+  WasmFunctionEncoder* f = function->Build(&zone, builder);
   ZoneVector<uint8_t> buffer_vector(f->HeaderSize() + f->BodySize(), &zone);
   byte* buffer = buffer_vector.data();
-  f->Serialize(buffer, 0, f->HeaderSize());
+  byte* header = buffer;
+  byte* body = buffer + f->HeaderSize();
+  f->Serialize(buffer, &header, &body);
   for(size_t i = 0; i < 7; i++) {
     CHECK_EQ(i, static_cast<size_t>(*(buffer + 2*i + f->HeaderSize() + 1)));
   }
 }
 
 namespace {
-    void AddLocal(WasmFunctionBuilder* f, uint8_t type) {
+  void AddLocal(WasmFunctionBuilder* f, uint8_t type) {
     uint16_t index = f->AddLocal(type);
     const std::vector<uint8_t>& out_index = UnsignedLEB128From(index);
     std::vector<uint8_t> code;
@@ -70,11 +72,13 @@ TEST(Function_Builder_Indexing_Variable_Width) {
   }
   AddLocal(function, kAstI32);
 
-  WasmFunctionEncoder* f = function->Build(&zone);
+  WasmFunctionEncoder* f = function->Build(&zone, builder);
   ZoneVector<uint8_t> buffer_vector(f->HeaderSize() + f->BodySize(), &zone);
   byte* buffer = buffer_vector.data();
-  f->Serialize(buffer, 0, f->HeaderSize());
+  byte* header = buffer;
   byte* body = buffer + f->HeaderSize();
+  f->Serialize(buffer, &header, &body);
+  body = buffer + f->HeaderSize();
   for(size_t i = 0; i < 127; i++) {
     CHECK_EQ(kExprGetLocal, static_cast<size_t>(*(body + 2*i)));
     CHECK_EQ(i+1, static_cast<size_t>(*(body + 2*i + 1)));

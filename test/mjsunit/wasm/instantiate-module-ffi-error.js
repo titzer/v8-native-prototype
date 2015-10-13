@@ -13,6 +13,19 @@ function bytes() {
   return buffer;
 }
 
+var kDeclMemory = 0x00;
+var kDeclSignatures = 0x01;
+var kDeclFunctions = 0x02;
+var kDeclGlobals = 0x03;
+var kDeclDataSegments = 0x04;
+var kDeclFunctionTable = 0x05;
+var kDeclEnd = 0x06;
+
+var kDeclFunctionName   = 0x01;
+var kDeclFunctionImport = 0x02;
+var kDeclFunctionLocals = 0x04;
+var kDeclFunctionExport = 0x08;
+
 var kAstStmt = 0;
 var kAstI32 = 1;
 var kAstI64 = 2;
@@ -28,46 +41,33 @@ var kStmtReturn = 0x9;
 var kExprCallFunction = 0x19;
 
 function testCallFFI(ffi) {
-  var kModuleHeaderSize = 8;
-  var kFunctionSize = 24;
-  var kCodeStart = kModuleHeaderSize + (kFunctionSize + 2) + (kFunctionSize + 2);
-  var kCodeEnd = kCodeStart + 7;
-  var kNameAddOffset = kCodeEnd;
+  var kBodySize = 7;
+  var kNameAddOffset = 28 + kBodySize + 1;
   var kNameMainOffset = kNameAddOffset + 4;
 
   var data = bytes(
-    12, 1,                      // memory
-    0, 0,                       // globals
-    2, 0,                       // functions
-    0, 0,                       // data segments
+    kDeclMemory,
+    12, 12, 1,                  // memory
+    // -- signatures
+    kDeclSignatures, 1,
+    2, kAstI32, kAstF64, kAstF64, // (f64,f64)->int
     // -- foreign function
-    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
+    kDeclFunctions, 2,
+    kDeclFunctionName | kDeclFunctionImport,
+    0, 0,                       // signature index
     kNameAddOffset, 0, 0, 0,    // name offset
-    0, 0, 0, 0,                 // code start offset
-    0, 0, 0, 0,                 // code end offset
-    0, 0,                       // local int32 count
-    0, 0,                       // local int64 count
-    0, 0,                       // local float32 count
-    0, 0,                       // local float64 count
-    0,                          // exported
-    1,                          // external
     // -- main function
-    2, kAstI32, kAstF64, kAstF64, // signature: (f64,f64)->int
+    kDeclFunctionName | kDeclFunctionExport,
+    0, 0,                       // signature index
     kNameMainOffset, 0, 0, 0,   // name offset
-    kCodeStart, 0, 0, 0,        // code start offset
-    kCodeEnd, 0, 0, 0,          // code end offset
-    0, 0,                       // local int32 count
-    0, 0,                       // local int64 count
-    0, 0,                       // local float32 count
-    0, 0,                       // local float64 count
-    1,                          // exported
-    0,                          // external
+    kBodySize, 0,
     // main body
     kStmtReturn,                // --
     kExprCallFunction, 0,       // --
     kExprGetLocal, 0,           // --
     kExprGetLocal, 1,           // --
     // names
+    kDeclEnd,
     'f', 'u', 'n', 0,           //  --
     'm', 'a', 'i', 'n', 0       //  --
   );
@@ -75,6 +75,14 @@ function testCallFFI(ffi) {
   print("instantiate FFI");
   var module = WASM.instantiateModule(data, ffi);
 }
+
+// everything is good.
+(function() {
+  var ffi = new Object();
+  ffi.fun = function(a, b) { print(a, b); }
+  testCallFFI(ffi);
+})();
+
 
 // FFI object should be an object.
 assertThrows(function() {
@@ -104,11 +112,3 @@ assertThrows(function() {
   ffi.fun = 0;
   testCallFFI(ffi);
 });
-
-
-// everything is good.
-(function() {
-  var ffi = new Object();
-  ffi.fun = function(a, b) { print(a, b); }
-  testCallFFI(ffi);
-})();
