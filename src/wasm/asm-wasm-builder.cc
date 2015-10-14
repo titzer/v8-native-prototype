@@ -26,36 +26,24 @@ namespace wasm {
 
 class AsmWasmBuilderImpl : public AstVisitor {
  public:
-  AsmWasmBuilderImpl(CompilationInfo* info)
+  AsmWasmBuilderImpl(Isolate* isolate, Zone* zone, FunctionLiteral* literal)
       : local_variables_(HashMap::PointersMatch,
                          ZoneHashMap::kDefaultHashMapCapacity,
-                         ZoneAllocationPolicy(info->zone())),
+                         ZoneAllocationPolicy(zone)),
         functions_(HashMap::PointersMatch,
                    ZoneHashMap::kDefaultHashMapCapacity,
-                   ZoneAllocationPolicy(info->zone())),
+                   ZoneAllocationPolicy(zone)),
         in_function_(false),
         is_set_op_(false),
         marking_exported(false),
-        builder_(NULL),
+        builder_(new(zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
-        compilation_info_(info) {
-    InitializeAstVisitor(info->isolate(), info->zone());
+        literal_(literal),
+        isolate_(isolate) {
+    InitializeAstVisitor(isolate, zone);
   }
-
-
-  /*TODO: probably should take zone (to write wasm to) as input so that zone in
-    compilation info may be thrown away once wasm module is written */
-  WasmModuleIndex* Run() {
-    builder_ = new(zone()) WasmModuleBuilder(zone());
-    Compile();
-    WasmModuleWriter* writer = builder_->Build(zone());
-    functions_.Clear();
-    return writer->WriteTo(zone());
-  }
-
- private:
   void Compile() {
-    RECURSE(VisitFunctionLiteral(compilation_info_->literal()));
+    RECURSE(VisitFunctionLiteral(literal_));
   }
 
 
@@ -338,7 +326,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
 
   void VisitCall(Call* expr) {
-    Call::CallType call_type = expr->GetCallType(compilation_info_->isolate());
+    Call::CallType call_type = expr->GetCallType(isolate_);
     switch (call_type) {
       case Call::OTHER_CALL: {
         DCHECK(in_function_);
@@ -432,7 +420,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   uint16_t LookupOrInsertLocal(Variable* v, bool is_param) {
     DCHECK(current_function_builder_ != NULL);
-    ZoneHashMap::Entry* entry = local_variables_.Lookup(v, ComputePointerHash(v));
+    ZoneHashMap::Entry* entry =
+        local_variables_.Lookup(v, ComputePointerHash(v));
     if (entry == NULL) {
       uint16_t index;
       if (is_param) {
@@ -474,16 +463,25 @@ class AsmWasmBuilderImpl : public AstVisitor {
   bool marking_exported;
   WasmModuleBuilder* builder_;
   WasmFunctionBuilder* current_function_builder_;
+  FunctionLiteral* literal_;
+  Isolate* isolate_;
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
-  CompilationInfo* compilation_info_;
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };
 
-AsmWasmBuilder::AsmWasmBuilder(CompilationInfo* info) : info_(info){}
+AsmWasmBuilder::AsmWasmBuilder(
+    Isolate* isolate, Zone* zone, FunctionLiteral* literal)
+    : isolate_(isolate),
+      zone_(zone),
+      literal_(literal) {}
 
+/*TODO: probably should take zone (to write wasm to) as input so that zone in
+  constructor may be thrown away once wasm module is written */
 WasmModuleIndex* AsmWasmBuilder::Run() {
-  AsmWasmBuilderImpl impl(info_);
-  return impl.Run();
+  AsmWasmBuilderImpl impl(isolate_, zone_, literal_);
+  impl.Compile();
+  WasmModuleWriter* writer = impl.builder_->Build(zone_);
+  return writer->WriteTo(zone_);
 }
 
 }  // namespace wasm

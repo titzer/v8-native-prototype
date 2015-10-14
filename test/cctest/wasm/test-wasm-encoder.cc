@@ -11,7 +11,7 @@ using namespace v8::internal::wasm;
 TEST(Function_Builder_Variable_Indexing) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f_index = builder->AddFunction();
+  uint16_t f_index = builder->AddFunction();
   WasmFunctionBuilder* function = builder->FunctionAt(f_index);
   uint16_t local_float32 = function->AddLocal(kAstF32);
   uint16_t param_float32 = function->AddParam(kAstF32);
@@ -63,7 +63,7 @@ namespace {
 TEST(Function_Builder_Indexing_Variable_Width) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f_index = builder->AddFunction();
+  uint16_t f_index = builder->AddFunction();
   WasmFunctionBuilder* function = builder->FunctionAt(f_index);
   for (size_t i = 0; i < 128; i++) {
     AddLocal(function, kAstF32);

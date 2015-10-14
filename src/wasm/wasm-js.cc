@@ -151,13 +151,15 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   info.set_allow_lazy_parsing(false);
   info.set_toplevel(true);
 
-  i::CompilationInfo compilation_info(&info);
   CHECK(i::Compiler::ParseAndAnalyze(&info));
   info.set_literal(
       info.scope()->declarations()->at(0)->AsFunctionDeclaration()->fun());
 
   v8::internal::wasm::WasmModuleIndex* module =
-      v8::internal::wasm::AsmWasmBuilder(&compilation_info).Run();
+      v8::internal::wasm::AsmWasmBuilder(
+          info.isolate(),
+          info.zone(),
+          info.literal()).Run();
   int32_t result =
       v8::internal::wasm::CompileAndRunWasmModule(
           isolate, module->Begin(), module->End());

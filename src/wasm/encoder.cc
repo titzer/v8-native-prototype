@@ -273,7 +273,7 @@ uint16_t WasmModuleBuilder::AddFunction() {
   return static_cast<uint16_t>(functions_.size() - 1);
 }
 
-WasmFunctionBuilder* WasmModuleBuilder::FunctionAt(uint8_t index) {
+WasmFunctionBuilder* WasmModuleBuilder::FunctionAt(uint16_t index) {
   if (functions_.size() > index) {
     return functions_.at(index);
   } else {

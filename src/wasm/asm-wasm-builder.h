@@ -20,11 +20,13 @@ namespace wasm {
 
 class AsmWasmBuilder {
  public:
-  explicit AsmWasmBuilder(CompilationInfo* info);
+  explicit AsmWasmBuilder(Isolate* isolate, Zone* zone, FunctionLiteral* root);
   WasmModuleIndex* Run();
 
  private:
-  CompilationInfo* info_;
+  Isolate* isolate_;
+  Zone* zone_;
+  FunctionLiteral* literal_;
 };
 
 }

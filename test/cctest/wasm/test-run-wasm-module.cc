@@ -92,7 +92,7 @@ TEST(Run_WasmModule_Return114) {
   static const int32_t kReturnValue = 114;
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f_index = builder->AddFunction();
+  uint16_t f_index = builder->AddFunction();
   WasmFunctionBuilder* f = builder->FunctionAt(f_index);
   f->ReturnType(kAstI32);
   f->Exported(1);
@@ -106,17 +106,17 @@ TEST(Run_WasmModule_Return114) {
 TEST(Run_WasmModule_CallAdd) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f1_index = builder->AddFunction();
+  uint16_t f1_index = builder->AddFunction();
   WasmFunctionBuilder* f = builder->FunctionAt(f1_index);
   f->ReturnType(kAstI32);
-  uint8_t param1 = f->AddParam(kAstI32);
-  uint8_t param2 = f->AddParam(kAstI32);
+  uint16_t param1 = f->AddParam(kAstI32);
+  uint16_t param2 = f->AddParam(kAstI32);
   byte code1[] = {
       WASM_RETURN(
           WASM_I32_ADD(WASM_GET_LOCAL(param1), WASM_GET_LOCAL(param2)))};
   uint32_t local_indices1[] = {3, 5};
   f->AddBody(code1, sizeof(code1), local_indices1, sizeof(local_indices1)/4);
-  uint8_t f2_index = builder->AddFunction();
+  uint16_t f2_index = builder->AddFunction();
   f = builder->FunctionAt(f2_index);
   f->ReturnType(kAstI32);
   f->Exported(1);
@@ -132,7 +132,7 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   static const byte kDataSegmentDest0 = 12;
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f_index = builder->AddFunction();
+  uint16_t f_index = builder->AddFunction();
   WasmFunctionBuilder* f = builder->FunctionAt(f_index);
   f->ReturnType(kAstI32);
   f->Exported(1);
@@ -152,10 +152,10 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
   static const int kCheckSize = 16 * 1024;
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f_index = builder->AddFunction();
+  uint16_t f_index = builder->AddFunction();
   WasmFunctionBuilder* f = builder->FunctionAt(f_index);
   f->ReturnType(kAstI32);
-  uint8_t localIndex = f->AddLocal(kAstI32);
+  uint16_t localIndex = f->AddLocal(kAstI32);
   f->Exported(1);
   byte code[] = {
       WASM_WHILE(
@@ -174,10 +174,10 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
 TEST(Run_WasmModule_CallMain_recursive) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint8_t f_index = builder->AddFunction();
+  uint16_t f_index = builder->AddFunction();
   WasmFunctionBuilder* f = builder->FunctionAt(f_index);
   f->ReturnType(kAstI32);
-  uint8_t localIndex = f->AddLocal(kAstI32);
+  uint16_t localIndex = f->AddLocal(kAstI32);
   f->Exported(1);
   byte code[] = {
       WASM_BLOCK(
