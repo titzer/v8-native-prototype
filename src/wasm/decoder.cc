@@ -116,12 +116,13 @@ struct IfEnv {
 };
 
 
-// A LR-parser strategy for decoding Wasm code that uses an explicit
+// A shift-reduce-parser strategy for decoding Wasm code that uses an explicit
 // shift-reduce strategy with multiple internal stacks.
-class LR_WasmDecoder {
+class LR_WasmDecoder : public Decoder {
  public:
   LR_WasmDecoder(Zone* zone, TFGraph* g)
-      : zone_(zone),
+      : Decoder(nullptr, nullptr),
+	zone_(zone),
         builder_(zone, g),
         trees_(zone),
         stack_(zone),
@@ -135,40 +136,33 @@ class LR_WasmDecoder {
     stack_.clear();
     blocks_.clear();
     ifs_.clear();
-    result_.error_code = kSuccess;
-    result_.val = nullptr;
-    result_.start = pc;
-    result_.error_pc = nullptr;
-    result_.error_msg.Reset(nullptr);
-    result_.error_pt = nullptr;
 
     base_ = base;
-    start_ = pc;
-    pc_ = pc;
-    limit_ = end;
+    Reset(pc, end);
     function_env_ = function_env;
 
     InitSsaEnv();
     DecodeFunctionBody();
 
-    if (result_.ok()) {
+    Tree* tree = nullptr;
+    if (ok()) {
       if (ssa_env_->go()) {
         AddImplicitReturnAtEnd();
       }
       if (trees_.size() == 0) {
         error(start_, "no trees created");
       } else {
-        result_.val = trees_[0];
+	tree = trees_[0];
       }
     }
-
-    if (result_.ok()) {
+    
+    if (ok()) {
       TRACE("wasm-decode ok\n\n");
     } else {
-      TRACE("wasm-error module+%-6d func+%d: %s\n\n", baserel(result_.error_pc),
-            startrel(result_.error_pc), result_.error_msg.get());
+      TRACE("wasm-error module+%-6d func+%d: %s\n\n", baserel(error_pc_),
+            startrel(error_pc_), error_msg_.get());
     }
-    return result_;
+    return toResult(tree);
   }
 
  private:
@@ -177,9 +171,6 @@ class LR_WasmDecoder {
   Zone* zone_;
   TFBuilder builder_;
   const byte* base_;
-  const byte* start_;
-  const byte* pc_;
-  const byte* limit_;
   TreeResult result_;
 
   SsaEnv* ssa_env_;
@@ -325,7 +316,7 @@ class LR_WasmDecoder {
         pc_ += len;
         if (pc_ >= limit_) {
           // End of code reached or exceeded.
-          if (pc_ > limit_ && result_.error_pc != nullptr) {
+          if (pc_ > limit_ && ok()) {
             error("Beyond end of code");
           }
           return;
@@ -645,7 +636,7 @@ class LR_WasmDecoder {
       pc_ += len;
       if (pc_ >= limit_) {
         // End of code reached or exceeded.
-        if (pc_ > limit_ && result_.error_pc != nullptr) {
+        if (pc_ > limit_ && ok()) {
           error("Beyond end of code");
         }
         return;
@@ -1331,32 +1322,11 @@ class LR_WasmDecoder {
     }
   }
 
-  void error(const char* msg) { error(pc_, nullptr, msg); }
-
-  void error(const byte* pc, const char* msg) { error(pc, nullptr, msg); }
-
-  void error(const byte* pc, const byte* pt, const char* format, ...) {
-    limit_ = start_;  // terminates the decoding loop
-    if (result_.error_code == kSuccess) {
+  virtual void onFirstError() {
+    limit_ = start_;  // Terminate decoding loop.
 #if DEBUG
-      if (FLAG_wasm_break_on_decoder_error) {
-        base::OS::DebugBreak();
-      }
+    PrintStackForDebugging();
 #endif
-      result_.error_code = kError;  // TODO(titzer): better error code
-      const int kMaxErrorMsg = 256;
-      char* buffer = new char[kMaxErrorMsg];
-      va_list arguments;
-      va_start(arguments, format);
-      base::OS::VSNPrintF(buffer, kMaxErrorMsg - 1, format, arguments);
-      va_end(arguments);
-      result_.error_msg.Reset(buffer);
-      result_.error_pc = pc;
-      result_.error_pt = pt;
-#if DEBUG
-      PrintStackForDebugging();
-#endif
-    }
   }
 
 #if DEBUG
