@@ -133,6 +133,8 @@ class Decoder {
      error_pc_(nullptr),
      error_pt_(nullptr) { }
 
+  virtual ~Decoder() { }
+
   // Reads a 8-bit unsigned integer (byte) and advances {pc_}.
   uint8_t u8(const char* name = nullptr) {
     TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_), name ? name : "uint8_t");

@@ -338,7 +338,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
 
   void VisitCall(Call* expr) {
-    Call::CallType call_type = expr->GetCallType(isolate());
+    Call::CallType call_type = expr->GetCallType(compilation_info_->isolate());
     switch (call_type) {
       case Call::OTHER_CALL: {
         DCHECK(in_function_);
