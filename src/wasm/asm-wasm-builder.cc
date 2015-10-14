@@ -38,7 +38,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
         marking_exported(false),
         builder_(new(zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
-        literal_(literal) {
+        literal_(literal),
+        isolate_(isolate) {
     InitializeAstVisitor(isolate, zone);
   }
   void Compile() {
@@ -325,7 +326,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
 
   void VisitCall(Call* expr) {
-    Call::CallType call_type = expr->GetCallType(compilation_info_->isolate());
+    Call::CallType call_type = expr->GetCallType(isolate_);
     switch (call_type) {
       case Call::OTHER_CALL: {
         DCHECK(in_function_);
@@ -463,6 +464,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   WasmModuleBuilder* builder_;
   WasmFunctionBuilder* current_function_builder_;
   FunctionLiteral* literal_;
+  Isolate* isolate_;
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };
