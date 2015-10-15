@@ -39,8 +39,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
         builder_(new(zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
         literal_(literal),
-        isolate_(isolate) {
-    InitializeAstVisitor(isolate, zone);
+        isolate_(isolate),
+        zone_(zone) {
+    InitializeAstVisitor(isolate);
   }
   void Compile() {
     RECURSE(VisitFunctionLiteral(literal_));
@@ -429,10 +430,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
       } else {
         index = current_function_builder_->AddLocal(TypeOf(v));
       }
-      IndexContainer* container = new (zone()) IndexContainer();
+      IndexContainer* container = new (zone_) IndexContainer();
       container->index = index;
       entry = local_variables_.LookupOrInsert(
-          v, ComputePointerHash(v), ZoneAllocationPolicy(zone()));
+          v, ComputePointerHash(v), ZoneAllocationPolicy(zone_));
       entry->value = container;
     }
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;
@@ -443,10 +444,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
     ZoneHashMap::Entry* entry = functions_.Lookup(v, ComputePointerHash(v));
     if (entry == NULL) {
       uint16_t index = builder_->AddFunction();
-      IndexContainer* container = new (zone()) IndexContainer();
+      IndexContainer* container = new (zone_) IndexContainer();
       container->index = index;
       entry = functions_.LookupOrInsert(
-          v, ComputePointerHash(v), ZoneAllocationPolicy(zone()));
+          v, ComputePointerHash(v), ZoneAllocationPolicy(zone_));
       entry->value = container;
     }
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;
@@ -465,6 +466,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   WasmFunctionBuilder* current_function_builder_;
   FunctionLiteral* literal_;
   Isolate* isolate_;
+  Zone* zone_;
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };
