@@ -39,8 +39,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
         builder_(new(zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
         literal_(literal),
-        isolate_(isolate) {
-    InitializeAstVisitor(isolate, zone);
+        isolate_(isolate),
+        zone_(zone) {
+    InitializeAstVisitor(isolate);
   }
   void Compile() {
     RECURSE(VisitFunctionLiteral(literal_));
@@ -456,6 +457,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
     return kAstI32;
   }
 
+  Zone* zone() {
+    return zone_;
+  }
+
   ZoneHashMap local_variables_;
   ZoneHashMap functions_;
   bool in_function_;
@@ -465,6 +470,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   WasmFunctionBuilder* current_function_builder_;
   FunctionLiteral* literal_;
   Isolate* isolate_;
+  Zone* zone_;
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };
