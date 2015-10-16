@@ -39,16 +39,16 @@ class AsmWasmBuilderImpl : public AstVisitor {
         builder_(new(zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
         literal_(literal),
-        isolate_(isolate) {
-    InitializeAstVisitor(isolate, zone);
+        isolate_(isolate),
+	zone_(zone) {
+    InitializeAstVisitor(isolate);
   }
+
   void Compile() {
     RECURSE(VisitFunctionLiteral(literal_));
   }
 
-
   void VisitVariableDeclaration(VariableDeclaration* decl) {}
-
 
   void VisitFunctionDeclaration(FunctionDeclaration* decl) {
     DCHECK(!in_function_);
@@ -62,12 +62,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
     local_variables_.Clear();
   }
 
-
   void VisitImportDeclaration(ImportDeclaration* decl) {}
 
-
   void VisitExportDeclaration(ExportDeclaration* decl) {}
-
 
   void VisitStatements(ZoneList<Statement*>* stmts) {
     for (int i = 0; i < stmts->length(); ++i) {
@@ -77,24 +74,19 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitBlock(Block* stmt) {
     RECURSE(VisitStatements(stmt->statements()));
   }
-
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
     RECURSE(Visit(stmt->expression()));
   }
 
-
   void VisitEmptyStatement(EmptyStatement* stmt) {}
-
 
   void VisitEmptyParentheses(EmptyParentheses* paren) {
     UNREACHABLE();
   }
-
 
   void VisitIfStatement(IfStatement* stmt) {
     RECURSE(Visit(stmt->condition()));
@@ -102,12 +94,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(stmt->else_statement()));
   }
 
-
   void VisitContinueStatement(ContinueStatement* stmt) {}
 
-
   void VisitBreakStatement(BreakStatement* stmt) {}
-
 
   void VisitReturnStatement(ReturnStatement* stmt) {
     if(in_function_) {
@@ -121,12 +110,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitWithStatement(WithStatement* stmt) {
     RECURSE(stmt->expression());
     RECURSE(stmt->statement());
   }
-
 
   void VisitSwitchStatement(SwitchStatement* stmt) {
     RECURSE(Visit(stmt->tag()));
@@ -144,21 +131,17 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitCaseClause(CaseClause* clause) { UNREACHABLE(); }
-
 
   void VisitDoWhileStatement(DoWhileStatement* stmt) {
     RECURSE(Visit(stmt->body()));
     RECURSE(Visit(stmt->cond()));
   }
 
-
   void VisitWhileStatement(WhileStatement* stmt) {
     RECURSE(Visit(stmt->cond()));
     RECURSE(Visit(stmt->body()));
   }
-
 
   void VisitForStatement(ForStatement* stmt) {
     if (stmt->init() != NULL) {
@@ -173,33 +156,27 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(stmt->body()));
   }
 
-
   void VisitForInStatement(ForInStatement* stmt) {
     RECURSE(Visit(stmt->enumerable()));
     RECURSE(Visit(stmt->body()));
   }
-
 
   void VisitForOfStatement(ForOfStatement* stmt) {
     RECURSE(Visit(stmt->iterable()));
     RECURSE(Visit(stmt->body()));
   }
 
-
   void VisitTryCatchStatement(TryCatchStatement* stmt) {
     RECURSE(Visit(stmt->try_block()));
     RECURSE(Visit(stmt->catch_block()));
   }
-
 
   void VisitTryFinallyStatement(TryFinallyStatement* stmt) {
     RECURSE(Visit(stmt->try_block()));
     RECURSE(Visit(stmt->finally_block()));
   }
 
-
   void VisitDebuggerStatement(DebuggerStatement* stmt) {}
-
 
   void VisitFunctionLiteral(FunctionLiteral* expr) {
     Scope* scope = expr->scope();
@@ -214,16 +191,13 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(VisitStatements(expr->body()));
   }
 
-
   void VisitNativeFunctionLiteral(NativeFunctionLiteral* expr) {}
-
 
   void VisitConditional(Conditional* expr) {
     RECURSE(Visit(expr->condition()));
     RECURSE(Visit(expr->then_expression()));
     RECURSE(Visit(expr->else_expression()));
   }
-
 
   void VisitVariableProxy(VariableProxy* expr) {
     if (in_function_) {
@@ -252,7 +226,6 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitLiteral(Literal* expr) {
     if(in_function_) {
       if (expr->raw_value()->IsNumber()) {
@@ -267,9 +240,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitRegExpLiteral(RegExpLiteral* expr) {}
-
 
   void VisitObjectLiteral(ObjectLiteral* expr) {
     ZoneList<ObjectLiteralProperty*>* props = expr->properties();
@@ -278,7 +249,6 @@ class AsmWasmBuilderImpl : public AstVisitor {
       RECURSE(Visit(prop->value()));
     }
   }
-
 
   void VisitArrayLiteral(ArrayLiteral* expr) {
     ZoneList<Expression*>* values = expr->values();
@@ -307,23 +277,19 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitYield(Yield* expr) {
     RECURSE(Visit(expr->generator_object()));
     RECURSE(Visit(expr->expression()));
   }
 
-
   void VisitThrow(Throw* expr) {
     RECURSE(Visit(expr->exception()));
   }
-
 
   void VisitProperty(Property* expr) {
     RECURSE(Visit(expr->obj()));
     RECURSE(Visit(expr->key()));
   }
-
 
   void VisitCall(Call* expr) {
     Call::CallType call_type = expr->GetCallType(isolate_);
@@ -344,26 +310,21 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitCallNew(CallNew* expr) {
     UNREACHABLE();
   }
-
 
   void VisitCallRuntime(CallRuntime* expr) {
     UNREACHABLE();
   }
 
-
   void VisitUnaryOperation(UnaryOperation* expr) {
     RECURSE(Visit(expr->expression()));
   }
 
-
   void VisitCountOperation(CountOperation* expr) {
     RECURSE(Visit(expr->expression()));
   }
-
 
   void VisitBinaryOperation(BinaryOperation* expr) {
     switch (expr->op()) {
@@ -381,15 +342,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(expr->right()));
   }
 
-
   void VisitCompareOperation(CompareOperation* expr) {
     RECURSE(Visit(expr->left()));
     RECURSE(Visit(expr->right()));
   }
 
-
   void VisitThisFunction(ThisFunction* expr) {}
-
 
   void VisitDeclarations(ZoneList<Declaration*>* decls) {
     for (int i = 0; i < decls->length(); ++i) {
@@ -398,16 +356,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-
   void VisitClassLiteral(ClassLiteral* expr) {}
-
 
   void VisitSpread(Spread* expr) {}
 
-
   void VisitSuperPropertyReference(SuperPropertyReference* expr) {
   }
-
 
   void VisitSuperCallReference(SuperCallReference* expr) {}
 
@@ -456,6 +410,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     return kAstI32;
   }
 
+  Zone* zone() { return zone_; }
+
   ZoneHashMap local_variables_;
   ZoneHashMap functions_;
   bool in_function_;
@@ -465,6 +421,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   WasmFunctionBuilder* current_function_builder_;
   FunctionLiteral* literal_;
   Isolate* isolate_;
+  Zone* zone_;
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };

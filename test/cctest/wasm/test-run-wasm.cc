@@ -201,6 +201,7 @@ class WasmRunner : public GraphBuilderTester<ReturnType> {
              MachineType p4 = kMachNone)
       : GraphBuilderTester<ReturnType>(p0, p1, p2, p3, p4),
         jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
+		nullptr,
                 this->machine()),
         sig(0, 0, storage) {
 
@@ -272,6 +273,7 @@ class WasmFunctionCompiler : public HandleAndZoneScope,
   explicit WasmFunctionCompiler(FunctionSig* sig)
       : GraphAndBuilders(main_zone()),
         jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
+		nullptr,
                 this->machine()) {
     init_env(&env, sig);
   }

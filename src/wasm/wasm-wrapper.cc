@@ -47,7 +47,7 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
   compiler::CommonOperatorBuilder common(&zone);
   compiler::JSOperatorBuilder javascript(&zone);
   compiler::MachineOperatorBuilder machine(&zone);
-  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, &machine);
+  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, nullptr, &machine);
 
   TFNode* control = nullptr;
   TFNode* effect = nullptr;
@@ -128,7 +128,7 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
   compiler::CommonOperatorBuilder common(&zone);
   compiler::JSOperatorBuilder javascript(&zone);
   compiler::MachineOperatorBuilder machine(&zone);
-  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, &machine);
+  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, nullptr, &machine);
 
   TFNode* control = nullptr;
   TFNode* effect = nullptr;
