@@ -39,8 +39,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
         builder_(new(zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
         literal_(literal),
-        isolate_(isolate),
-        zone_(zone) {
+        isolate_(isolate) {
     InitializeAstVisitor(isolate, zone);
   }
   void Compile() {
