@@ -82,6 +82,7 @@ function testSelect2(type) {
 
 
 testSelect2(kAstI32);
+testSelect2(kAstI64);
 testSelect2(kAstF32);
 testSelect2(kAstF64);
 
@@ -163,7 +164,6 @@ function testSelect10(type) {
 
 
 testSelect10(kAstI32);
+testSelect10(kAstI64);
 testSelect10(kAstF32);
 testSelect10(kAstF64);
-
-
