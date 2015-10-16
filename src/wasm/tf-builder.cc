@@ -664,8 +664,9 @@ TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
     case kAstI32:
       return g->NewNode(simplified.ChangeInt32ToTagged(), node);
     case kAstI64:
-      UNIMPLEMENTED();
-      return node;
+      // TODO(titzer): i64->JS has no good solution right now. Using lower 32 bits.
+      node = g->NewNode(graph->machine()->TruncateInt64ToInt32(), node);
+      return g->NewNode(simplified.ChangeInt32ToTagged(), node);
     case kAstF32:
       node = g->NewNode(graph->machine()->ChangeFloat32ToFloat64(), node);
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
@@ -697,7 +698,11 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
       break;
     }
     case kAstI64:
-      UNIMPLEMENTED();
+      // TODO(titzer): JS->i64 has no good solution right now. Using 32 bits.
+      num = g->NewNode(graph->machine()->TruncateFloat64ToInt32(
+                           compiler::TruncationMode::kJavaScript),
+                       num);
+      num = g->NewNode(graph->machine()->ChangeInt32ToInt64(), num);
       break;
     case kAstF32:
       num = g->NewNode(graph->machine()->TruncateFloat64ToFloat32(), num);
