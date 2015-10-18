@@ -497,6 +497,15 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprI32Clz:
       op = m->Word32Clz();
       break;
+    case kExprI32PopCnt:
+      {
+        compiler::OptionalOperator optionalOperator = m->Word32Popcnt();
+        if (optionalOperator.IsSupported()) {
+          op = optionalOperator.op();
+        } else {
+          return MakeI32PopCnt(input);
+        }
+      }
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
@@ -566,6 +575,43 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
 void TFBuilder::ReturnVoid() {
   TFNode** vals = Buffer(0);
   Return(0, vals);
+}
+
+
+TFNode* TFBuilder::MakeI32PopCnt(TFNode* input) {
+
+  //// Implement the following code as a TF graph. 
+  // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
+  // value = ((value >> 2) & 0x33333333) + (value & 0x33333333);
+  // value = ((value >> 4) & 0x0f0f0f0f) + (value & 0x0f0f0f0f);
+  // value = ((value >> 8) & 0x00ff00ff) + (value & 0x00ff00ff);
+  // value = ((value >> 16) & 0x0000ffff) + (value & 0x0000ffff);
+
+  if (!graph) return nullptr;
+ // compiler::MachineOperatorBuilder* m = graph->machine();
+
+  // tmp1 = ((value >> 1) & 0x55555555) + (value & 0x55555555);
+  TFNode* result = Binop(kExprI32Add,
+    Binop(kExprI32And, Binop(kExprI32ShrU, input, graph->Int32Constant(1)), graph->Int32Constant(0x55555555)),
+    Binop(kExprI32And, input, graph->Int32Constant(0x55555555)));
+
+  result = Binop(kExprI32Add,
+    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(2)), graph->Int32Constant(0x33333333)),
+    Binop(kExprI32And, result, graph->Int32Constant(0x33333333)));
+
+  result = Binop(kExprI32Add,
+    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(4)), graph->Int32Constant(0x0f0f0f0f)),
+    Binop(kExprI32And, result, graph->Int32Constant(0x0f0f0f0f)));
+
+  result = Binop(kExprI32Add,
+    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(8)), graph->Int32Constant(0x00ff00ff)),
+    Binop(kExprI32And, result, graph->Int32Constant(0x00ff00ff)));
+
+  result = Binop(kExprI32Add,
+    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(16)), graph->Int32Constant(0x0000ffff)),
+    Binop(kExprI32And, result, graph->Int32Constant(0x0000ffff)));
+
+  return result;
 }
 
 
