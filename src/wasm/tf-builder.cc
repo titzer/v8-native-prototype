@@ -502,6 +502,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         compiler::OptionalOperator optionalOperator = m->Word32Popcnt();
         if (optionalOperator.IsSupported()) {
           op = optionalOperator.op();
+          break;
         } else {
           return MakeI32PopCnt(input);
         }
