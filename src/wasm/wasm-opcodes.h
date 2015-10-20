@@ -147,7 +147,7 @@ typedef Signature<LocalType> FunctionSig;
   V(I32GeU, 0x56, i_ii)               \
   V(I32Clz, 0x57, i_i)                \
   V(I32Ctz, 0x58, i_i)                \
-  V(I32PopCnt, 0x59, i_i)             \
+  V(I32Popcnt, 0x59, i_i)             \
   V(BoolNot, 0x5a, i_i)               \
   V(I64Add, 0x5b, l_ll)               \
   V(I64Sub, 0x5c, l_ll)               \
@@ -174,7 +174,7 @@ typedef Signature<LocalType> FunctionSig;
   V(I64GeU, 0x71, i_ll)               \
   V(I64Clz, 0x72, i_l)                \
   V(I64Ctz, 0x73, i_l)                \
-  V(I64PopCnt, 0x74, i_l)             \
+  V(I64Popcnt, 0x74, i_l)             \
   V(F32Add, 0x75, f_ff)               \
   V(F32Sub, 0x76, f_ff)               \
   V(F32Mul, 0x77, f_ff)               \

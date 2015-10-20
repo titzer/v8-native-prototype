@@ -99,7 +99,7 @@ struct TFBuilder {
   TFNode* Invert(TFNode* node);
   TFNode* FunctionTable();
   TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
-  TFNode* MakeI32PopCnt(TFNode* input); 
+  TFNode* MakeI32Popcnt(TFNode* input); 
 
   //-----------------------------------------------------------------------
   // Operations that access the linear memory.

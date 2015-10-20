@@ -604,11 +604,11 @@ void TestInt32Unop(WasmOpcode opcode, int32_t expected, int32_t a) {
 TEST(Run_WasmInt32Unops) {
   TestInt32Unop(kExprI32Clz, 5, 0x04000000);
 
-  TestInt32Unop(kExprI32PopCnt, 32, 0xffffffff);
-  TestInt32Unop(kExprI32PopCnt, 0, 0x00000000);
-  TestInt32Unop(kExprI32PopCnt, 1, 0x00008000);
-  TestInt32Unop(kExprI32PopCnt, 13, 0x12345678);
-  TestInt32Unop(kExprI32PopCnt, 19,  0xfedcba09);
+  TestInt32Unop(kExprI32Popcnt, 32, 0xffffffff);
+  TestInt32Unop(kExprI32Popcnt, 0, 0x00000000);
+  TestInt32Unop(kExprI32Popcnt, 1, 0x00008000);
+  TestInt32Unop(kExprI32Popcnt, 13, 0x12345678);
+  TestInt32Unop(kExprI32Popcnt, 19,  0xfedcba09);
 }
 
 #if WASM_64

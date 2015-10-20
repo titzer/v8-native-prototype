@@ -497,14 +497,14 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprI32Clz:
       op = m->Word32Clz();
       break;
-    case kExprI32PopCnt:
+    case kExprI32Popcnt:
       {
-        compiler::OptionalOperator optionalOperator = m->Word32PopCnt();
+        compiler::OptionalOperator optionalOperator = m->Word32Popcnt();
         if (optionalOperator.IsSupported()) {
           op = optionalOperator.op();
           break;
         } else {
-          return MakeI32PopCnt(input);
+          return MakeI32Popcnt(input);
         }
       }
 #if WASM_64
@@ -579,7 +579,7 @@ void TFBuilder::ReturnVoid() {
 }
 
 
-TFNode* TFBuilder::MakeI32PopCnt(TFNode* input) {
+TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
 
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);

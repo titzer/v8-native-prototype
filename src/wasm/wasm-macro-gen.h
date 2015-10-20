@@ -131,7 +131,7 @@
 #define WASM_I32_GEU(x, y) kExprI32GeU, x, y
 #define WASM_I32_CLZ(x) kExprI32Clz, x
 #define WASM_I32_CTZ(x) kExprI32Ctz, x
-#define WASM_I32_POPCNT(x) kExprI32PopCnt, x
+#define WASM_I32_POPCNT(x) kExprI32Popcnt, x
 
 //------------------------------------------------------------------------------
 // Int64 operations
@@ -161,7 +161,7 @@
 #define WASM_I64_GEU(x, y) kExprI64GeU, x, y
 #define WASM_I64_CLZ(x) kExprI64Clz, x
 #define WASM_I64_CTZ(x) kExprI64Ctz, x
-#define WASM_I64_POPCNT(x) kExprI64PopCnt, x
+#define WASM_I64_POPCNT(x) kExprI64Popcnt, x
 
 //------------------------------------------------------------------------------
 // Float32 operations

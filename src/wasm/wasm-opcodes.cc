@@ -173,11 +173,11 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
 
     case kExprI32Clz:
     case kExprI32Ctz:
-    case kExprI32PopCnt:
+    case kExprI32Popcnt:
 
     case kExprI64Clz:
     case kExprI64Ctz:
-    case kExprI64PopCnt:
+    case kExprI64Popcnt:
 
     case kExprF32Min:
     case kExprF32Max:
