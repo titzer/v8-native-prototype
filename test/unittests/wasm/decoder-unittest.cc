@@ -1798,7 +1798,7 @@ TEST_F(WasmOpcodeLengthTest, SimpleExpressions) {
   EXPECT_LENGTH(1, kExprI32GeU);
   EXPECT_LENGTH(1, kExprI32Clz);
   EXPECT_LENGTH(1, kExprI32Ctz);
-  EXPECT_LENGTH(1, kExprI32PopCnt);
+  EXPECT_LENGTH(1, kExprI32Popcnt);
   EXPECT_LENGTH(1, kExprBoolNot);
   EXPECT_LENGTH(1, kExprI64Add);
   EXPECT_LENGTH(1, kExprI64Sub);
@@ -1825,7 +1825,7 @@ TEST_F(WasmOpcodeLengthTest, SimpleExpressions) {
   EXPECT_LENGTH(1, kExprI64GeU);
   EXPECT_LENGTH(1, kExprI64Clz);
   EXPECT_LENGTH(1, kExprI64Ctz);
-  EXPECT_LENGTH(1, kExprI64PopCnt);
+  EXPECT_LENGTH(1, kExprI64Popcnt);
   EXPECT_LENGTH(1, kExprF32Add);
   EXPECT_LENGTH(1, kExprF32Sub);
   EXPECT_LENGTH(1, kExprF32Mul);
@@ -2063,7 +2063,7 @@ TEST_F(WasmOpcodeArityTest, SimpleExpressions) {
   EXPECT_ARITY(2, kExprI32GeU);
   EXPECT_ARITY(1, kExprI32Clz);
   EXPECT_ARITY(1, kExprI32Ctz);
-  EXPECT_ARITY(1, kExprI32PopCnt);
+  EXPECT_ARITY(1, kExprI32Popcnt);
   EXPECT_ARITY(1, kExprBoolNot);
   EXPECT_ARITY(2, kExprI64Add);
   EXPECT_ARITY(2, kExprI64Sub);
@@ -2090,7 +2090,7 @@ TEST_F(WasmOpcodeArityTest, SimpleExpressions) {
   EXPECT_ARITY(2, kExprI64GeU);
   EXPECT_ARITY(1, kExprI64Clz);
   EXPECT_ARITY(1, kExprI64Ctz);
-  EXPECT_ARITY(1, kExprI64PopCnt);
+  EXPECT_ARITY(1, kExprI64Popcnt);
   EXPECT_ARITY(2, kExprF32Add);
   EXPECT_ARITY(2, kExprF32Sub);
   EXPECT_ARITY(2, kExprF32Mul);
