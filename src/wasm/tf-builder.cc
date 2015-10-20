@@ -499,7 +499,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     case kExprI32PopCnt:
       {
-        compiler::OptionalOperator optionalOperator = m->Word32Popcnt();
+        compiler::OptionalOperator optionalOperator = m->Word32PopCnt();
         if (optionalOperator.IsSupported()) {
           op = optionalOperator.op();
           break;
