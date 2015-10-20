@@ -581,7 +581,7 @@ void TFBuilder::ReturnVoid() {
 
 TFNode* TFBuilder::MakeI32PopCnt(TFNode* input) {
 
-  //// Implement the following code as a TF graph. 
+  //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
   // value = ((value >> 2) & 0x33333333) + (value & 0x33333333);
   // value = ((value >> 4) & 0x0f0f0f0f) + (value & 0x0f0f0f0f);
@@ -589,27 +589,35 @@ TFNode* TFBuilder::MakeI32PopCnt(TFNode* input) {
   // value = ((value >> 16) & 0x0000ffff) + (value & 0x0000ffff);
 
   if (!graph) return nullptr;
- // compiler::MachineOperatorBuilder* m = graph->machine();
 
-  // tmp1 = ((value >> 1) & 0x55555555) + (value & 0x55555555);
   TFNode* result = Binop(kExprI32Add,
-    Binop(kExprI32And, Binop(kExprI32ShrU, input, graph->Int32Constant(1)), graph->Int32Constant(0x55555555)),
+    Binop(kExprI32And,
+      Binop(kExprI32ShrU, input, graph->Int32Constant(1)),
+      graph->Int32Constant(0x55555555)),
     Binop(kExprI32And, input, graph->Int32Constant(0x55555555)));
 
   result = Binop(kExprI32Add,
-    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(2)), graph->Int32Constant(0x33333333)),
+    Binop(kExprI32And,
+      Binop(kExprI32ShrU, result, graph->Int32Constant(2)),
+      graph->Int32Constant(0x33333333)),
     Binop(kExprI32And, result, graph->Int32Constant(0x33333333)));
 
   result = Binop(kExprI32Add,
-    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(4)), graph->Int32Constant(0x0f0f0f0f)),
+    Binop(kExprI32And,
+      Binop(kExprI32ShrU, result, graph->Int32Constant(4)),
+      graph->Int32Constant(0x0f0f0f0f)),
     Binop(kExprI32And, result, graph->Int32Constant(0x0f0f0f0f)));
 
   result = Binop(kExprI32Add,
-    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(8)), graph->Int32Constant(0x00ff00ff)),
+    Binop(kExprI32And,
+      Binop(kExprI32ShrU, result, graph->Int32Constant(8)),
+      graph->Int32Constant(0x00ff00ff)),
     Binop(kExprI32And, result, graph->Int32Constant(0x00ff00ff)));
 
   result = Binop(kExprI32Add,
-    Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(16)), graph->Int32Constant(0x0000ffff)),
+    Binop(kExprI32And,
+      Binop(kExprI32ShrU, result, graph->Int32Constant(16)),
+      graph->Int32Constant(0x0000ffff)),
     Binop(kExprI32And, result, graph->Int32Constant(0x0000ffff)));
 
   return result;
@@ -689,7 +697,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
 
   // Load code object from the table.
   int offset = fixed_offset + kPointerSize * table_size;
-  TFNode* load_code = g->NewNode(machine->Load(compiler::kMachAnyTagged), 
+  TFNode* load_code = g->NewNode(machine->Load(compiler::kMachAnyTagged),
                                  table,
                                  g->NewNode(machine->Int32Add(),
                                             g->NewNode(machine->Word32Shl(),
@@ -697,7 +705,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
                                                        Int32Constant(kPointerSizeLog2)),
                                             Int32Constant(offset)),
                                  *effect, *control);
-  
+
   args[0] = load_code;
   FunctionSig* sig = module->GetSignature(index);
   return MakeWasmCall(sig, args);
