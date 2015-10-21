@@ -1771,30 +1771,33 @@ TEST(Run_WasmCall_Float32Sub) {
 
 
 TEST(Run_WasmCall_Float64Sub) {
-  TestSignatures sigs;
-  WasmFunctionCompiler t(sigs.d_dd());
-
-  // Build the target function.
+  WasmRunner<int32_t> r;
   TestingModule module;
-  BUILD(t, WASM_RETURN(WASM_F64_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
-  unsigned index = t.CompileAndAdd(&module);
-
-  // Builder the caller function.
-  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  int32_t* memory = module.AddMemoryElems<int32_t>(16);
   r.env.module = &module;
-  BUILD(r, WASM_RETURN(WASM_I32_SCONVERT_F64(WASM_CALL_FUNCTION(
-               index, WASM_F64_SCONVERT_I32(WASM_GET_LOCAL(0)),
-               WASM_F64_SCONVERT_I32(WASM_GET_LOCAL(1))))));
 
-  FOR_INT32_INPUTS(i) {
-    FOR_INT32_INPUTS(j) {
-      int32_t expected = static_cast<int32_t>(static_cast<double>(*i) -
-                                              static_cast<double>(*j));
-      CHECK_EQ(expected, r.Call(*i, *j));
+  BUILD(r, WASM_BLOCK(2,
+                      WASM_STORE_MEM(kMemF64,
+                        WASM_ZERO,
+                        WASM_F64_SUB(
+                          WASM_LOAD_MEM(kMemF64, WASM_ZERO),
+                          WASM_LOAD_MEM(kMemF64, WASM_I8(8)))),
+                          WASM_RETURN(WASM_I8(107))));
+
+  FOR_FLOAT64_INPUTS(i) {
+    FOR_FLOAT64_INPUTS(j) {
+      ((double*)memory)[0] = *i;
+      ((double*)memory)[1] = *j;
+      double expected = *i - *j;
+      CHECK_EQ(107, r.Call());
+      if (expected != expected) {
+        CHECK(*((double*)memory) != *((double*)memory));
+      } else {
+        CHECK_EQ(expected, *((double*)memory));
+      }
     }
   }
 }
-
 
 #define ADD_CODE(vec, ...)                                              \
   do {                                                                  \
