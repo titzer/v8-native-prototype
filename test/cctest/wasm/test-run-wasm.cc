@@ -1773,7 +1773,7 @@ TEST(Run_WasmCall_Float32Sub) {
 TEST(Run_WasmCall_Float64Sub) {
   WasmRunner<int32_t> r;
   TestingModule module;
-  int32_t* memory = module.AddMemoryElems<int32_t>(16);
+  double* memory = module.AddMemoryElems<double>(16);
   r.env.module = &module;
 
   BUILD(r, WASM_BLOCK(2,
@@ -1786,14 +1786,14 @@ TEST(Run_WasmCall_Float64Sub) {
 
   FOR_FLOAT64_INPUTS(i) {
     FOR_FLOAT64_INPUTS(j) {
-      ((double*)memory)[0] = *i;
-      ((double*)memory)[1] = *j;
+      memory[0] = *i;
+      memory[1] = *j;
       double expected = *i - *j;
       CHECK_EQ(107, r.Call());
       if (expected != expected) {
-        CHECK(*((double*)memory) != *((double*)memory));
+        CHECK(memory[0] != memory[0]);
       } else {
-        CHECK_EQ(expected, *((double*)memory));
+        CHECK_EQ(expected, memory[0]);
       }
     }
   }
