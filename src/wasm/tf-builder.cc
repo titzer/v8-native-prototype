@@ -595,7 +595,7 @@ TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   // value = value | (value << 4);
   // value = value | (value << 8);
   // value = value | (value << 16);
-  // return CountPopulation32(0 XOR value);
+  // return CountPopulation32(0xffffffff XOR value);
 
   if (!graph) return nullptr;
 
