@@ -368,6 +368,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitSloppyBlockFunctionStatement(
       SloppyBlockFunctionStatement* expr) {}
 
+  void VisitDoExpression(DoExpression* expr) {
+  }
+
   struct IndexContainer : public ZoneObject {
     uint16_t index;
   };
