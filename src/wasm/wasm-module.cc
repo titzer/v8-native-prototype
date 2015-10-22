@@ -106,9 +106,16 @@ class WasmLinker {
     function_code_[index] = code;
   }
 
-  void Link() {
+  void Link(Handle<FixedArray> function_table, std::vector<uint16_t>* functions) {
     for (size_t i = 0; i < function_code_.size(); i++) {
       LinkFunction(function_code_[i]);
+    }
+    if (functions && !function_table.is_null()) {
+      int table_size = static_cast<int>(functions->size());
+      DCHECK_EQ(function_table->length(), table_size * 2);
+      for (int i = 0; i < table_size; i++) {
+	function_table->set(i + table_size, *function_code_[functions->at(i)]);
+      }
     }
   }
 
@@ -680,6 +687,19 @@ void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
            segment.source_size);
   }
 }
+
+Handle<FixedArray> BuildFunctionTable(Isolate* isolate, WasmModule* module) {
+  if (!module->function_table || module->function_table->size() == 0) {
+    return Handle<FixedArray>::null();
+  }
+  int table_size = static_cast<int>(module->function_table->size());
+  Handle<FixedArray> fixed = isolate->factory()->NewFixedArray(2 * table_size);
+  for (int i = 0; i < table_size; i++) {
+    WasmFunction* function = &module->functions->at(module->function_table->at(i));
+    fixed->set(i, Smi::FromInt(function->sig_index));
+  }
+  return fixed;
+}
 }  // namespace
 
 
@@ -766,6 +786,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr);
   module_env.linker = &linker;
   module_env.function_code = nullptr;
+  module_env.function_table = BuildFunctionTable(isolate, this);
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
@@ -823,7 +844,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   }
 
   // Second pass: patch all direct call sites.
-  linker.Link();
+  linker.Link(module_env.function_table, this->function_table);
 
   module->SetInternalField(kWasmModuleFunctionTable, Smi::FromInt(0));
   module->SetInternalField(kWasmModuleCodeTable, *code_table);
@@ -955,6 +976,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   module_env.globals_area = reinterpret_cast<uintptr_t>(globals_addr.get());
   module_env.linker = &linker;
   module_env.function_code = nullptr;
+  module_env.function_table = BuildFunctionTable(isolate, module);
 
   // Load data segments.
   // TODO(titzer): throw instead of crashing if segments don't fit in memory?
@@ -978,7 +1000,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   }
 
   if (!main_code.is_null()) {
-    linker.Link();
+    linker.Link(module_env.function_table, module->function_table);
 #if USE_SIMULATOR && V8_TARGET_ARCH_ARM64
     // Run the main code on arm64 simulator.
     Simulator* simulator = Simulator::current(isolate);

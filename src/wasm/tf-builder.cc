@@ -885,7 +885,10 @@ TFNode* TFBuilder::MemSize() {
 
 TFNode* TFBuilder::FunctionTable() {
   if (!graph) return nullptr;
-  if (!function_table) function_table = graph->Constant(module->function_table);
+  if (!function_table) {
+    DCHECK(!module->function_table.is_null());
+    function_table = graph->Constant(module->function_table);
+  }
   return function_table;
 }
 
