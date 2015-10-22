@@ -601,15 +601,88 @@ void TestInt32Unop(WasmOpcode opcode, int32_t expected, int32_t a) {
 }
 
 
-TEST(Run_WasmInt32Unops) {
-  TestInt32Unop(kExprI32Clz, 5, 0x04000000);
+TEST(Run_WasmInt32Clz) {
+  TestInt32Unop(kExprI32Clz,  0, 0x80001000);
+  TestInt32Unop(kExprI32Clz,  1, 0x40000500);
+  TestInt32Unop(kExprI32Clz,  2, 0x20000300);
+  TestInt32Unop(kExprI32Clz,  3, 0x10000003);
+  TestInt32Unop(kExprI32Clz,  4, 0x08050000);
+  TestInt32Unop(kExprI32Clz,  5, 0x04006000);
+  TestInt32Unop(kExprI32Clz,  6, 0x02000000);
+  TestInt32Unop(kExprI32Clz,  7, 0x010000a0);
+  TestInt32Unop(kExprI32Clz,  8, 0x00800c00);
+  TestInt32Unop(kExprI32Clz,  9, 0x00400000);
+  TestInt32Unop(kExprI32Clz, 10, 0x0020000d);
+  TestInt32Unop(kExprI32Clz, 11, 0x00100f00);
+  TestInt32Unop(kExprI32Clz, 12, 0x00080000);
+  TestInt32Unop(kExprI32Clz, 13, 0x00041000);
+  TestInt32Unop(kExprI32Clz, 14, 0x00020020);
+  TestInt32Unop(kExprI32Clz, 15, 0x00010300);
+  TestInt32Unop(kExprI32Clz, 16, 0x00008040);
+  TestInt32Unop(kExprI32Clz, 17, 0x00004005);
+  TestInt32Unop(kExprI32Clz, 18, 0x00002050);
+  TestInt32Unop(kExprI32Clz, 19, 0x00001700);
+  TestInt32Unop(kExprI32Clz, 20, 0x00000870);
+  TestInt32Unop(kExprI32Clz, 21, 0x00000405);
+  TestInt32Unop(kExprI32Clz, 22, 0x00000203);
+  TestInt32Unop(kExprI32Clz, 23, 0x00000101);
+  TestInt32Unop(kExprI32Clz, 24, 0x00000089);
+  TestInt32Unop(kExprI32Clz, 25, 0x00000041);
+  TestInt32Unop(kExprI32Clz, 26, 0x00000022);
+  TestInt32Unop(kExprI32Clz, 27, 0x00000013);
+  TestInt32Unop(kExprI32Clz, 28, 0x00000008);
+  TestInt32Unop(kExprI32Clz, 29, 0x00000004);
+  TestInt32Unop(kExprI32Clz, 30, 0x00000002);
+  TestInt32Unop(kExprI32Clz, 31, 0x00000001);
+  TestInt32Unop(kExprI32Clz, 32, 0x00000000);
+}
 
+
+TEST(Run_WasmInt32Ctz) {
+  TestInt32Unop(kExprI32Ctz, 32, 0x00000000);
+  TestInt32Unop(kExprI32Ctz, 31, 0x80000000);
+  TestInt32Unop(kExprI32Ctz, 30, 0x40000000);
+  TestInt32Unop(kExprI32Ctz, 29, 0x20000000);
+  TestInt32Unop(kExprI32Ctz, 28, 0x10000000);
+  TestInt32Unop(kExprI32Ctz, 27, 0xa8000000);
+  TestInt32Unop(kExprI32Ctz, 26, 0xf4000000);
+  TestInt32Unop(kExprI32Ctz, 25, 0x62000000);
+  TestInt32Unop(kExprI32Ctz, 24, 0x91000000);
+  TestInt32Unop(kExprI32Ctz, 23, 0xcd800000);
+  TestInt32Unop(kExprI32Ctz, 22, 0x09400000);
+  TestInt32Unop(kExprI32Ctz, 21, 0xaf200000);
+  TestInt32Unop(kExprI32Ctz, 20, 0xac100000);
+  TestInt32Unop(kExprI32Ctz, 19, 0xe0b80000);
+  TestInt32Unop(kExprI32Ctz, 18, 0x9ce40000);
+  TestInt32Unop(kExprI32Ctz, 17, 0xc7920000);
+  TestInt32Unop(kExprI32Ctz, 16, 0xb8f10000);
+  TestInt32Unop(kExprI32Ctz, 15, 0x3b9f8000);
+  TestInt32Unop(kExprI32Ctz, 14, 0xdb4c4000);
+  TestInt32Unop(kExprI32Ctz, 13, 0xe9a32000);
+  TestInt32Unop(kExprI32Ctz, 12, 0xfca61000);
+  TestInt32Unop(kExprI32Ctz, 11, 0x6c8a7800);
+  TestInt32Unop(kExprI32Ctz, 10, 0x8ce5a400);
+  TestInt32Unop(kExprI32Ctz, 9, 0xcb7d0200);
+  TestInt32Unop(kExprI32Ctz, 8, 0xcb4dc100);
+  TestInt32Unop(kExprI32Ctz, 7, 0xdfbec580);
+  TestInt32Unop(kExprI32Ctz, 6, 0x27a9db40);
+  TestInt32Unop(kExprI32Ctz, 5, 0xde3bcb20);
+  TestInt32Unop(kExprI32Ctz, 4, 0xd7e8a610);
+  TestInt32Unop(kExprI32Ctz, 3, 0x9afdbc88);
+  TestInt32Unop(kExprI32Ctz, 2, 0x9afdbc84);
+  TestInt32Unop(kExprI32Ctz, 1, 0x9afdbc82);
+  TestInt32Unop(kExprI32Ctz, 0, 0x9afdbc81);
+}
+
+
+TEST(Run_WasmInt32Popcnt) {
   TestInt32Unop(kExprI32Popcnt, 32, 0xffffffff);
   TestInt32Unop(kExprI32Popcnt, 0, 0x00000000);
   TestInt32Unop(kExprI32Popcnt, 1, 0x00008000);
   TestInt32Unop(kExprI32Popcnt, 13, 0x12345678);
-  TestInt32Unop(kExprI32Popcnt, 19,  0xfedcba09);
+  TestInt32Unop(kExprI32Popcnt, 19, 0xfedcba09);
 }
+
 
 #if WASM_64
 void TestInt64Binop(WasmOpcode opcode, int64_t expected, int64_t a, int64_t b) {
@@ -1891,7 +1964,7 @@ TEST(Run_WasmMixedCall_3) { Run_WasmMixedCall_N(3); }
 TEST(Run_Wasm_CountDown_expr) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r,
-        WASM_EXPR_LOOP(2, WASM_IF(WASM_NOT(WASM_GET_LOCAL(0)), 
+        WASM_EXPR_LOOP(2, WASM_IF(WASM_NOT(WASM_GET_LOCAL(0)),
                                   WASM_EXPR_BREAK(0, WASM_GET_LOCAL(0))),
                        WASM_SET_LOCAL(0, WASM_I32_SUB(WASM_GET_LOCAL(0),
                                                       WASM_I8(1)))));
@@ -1905,7 +1978,7 @@ TEST(Run_Wasm_ExprBlock2a) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r,
         WASM_EXPR_BLOCK(2,
-                        WASM_IF(WASM_GET_LOCAL(0), 
+                        WASM_IF(WASM_GET_LOCAL(0),
                                 WASM_EXPR_BREAK(0, WASM_I8(1))),
                         WASM_I8(1)));
   CHECK_EQ(1, r.Call(0));
@@ -1917,7 +1990,7 @@ TEST(Run_Wasm_ExprBlock2b) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r,
         WASM_EXPR_BLOCK(2,
-                        WASM_IF(WASM_GET_LOCAL(0), 
+                        WASM_IF(WASM_GET_LOCAL(0),
                                 WASM_EXPR_BREAK(0, WASM_I8(1))),
                         WASM_I8(2)));
   CHECK_EQ(2, r.Call(0));
@@ -1933,11 +2006,11 @@ TEST(Run_Wasm_ExprBlock_ManualSwitch) {
                                 WASM_EXPR_BREAK(0, WASM_I8(11))),
                         WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(2)),
                                 WASM_EXPR_BREAK(0, WASM_I8(12))),
-                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(3)), 
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(3)),
                                 WASM_EXPR_BREAK(0, WASM_I8(13))),
-                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(4)), 
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(4)),
                                 WASM_EXPR_BREAK(0, WASM_I8(14))),
-                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(5)), 
+                        WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(5)),
                                 WASM_EXPR_BREAK(0, WASM_I8(15))),
                         WASM_I8(99)));
   CHECK_EQ(99, r.Call(0));
@@ -1960,7 +2033,7 @@ TEST(Run_Wasm_ExprBlock_nested_ifs) {
                                            WASM_IF_THEN(WASM_GET_LOCAL(1),
                                                         WASM_EXPR_BREAK(0, WASM_I8(13)),
                                                         WASM_EXPR_BREAK(0, WASM_I8(14))))));
-       
+
 
   CHECK_EQ(11, r.Call(1, 1));
   CHECK_EQ(12, r.Call(1, 0));
@@ -1979,7 +2052,7 @@ TEST(Run_Wasm_ExprLoop_nested_ifs) {
                                            WASM_IF_THEN(WASM_GET_LOCAL(1),
                                                         WASM_EXPR_BREAK(0, WASM_I8(13)),
                                                         WASM_EXPR_BREAK(0, WASM_I8(14))))));
-       
+
 
   CHECK_EQ(11, r.Call(1, 1));
   CHECK_EQ(12, r.Call(1, 0));
@@ -2057,7 +2130,7 @@ TEST(Run_Wasm_SimpleCallIndirect) {
   fixed->set(2, *module.function_code->at(0));
   fixed->set(3, *module.function_code->at(1));
   module.function_table = fixed;
-  
+
   // Builder the caller function.
   BUILD(r, WASM_RETURN(WASM_CALL_INDIRECT(1, WASM_GET_LOCAL(0), WASM_I8(66),
                                           WASM_I8(22))));

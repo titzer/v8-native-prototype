@@ -499,6 +499,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     case kExprI32Ctz:
       {
+          return MakeI32Ctz(input);
         if (m->Word32Ctz().IsSupported()) {
           op = m->Word32Ctz().op();
           break;
@@ -614,7 +615,7 @@ TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   result = Binop(kExprI32Ior, result,
       Binop(kExprI32Shl, result, graph->Int32Constant(16)));
 
-  result = MakeI32Popcnt(Binop(kExprI32Xor, graph->Int32Constant(0), result));
+  result = MakeI32Popcnt(Binop(kExprI32Xor, graph->Int32Constant(0xffffffff), result));
 
   return result;
 }
