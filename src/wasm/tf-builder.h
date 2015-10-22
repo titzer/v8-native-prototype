@@ -99,6 +99,7 @@ struct TFBuilder {
   TFNode* Invert(TFNode* node);
   TFNode* FunctionTable();
   TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
+  TFNode* MakeI32Ctz(TFNode* input); 
   TFNode* MakeI32Popcnt(TFNode* input); 
 
   //-----------------------------------------------------------------------

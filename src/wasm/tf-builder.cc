@@ -497,6 +497,15 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprI32Clz:
       op = m->Word32Clz();
       break;
+    case kExprI32Ctz:
+      {
+        if (m->Word32Ctz().IsSupported()) {
+          op = m->Word32Ctz().op();
+          break;
+        } else {
+          return MakeI32Ctz(input);
+        }
+      }
     case kExprI32Popcnt:
       {
         if (m->Word32Popcnt().IsSupported()) {
@@ -575,6 +584,39 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
 void TFBuilder::ReturnVoid() {
   TFNode** vals = Buffer(0);
   Return(0, vals);
+}
+
+
+TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
+
+  //// Implement the following code as TF graph.
+  // value = value | (value << 1);
+  // value = value | (value << 2);
+  // value = value | (value << 4);
+  // value = value | (value << 8);
+  // value = value | (value << 16);
+  // return CountPopulation32(0xffffffff XOR value);
+
+  if (!graph) return nullptr;
+
+  TFNode* result = Binop(kExprI32Ior, input,
+      Binop(kExprI32Shl, input, graph->Int32Constant(1)));
+
+  result = Binop(kExprI32Ior, result,
+      Binop(kExprI32Shl, result, graph->Int32Constant(2))); 
+
+  result = Binop(kExprI32Ior, result,
+      Binop(kExprI32Shl, result, graph->Int32Constant(4))); 
+
+  result = Binop(kExprI32Ior, result,
+      Binop(kExprI32Shl, result, graph->Int32Constant(8))); 
+
+  result = Binop(kExprI32Ior, result,
+      Binop(kExprI32Shl, result, graph->Int32Constant(16)));
+
+  result = MakeI32Popcnt(Binop(kExprI32Xor, graph->Int32Constant(0xffffffff), result));
+
+  return result;
 }
 
 
