@@ -499,7 +499,6 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     case kExprI32Ctz:
       {
-          return MakeI32Ctz(input);
         if (m->Word32Ctz().IsSupported()) {
           op = m->Word32Ctz().op();
           break;
