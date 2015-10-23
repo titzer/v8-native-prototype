@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "src/base/platform/elapsed-timer.h"
 #include "src/signature.h"
 
 #include "src/zone-containers.h"
@@ -131,6 +132,10 @@ class LR_WasmDecoder : public Decoder {
 
   TreeResult Decode(FunctionEnv* function_env, const byte* base, const byte* pc,
                     const byte* end) {
+    base::ElapsedTimer decode_timer;
+    if (FLAG_trace_wasm_decode_time) {
+      decode_timer.Start();
+    }
     CHECK(end >= pc);
     trees_.clear();
     stack_.clear();
@@ -157,6 +162,10 @@ class LR_WasmDecoder : public Decoder {
     }
     
     if (ok()) {
+      if (FLAG_trace_wasm_decode_time) {
+        double ms = decode_timer.Elapsed().InMillisecondsF();
+        PrintF(" - decoding took %0.3f ms\n", ms);
+      }
       TRACE("wasm-decode ok\n\n");
     } else {
       TRACE("wasm-error module+%-6d func+%d: %s\n\n", baserel(error_pc_),
