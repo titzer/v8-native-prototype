@@ -950,10 +950,10 @@ class LR_WasmDecoder : public Decoder {
       case kExprCallIndirect: {
         int len;
         uint32_t index;
+        FunctionSig* sig = SigOperand(p->pc(), &index, &len);
         if (p->index == 1) {
           TypeCheckLast(p, kAstI32);
         } else {
-          FunctionSig* sig = SigOperand(p->pc(), &index, &len);
           TypeCheckLast(p, sig->GetParam(p->index - 2));
         }
         if (p->done()) {
