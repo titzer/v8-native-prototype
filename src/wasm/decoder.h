@@ -143,6 +143,7 @@ class Decoder {
       TRACE("%02x = %d\n", val, val);
       return val;
     } else {
+      error("expected 1 byte, but fell off end");
       return traceOffEnd<uint8_t>();
     }
   }
@@ -163,6 +164,7 @@ class Decoder {
       pc_ += 2;
       return val;
     } else {
+      error("expected 2 bytes, but fell off end");
       return traceOffEnd<uint16_t>();
     }
   }
@@ -189,6 +191,7 @@ class Decoder {
       pc_ += 4;
       return val;
     } else {
+      error("expected 4 bytes, but fell off end");
       return traceOffEnd<uint32_t>();
     }
   }
@@ -196,6 +199,11 @@ class Decoder {
   // Reads a LEB128 variable-length 32-bit integer and advances {pc_}.
   uint32_t u32v(int* length, const char* name = nullptr) {
     TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_), name ? name : "varint");
+
+    if (!checkAvailable(1)) {
+      error("expected at least 1 byte, but fell off end");
+      return traceOffEnd<uint32_t>();
+    }
 
     const byte* pos = pc_;
     const byte* end = pc_ + 5;
@@ -215,8 +223,6 @@ class Decoder {
     *length = static_cast<int>(pc_ - pos);
     if (pc_ == end && (b & 0x80)) {
       error(pc_ - 1, "varint too large");
-    } else if (*length == 0) {
-      error(pc_, "expected varint");
     } else {
       TRACE("= %u\n", result);
     }
@@ -225,7 +231,7 @@ class Decoder {
 
   // Check that at least {size} bytes exist between {pc_} and {limit_}.
   bool checkAvailable(int size) {
-    if (pc_ < start_ || pc_ + size > limit_) {
+    if (pc_ < start_ || (pc_ + size) > limit_) {
       error(pc_, nullptr, "expected %d bytes, fell off end", size);
       return false;
     } else {
@@ -286,6 +292,7 @@ class Decoder {
       result.error_msg = error_msg_;
       error_msg_.Reset(nullptr);
     } else {
+      result.error_code = kSuccess;
       result.val = val;
     }
     return result;

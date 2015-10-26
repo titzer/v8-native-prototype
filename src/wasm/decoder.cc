@@ -131,11 +131,15 @@ class LR_WasmDecoder : public Decoder {
 
   TreeResult Decode(FunctionEnv* function_env, const byte* base, const byte* pc,
                     const byte* end) {
-    CHECK(end >= pc);
     trees_.clear();
     stack_.clear();
     blocks_.clear();
     ifs_.clear();
+
+    if (end < pc) {
+      error(pc, "function body end < start");
+      return result_;
+    }
 
     base_ = base;
     Reset(pc, end);
@@ -946,10 +950,10 @@ class LR_WasmDecoder : public Decoder {
       case kExprCallIndirect: {
         int len;
         uint32_t index;
+        FunctionSig* sig = SigOperand(p->pc(), &index, &len);
         if (p->index == 1) {
           TypeCheckLast(p, kAstI32);
         } else {
-          FunctionSig* sig = SigOperand(p->pc(), &index, &len);
           TypeCheckLast(p, sig->GetParam(p->index - 2));
         }
         if (p->done()) {
@@ -1500,11 +1504,13 @@ int OpcodeArity(FunctionEnv* env, const byte* pc) {
 
     case kExprCallFunction: {
       int index = *(pc + 1);
-      return static_cast<int>(env->module->GetFunctionSignature(index)->parameter_count());
+      return static_cast<int>(
+          env->module->GetFunctionSignature(index)->parameter_count());
     }
     case kExprCallIndirect: {
       int index = *(pc + 1);
-      return 1 + static_cast<int>(env->module->GetSignature(index)->parameter_count());
+      return 1 + static_cast<int>(
+                     env->module->GetSignature(index)->parameter_count());
     }
     case kExprIf:
       return 3;
