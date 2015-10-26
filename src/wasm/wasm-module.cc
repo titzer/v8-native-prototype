@@ -165,7 +165,7 @@ const int kWasmGlobalsArrayBuffer = 3;
 Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
                              ModuleEnv* module_env,
                              const WasmFunction& function, int index) {
-  if (FLAG_trace_wasm_compiler) {
+  if (FLAG_trace_wasm_compiler || FLAG_trace_wasm_decode_time) {
     // TODO(titzer): clean me up a bit.
     OFStream os(stdout);
     os << "Compiling WASM function #" << index << ":";
@@ -425,6 +425,15 @@ class ModuleDecoder : public Decoder {
   // Verifies the body (code) of a given function.
   void VerifyFunctionBody(uint32_t func_num, ModuleEnv* menv,
                           WasmFunction* function) {
+    if (FLAG_trace_wasm_decode_time) {
+      // TODO: clean me up a bit.
+      OFStream os(stdout);
+      os << "Verifying WASM function:";
+      if (function->name_offset > 0) {
+        os << menv->module->GetName(function->name_offset);
+      }
+      os << std::endl;
+    }
     FunctionEnv fenv;
     fenv.module = menv;
     fenv.sig = function->sig;
