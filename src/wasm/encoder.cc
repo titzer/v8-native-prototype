@@ -8,7 +8,7 @@
 #include "src/handles.h"
 #include "src/zone-containers.h"
 
-#include "src/wasm/decoder.h"
+#include "src/wasm/ast-decoder.h"
 #include "src/wasm/encoder.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"
@@ -28,12 +28,10 @@ void EmitUint8(byte** b, uint8_t x) {
   *b += 1;
 }
 
-
 void EmitUint16(byte** b, uint16_t x) {
   Memory::uint16_at(*b) = x;
   *b += 2;
 }
-
 
 void EmitUint32(byte** b, uint32_t x) {
   Memory::uint32_at(*b) = x;
@@ -55,12 +53,10 @@ void EmitVarInt(byte** b, size_t val) {
 }
 }
 
-
 struct WasmFunctionBuilder::Type {
   bool param_;
   uint8_t type_;
 };
-
 
 WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone)
     : return_type_(kAstI32),
@@ -68,18 +64,16 @@ WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone)
       exported_(0),
       external_(0),
       body_(zone),
-      local_indices_(zone) {}
-
+      local_indices_(zone) {
+}
 
 uint16_t WasmFunctionBuilder::AddParam(uint8_t type) {
   return AddVar(type, true);
 }
 
-
 uint16_t WasmFunctionBuilder::AddLocal(uint8_t type) {
   return AddVar(type, false);
 }
-
 
 uint16_t WasmFunctionBuilder::AddVar(uint8_t type, bool param) {
   Type t;
@@ -89,16 +83,16 @@ uint16_t WasmFunctionBuilder::AddVar(uint8_t type, bool param) {
   return static_cast<uint16_t>(locals_.size() - 1);
 }
 
-
-void WasmFunctionBuilder::ReturnType(uint8_t type) { return_type_ = type; }
-
+void WasmFunctionBuilder::ReturnType(uint8_t type) {
+  return_type_ = type;
+}
 
 void WasmFunctionBuilder::AddBody(const byte* code, uint32_t code_size) {
   AddBody(code, code_size, NULL, 0);
 }
 
-
-void WasmFunctionBuilder::AddBody(const byte* code, uint32_t code_size,
+void WasmFunctionBuilder::AddBody(const byte* code,
+                                  uint32_t code_size,
                                   const uint32_t* local_indices,
                                   uint32_t indices_size) {
   size_t size = body_.size();
@@ -110,7 +104,6 @@ void WasmFunctionBuilder::AddBody(const byte* code, uint32_t code_size,
   }
 }
 
-
 void WasmFunctionBuilder::AppendCode(const byte opcode,
                                      bool add_local_operand) {
   body_.push_back(opcode);
@@ -119,12 +112,13 @@ void WasmFunctionBuilder::AppendCode(const byte opcode,
   }
 }
 
+void WasmFunctionBuilder::Exported(uint8_t flag) {
+  exported_ = flag;
+}
 
-void WasmFunctionBuilder::Exported(uint8_t flag) { exported_ = flag; }
-
-
-void WasmFunctionBuilder::External(uint8_t flag) { external_ = flag; }
-
+void WasmFunctionBuilder::External(uint8_t flag) {
+  external_ = flag;
+}
 
 WasmFunctionEncoder* WasmFunctionBuilder::Build(Zone* zone,
                                                 WasmModuleBuilder* mb) const {
@@ -165,7 +159,6 @@ WasmFunctionEncoder* WasmFunctionBuilder::Build(Zone* zone,
   delete[] var_index;
   return e;
 }
-
 
 void WasmFunctionBuilder::IndexVars(WasmFunctionEncoder* e,
                                     uint16_t* var_index) const {
@@ -212,30 +205,32 @@ void WasmFunctionBuilder::IndexVars(WasmFunctionEncoder* e,
   }
 }
 
-WasmFunctionEncoder::WasmFunctionEncoder(Zone* zone, uint8_t return_type,
-                                         uint8_t exported, uint8_t external)
-    : params_(zone), exported_(exported), external_(external), body_(zone) {}
-
+WasmFunctionEncoder::WasmFunctionEncoder(Zone* zone,
+                                         uint8_t return_type,
+                                         uint8_t exported,
+                                         uint8_t external)
+    : params_(zone), exported_(exported), external_(external), body_(zone) {
+}
 
 uint32_t WasmFunctionEncoder::HeaderSize() const {
   uint32_t size = 3;
-  if (HasLocals()) size += 8;
-  if (!external_) size += 2;
+  if (HasLocals())
+    size += 8;
+  if (!external_)
+    size += 2;
   return size;
 }
-
 
 uint32_t WasmFunctionEncoder::BodySize(void) const {
   return external_ ? 0 : static_cast<uint32_t>(body_.size());
 }
 
-
-void WasmFunctionEncoder::Serialize(byte* buffer, byte** header,
+void WasmFunctionEncoder::Serialize(byte* buffer,
+                                    byte** header,
                                     byte** body) const {
-
   uint8_t decl_bits = (exported_ ? kDeclFunctionExport : 0) |
-    (external_ ? kDeclFunctionImport : 0) |
-    (HasLocals() ? kDeclFunctionLocals : 0);
+                      (external_ ? kDeclFunctionImport : 0) |
+                      (HasLocals() ? kDeclFunctionLocals : 0);
 
   EmitUint8(header, decl_bits);
   EmitUint16(header, signature_index_);
@@ -254,15 +249,15 @@ void WasmFunctionEncoder::Serialize(byte* buffer, byte** header,
   }
 }
 
-
-WasmDataSegmentEncoder::WasmDataSegmentEncoder(Zone* zone, const byte* data,
-                                               uint32_t size, uint32_t dest)
+WasmDataSegmentEncoder::WasmDataSegmentEncoder(Zone* zone,
+                                               const byte* data,
+                                               uint32_t size,
+                                               uint32_t dest)
     : data_(zone), dest_(dest) {
   for (size_t i = 0; i < size; i++) {
     data_.push_back(data[i]);
   }
 }
-
 
 uint32_t WasmDataSegmentEncoder::HeaderSize() const {
   static const int kDataSegmentSize = 13;
@@ -273,7 +268,8 @@ uint32_t WasmDataSegmentEncoder::BodySize() const {
   return static_cast<uint32_t>(data_.size());
 }
 
-void WasmDataSegmentEncoder::Serialize(byte* buffer, byte** header,
+void WasmDataSegmentEncoder::Serialize(byte* buffer,
+                                       byte** header,
                                        byte** body) const {
   uint32_t body_offset = static_cast<uint32_t>(*body - buffer);
   EmitUint32(header, dest_);
@@ -291,8 +287,8 @@ WasmModuleBuilder::WasmModuleBuilder(Zone* zone)
       functions_(zone),
       data_segments_(zone),
       indirect_functions_(zone),
-      signature_map_(zone) {}
-
+      signature_map_(zone) {
+}
 
 uint16_t WasmModuleBuilder::AddFunction() {
   functions_.push_back(new (zone_) WasmFunctionBuilder(zone_));
@@ -311,20 +307,27 @@ void WasmModuleBuilder::AddDataSegment(WasmDataSegmentEncoder* data) {
   data_segments_.push_back(data);
 }
 
-
 int WasmModuleBuilder::CompareFunctionSigs::operator()(FunctionSig* a,
                                                        FunctionSig* b) {
-  if (a->return_count() < b->return_count()) return -1;
-  if (a->return_count() > b->return_count()) return 1;
-  if (a->parameter_count() < b->parameter_count()) return -1;
-  if (a->parameter_count() > b->parameter_count()) return 1;
+  if (a->return_count() < b->return_count())
+    return -1;
+  if (a->return_count() > b->return_count())
+    return 1;
+  if (a->parameter_count() < b->parameter_count())
+    return -1;
+  if (a->parameter_count() > b->parameter_count())
+    return 1;
   for (size_t r = 0; r < a->return_count(); r++) {
-    if (a->GetReturn(r) < b->GetReturn(r)) return -1;
-    if (a->GetReturn(r) > b->GetReturn(r)) return 1;
+    if (a->GetReturn(r) < b->GetReturn(r))
+      return -1;
+    if (a->GetReturn(r) > b->GetReturn(r))
+      return 1;
   }
   for (size_t p = 0; p < a->return_count(); p++) {
-    if (a->GetParam(p) < b->GetParam(p)) return -1;
-    if (a->GetParam(p) > b->GetParam(p)) return 1;
+    if (a->GetParam(p) < b->GetParam(p))
+      return -1;
+    if (a->GetParam(p) > b->GetParam(p))
+      return 1;
   }
   return 0;
 }
@@ -341,11 +344,9 @@ uint16_t WasmModuleBuilder::AddSignature(FunctionSig* sig) {
   }
 }
 
-
 void WasmModuleBuilder::AddIndirectFunction(uint16_t index) {
   indirect_functions_.push_back(index);
 }
-
 
 WasmModuleWriter* WasmModuleBuilder::Build(Zone* zone) {
   WasmModuleWriter* writer = new (zone) WasmModuleWriter(zone);
@@ -364,21 +365,18 @@ WasmModuleWriter* WasmModuleBuilder::Build(Zone* zone) {
   return writer;
 }
 
-
 WasmModuleWriter::WasmModuleWriter(Zone* zone)
     : functions_(zone),
       data_segments_(zone),
       signatures_(zone),
-      indirect_functions_(zone) {}
-
+      indirect_functions_(zone) {
+}
 
 struct Sizes {
   size_t header_size;
   size_t body_size;
 
-  size_t total() {
-    return header_size + body_size;
-  }
+  size_t total() { return header_size + body_size; }
 
   void Add(size_t header, size_t body) {
     header_size += header;
@@ -389,15 +387,15 @@ struct Sizes {
     if (size > 0) {
       Add(1, 0);
       while (size > 0) {
-	Add(1, 0);
-	size = size >> 7;
+        Add(1, 0);
+        size = size >> 7;
       }
     }
   }
 };
 
 WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
-  Sizes sizes = { 0, 0 };
+  Sizes sizes = {0, 0};
 
   sizes.Add(1, 0);
   sizes.Add(kDeclMemorySize, 0);
@@ -427,7 +425,8 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
   sizes.AddSection(indirect_functions_.size());
   sizes.Add(2 * static_cast<uint32_t>(indirect_functions_.size()), 0);
 
-  if (sizes.body_size > 0) sizes.Add(1, 0);
+  if (sizes.body_size > 0)
+    sizes.Add(1, 0);
 
   ZoneVector<uint8_t> buffer_vector(sizes.total(), zone);
   byte* buffer = buffer_vector.data();
@@ -452,7 +451,7 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
       EmitUint8(&header, static_cast<byte>(sig->parameter_count()));
       EmitUint8(&header, sig->GetReturn());
       for (size_t j = 0; j < sig->parameter_count(); j++) {
-	EmitUint8(&header, sig->GetParam(j));
+        EmitUint8(&header, sig->GetParam(j));
       }
     }
   }
@@ -487,11 +486,11 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
     }
   }
 
-  if (sizes.body_size > 0) EmitUint8(&header, kDeclEnd);
+  if (sizes.body_size > 0)
+    EmitUint8(&header, kDeclEnd);
 
   return new (zone) WasmModuleIndex(buffer, buffer + sizes.total());
 }
-
 
 std::vector<uint8_t> UnsignedLEB128From(uint32_t result) {
   std::vector<uint8_t> output;

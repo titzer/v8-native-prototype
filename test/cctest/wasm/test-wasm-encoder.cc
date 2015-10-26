@@ -1,6 +1,6 @@
 #include "test/cctest/cctest.h"
 
-#include "src/wasm/decoder.h"
+#include "src/wasm/ast-decoder.h"
 #include "src/wasm/encoder.h"
 #include "src/wasm/wasm-opcodes.h"
 

@@ -35,7 +35,7 @@ enum WasmSectionDeclCode {
 static const int kMaxModuleSectionCode = 6;
 
 enum WasmFunctionDeclBit {
-  kDeclFunctionName   = 0x01,
+  kDeclFunctionName = 0x01,
   kDeclFunctionImport = 0x02,
   kDeclFunctionLocals = 0x04,
   kDeclFunctionExport = 0x08
@@ -101,7 +101,8 @@ struct WasmModule {
   // Get a pointer to a string stored in the module bytes representing a name.
   const char* GetName(uint32_t offset) {
     CHECK(BoundsCheck(offset, offset + 1));
-    if (offset == 0) return "<?>";  // no name.
+    if (offset == 0)
+      return "<?>";  // no name.
     return reinterpret_cast<const char*>(module_start + offset);
   }
 
@@ -168,28 +169,15 @@ std::ostream& operator<<(std::ostream& os, const WasmFunction& function);
 typedef Result<WasmModule*> ModuleResult;
 typedef Result<WasmFunction*> FunctionResult;
 
-
-ModuleResult DecodeWasmModule(Isolate* isolate, Zone* zone,
-                              const byte* module_start, const byte* module_end,
-                              bool verify_functions = true);
-
-FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone, ModuleEnv* env,
-                                  const byte* function_start,
-                                  const byte* function_end);
-
 // For testing. Decode, verify, and run the last exported function in the
 // given encoded module.
-int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
+int32_t CompileAndRunWasmModule(Isolate* isolate,
+                                const byte* module_start,
                                 const byte* module_end);
 
 // For testing. Decode, verify, and run the last exported function in the
 // given decoded module.
 int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module);
-
-// Exposed for testing. Decodes a single function signature, allocating it
-// in the given zone. Returns {nullptr} upon failure.
-FunctionSig* DecodeFunctionSignatureForTesting(Zone* zone, const byte* start,
-                                               const byte* end);
 }
 }
 }

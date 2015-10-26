@@ -4,7 +4,7 @@
 
 #include "test/unittests/test-utils.h"
 
-#include "src/wasm/wasm-module.h"
+#include "src/wasm/module-decoder.h"
 #include "src/wasm/wasm-opcodes.h"
 
 namespace v8 {
@@ -656,7 +656,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_v_v) {
   static const byte data[] = {0, 0};
   Zone zone;
   FunctionSig* sig =
-      DecodeFunctionSignatureForTesting(&zone, data, data + arraysize(data));
+      DecodeWasmSignatureForTesting(&zone, data, data + arraysize(data));
 
   EXPECT_TRUE(sig != nullptr);
   EXPECT_EQ(0, sig->parameter_count());
@@ -669,7 +669,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_t_v) {
     LocalType ret_type = kLocalTypes[i];
     const byte data[] = {0, static_cast<byte>(ret_type)};
     FunctionSig* sig =
-        DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));
+        DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
 
     EXPECT_TRUE(sig != nullptr);
     EXPECT_EQ(0, sig->parameter_count());
@@ -684,7 +684,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_v_t) {
     LocalType param_type = kLocalTypes[i];
     const byte data[] = {1, 0, static_cast<byte>(param_type)};
     FunctionSig* sig =
-        DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));
+        DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
 
     EXPECT_TRUE(sig != nullptr);
     EXPECT_EQ(1, sig->parameter_count());
@@ -702,7 +702,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_t_t) {
       const byte data[] = {1,                               // param count
                            static_cast<byte>(ret_type),     // ret
                            static_cast<byte>(param_type)};  // param
-      FunctionSig* sig = DecodeFunctionSignatureForTesting(
+      FunctionSig* sig = DecodeWasmSignatureForTesting(
           zone(), data, data + arraysize(data));
 
       EXPECT_TRUE(sig != nullptr);
@@ -724,7 +724,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_i_tt) {
                            static_cast<byte>(kAstI32),  // ret
                            static_cast<byte>(p0_type),    // p0
                            static_cast<byte>(p1_type)};   // p1
-      FunctionSig* sig = DecodeFunctionSignatureForTesting(
+      FunctionSig* sig = DecodeWasmSignatureForTesting(
           zone(), data, data + arraysize(data));
 
       EXPECT_TRUE(sig != nullptr);
@@ -746,7 +746,7 @@ TEST_F(WasmSignatureDecodeTest, Fail_off_end) {
     for (int i = 0; i < p + 1; i++) {
       // Should fall off the end for all signatures.
       FunctionSig* sig =
-          DecodeFunctionSignatureForTesting(zone(), data, data + i);
+          DecodeWasmSignatureForTesting(zone(), data, data + i);
       EXPECT_EQ(nullptr, sig);
     }
   }
@@ -759,7 +759,7 @@ TEST_F(WasmSignatureDecodeTest, Fail_invalid_type) {
     byte data[] = {2, kAstI32, kAstI32, kAstI32};
     data[i] = kInvalidType;
     FunctionSig* sig =
-        DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));
+        DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
     EXPECT_EQ(nullptr, sig);
   }
 }
@@ -771,7 +771,7 @@ TEST_F(WasmSignatureDecodeTest, Fail_invalid_param_type) {
     byte data[] = {kParamCount, kAstI32, kAstI32, kAstI32, kAstI32};
     data[i + 2] = kAstStmt;
     FunctionSig* sig =
-        DecodeFunctionSignatureForTesting(zone(), data, data + arraysize(data));
+        DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
     EXPECT_EQ(nullptr, sig);
   }
 }

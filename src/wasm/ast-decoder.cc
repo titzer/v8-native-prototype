@@ -8,7 +8,7 @@
 #include "src/flags.h"
 #include "src/handles.h"
 
-#include "src/wasm/decoder.h"
+#include "src/wasm/ast-decoder.h"
 #include "src/wasm/tf-builder.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"
@@ -18,9 +18,10 @@ namespace internal {
 namespace wasm {
 
 #if DEBUG
-#define TRACE(...)                                    \
-  do {                                                \
-    if (FLAG_trace_wasm_decoder) PrintF(__VA_ARGS__); \
+#define TRACE(...)               \
+  do {                           \
+    if (FLAG_trace_wasm_decoder) \
+      PrintF(__VA_ARGS__);       \
   } while (false)
 #else
 #define TRACE(...)
@@ -37,7 +38,6 @@ struct Tree {
   WasmOpcode opcode() const { return static_cast<WasmOpcode>(*pc); }
 };
 
-
 // A production represents an incomplete decoded tree in the LR decoder.
 struct Production {
   Tree* tree;  // the root of the syntax tree.
@@ -48,7 +48,6 @@ struct Production {
   bool done() const { return index >= tree->count; }
   Tree* last() const { return index > 0 ? tree->children[index - 1] : nullptr; }
 };
-
 
 // An SsaEnv environment carries the current local variable renaming
 // as well as the current effect and control dependency in the TF graph.
@@ -68,7 +67,6 @@ struct SsaEnv {
     effect = nullptr;
   }
 };
-
 
 // An entry in the stack of blocks during decoding.
 struct Block {
@@ -108,13 +106,11 @@ struct Block {
   }
 };
 
-
 // An entry in the stack of ifs during decoding.
 struct IfEnv {
   SsaEnv* true_env;
   SsaEnv* false_env;
 };
-
 
 // A shift-reduce-parser strategy for decoding Wasm code that uses an explicit
 // shift-reduce strategy with multiple internal stacks.
@@ -122,14 +118,16 @@ class LR_WasmDecoder : public Decoder {
  public:
   LR_WasmDecoder(Zone* zone, TFGraph* g)
       : Decoder(nullptr, nullptr),
-	zone_(zone),
+        zone_(zone),
         builder_(zone, g),
         trees_(zone),
         stack_(zone),
         blocks_(zone),
         ifs_(zone) {}
 
-  TreeResult Decode(FunctionEnv* function_env, const byte* base, const byte* pc,
+  TreeResult Decode(FunctionEnv* function_env,
+                    const byte* base,
+                    const byte* pc,
                     const byte* end) {
     trees_.clear();
     stack_.clear();
@@ -156,10 +154,10 @@ class LR_WasmDecoder : public Decoder {
       if (trees_.size() == 0) {
         error(start_, "no trees created");
       } else {
-	tree = trees_[0];
+        tree = trees_[0];
       }
     }
-    
+
     if (ok()) {
       TRACE("wasm-decode ok\n\n");
     } else {
@@ -252,7 +250,8 @@ class LR_WasmDecoder : public Decoder {
     tree->count = count;
     tree->pc = pc_;
     tree->node = nullptr;
-    for (uint32_t i = 0; i < count; i++) tree->children[i] = nullptr;
+    for (uint32_t i = 0; i < count; i++)
+      tree->children[i] = nullptr;
     if (count == 0) {
       Production p = {tree, 0};
       Reduce(&p);
@@ -283,7 +282,8 @@ class LR_WasmDecoder : public Decoder {
   char* indentation() {
     static const int kMaxIndent = 64;
     static char bytes[kMaxIndent + 1];
-    for (int i = 0; i < kMaxIndent; i++) bytes[i] = ' ';
+    for (int i = 0; i < kMaxIndent; i++)
+      bytes[i] = ' ';
     bytes[kMaxIndent] = 0;
     if (stack_.size() < kMaxIndent / 2) {
       bytes[stack_.size() * 2] = 0;
@@ -299,7 +299,8 @@ class LR_WasmDecoder : public Decoder {
           static_cast<int>(limit_ - start_),
           builder_.graph ? "graph building" : "");
 
-    if (pc_ >= limit_) return;  // Nothing to do.
+    if (pc_ >= limit_)
+      return;  // Nothing to do.
 
     while (true) {  // decoding loop.
       if (!ssa_env_->go()) {
@@ -654,7 +655,8 @@ class LR_WasmDecoder : public Decoder {
 
   Tree* GetLastValueIfBlock(Tree* tree) {
     while (tree->opcode() == kStmtBlock) {
-      if (tree->count == 0) break;
+      if (tree->count == 0)
+        break;
       tree = tree->children[tree->count - 1];
     }
     return tree;
@@ -662,7 +664,8 @@ class LR_WasmDecoder : public Decoder {
 
   void AddImplicitReturnAtEnd() {
     int retcount = static_cast<int>(function_env_->sig->return_count());
-    if (retcount == 0) return builder_.ReturnVoid();
+    if (retcount == 0)
+      return builder_.ReturnVoid();
 
     if (trees_.size() < function_env_->sig->return_count()) {
       error(limit_, nullptr,
@@ -809,7 +812,8 @@ class LR_WasmDecoder : public Decoder {
           //          TypeCheckLast(p, kAstStmt);
           IfEnv* env = &ifs_.back();
           env->false_env->state = SsaEnv::kReached;
-          if (ssa_env_->go()) Goto(ssa_env_, env->false_env);
+          if (ssa_env_->go())
+            Goto(ssa_env_, env->false_env);
           SetEnv(env->false_env);
           ifs_.pop_back();
         }
@@ -834,7 +838,8 @@ class LR_WasmDecoder : public Decoder {
           IfEnv* env = &ifs_.back();
           if (ssa_env_->go()) {
             ssa_env_->state = SsaEnv::kReached;
-            if (env->true_env->go()) Goto(env->true_env, ssa_env_);
+            if (env->true_env->go())
+              Goto(env->true_env, ssa_env_);
           } else {
             SetEnv(env->true_env);
           }
@@ -861,7 +866,8 @@ class LR_WasmDecoder : public Decoder {
         LocalType type = LocalOperand(p->pc(), &index, &unused);
         Tree* val = p->last();
         if (type == val->type) {
-          if (builder_.graph) ssa_env_->locals[index] = val->node;
+          if (builder_.graph)
+            ssa_env_->locals[index] = val->node;
           p->tree->node = val->node;
         } else {
           error(p->pc(), val->pc, "Typecheck failed in SetLocal");
@@ -930,7 +936,8 @@ class LR_WasmDecoder : public Decoder {
         int len;
         uint32_t index;
         FunctionSig* sig = FunctionSigOperand(p->pc(), &index, &len);
-        if (!sig) break;
+        if (!sig)
+          break;
         if (p->index > 0) {
           TypeCheckLast(p, sig->GetParam(p->index - 1));
         }
@@ -993,7 +1000,8 @@ class LR_WasmDecoder : public Decoder {
           IfEnv* env = &ifs_.back();
           if (ssa_env_->go()) {
             ssa_env_->state = SsaEnv::kReached;
-            if (env->true_env->go()) Goto(env->true_env, ssa_env_);
+            if (env->true_env->go())
+              Goto(env->true_env, ssa_env_);
           } else {
             SetEnv(env->true_env);
           }
@@ -1092,7 +1100,8 @@ class LR_WasmDecoder : public Decoder {
 
   void Goto(SsaEnv* from, SsaEnv* to) {
     DCHECK_NOT_NULL(to);
-    if (!from->go()) return;
+    if (!from->go())
+      return;
     switch (to->state) {
       case SsaEnv::kUnreachable: {  // Overwrite destination.
         to->state = SsaEnv::kReached;
@@ -1134,7 +1143,8 @@ class LR_WasmDecoder : public Decoder {
         } else if (to->effect != from->effect) {
           uint32_t count = builder_.InputCount(merge);
           TFNode** effects = builder_.Buffer(count);
-          for (int j = 0; j < count - 1; j++) effects[j] = to->effect;
+          for (int j = 0; j < count - 1; j++)
+            effects[j] = to->effect;
           effects[count - 1] = from->effect;
           to->effect = builder_.EffectPhi(count, effects, merge);
         }
@@ -1147,7 +1157,8 @@ class LR_WasmDecoder : public Decoder {
           } else if (tnode != fnode) {
             uint32_t count = builder_.InputCount(merge);
             TFNode** vals = builder_.Buffer(count);
-            for (int j = 0; j < count - 1; j++) vals[j] = tnode;
+            for (int j = 0; j < count - 1; j++)
+              vals[j] = tnode;
             vals[count - 1] = fnode;
             to->locals[i] = builder_.Phi(function_env_->GetLocalType(i), count,
                                          vals, merge);
@@ -1161,15 +1172,19 @@ class LR_WasmDecoder : public Decoder {
     return from->Kill();
   }
 
-  TFNode* CreateOrMergeIntoPhi(LocalType type, TFNode* merge, TFNode* tnode,
+  TFNode* CreateOrMergeIntoPhi(LocalType type,
+                               TFNode* merge,
+                               TFNode* tnode,
                                TFNode* fnode) {
-    if (!builder_.graph) return nullptr;
+    if (!builder_.graph)
+      return nullptr;
     if (builder_.IsPhiWithMerge(tnode, merge)) {
       builder_.AppendToPhi(merge, tnode, fnode);
     } else if (tnode != fnode) {
       uint32_t count = builder_.InputCount(merge);
       TFNode** vals = builder_.Buffer(count);
-      for (int j = 0; j < count - 1; j++) vals[j] = tnode;
+      for (int j = 0; j < count - 1; j++)
+        vals[j] = tnode;
       vals[count - 1] = fnode;
       return builder_.Phi(type, count, vals, merge);
     }
@@ -1247,7 +1262,8 @@ class LR_WasmDecoder : public Decoder {
   }
 
   int EnvironmentCount() {
-    if (builder_.graph) return static_cast<int>(function_env_->GetLocalCount());
+    if (builder_.graph)
+      return static_cast<int>(function_env_->GetLocalCount());
     return 0;  // if we aren't building a graph, don't bother with SSA renaming.
   }
 
@@ -1270,7 +1286,8 @@ class LR_WasmDecoder : public Decoder {
     return kAstStmt;
   }
 
-  FunctionSig* FunctionSigOperand(const byte* pc, uint32_t* index,
+  FunctionSig* FunctionSigOperand(const byte* pc,
+                                  uint32_t* index,
                                   int* length) {
     *index = UnsignedLEB128Operand(pc, length);
     if (function_env_->module->IsValidFunction(*index)) {
@@ -1293,16 +1310,20 @@ class LR_WasmDecoder : public Decoder {
     uint32_t result = 0;
     ReadUnsignedLEB128ErrorCode error_code =
         ReadUnsignedLEB128Operand(pc + 1, limit_, length, &result);
-    if (error_code == kInvalidLEB128) error(pc, "invalid LEB128 varint");
-    if (error_code == kMissingLEB128) error(pc, "expected LEB128 varint");
+    if (error_code == kInvalidLEB128)
+      error(pc, "invalid LEB128 varint");
+    if (error_code == kMissingLEB128)
+      error(pc, "expected LEB128 varint");
     (*length)++;
     return result;
   }
 
   MemType MemAccessTypeOperand(const byte* pc, LocalType type) {
     byte operand = Operand<uint8_t>(pc);
-    if (type == kAstF32) return kMemF32;
-    if (type == kAstF64) return kMemF64;
+    if (type == kAstF32)
+      return kMemF32;
+    if (type == kAstF64)
+      return kMemF64;
     bool is64 = type == kAstI64;
     bool signext = MemoryAccess::SignExtendField::decode(operand);
     if (operand &
@@ -1319,7 +1340,8 @@ class LR_WasmDecoder : public Decoder {
       case MemoryAccess::kI32:
         return signext ? kMemI32 : kMemU32;
       case MemoryAccess::kI64:
-        if (is64) return signext ? kMemI64 : kMemU64;
+        if (is64)
+          return signext ? kMemI64 : kMemU64;
       default:
         error(pc, "invalid width for int memory access");
         return kMemI32;
@@ -1337,14 +1359,17 @@ class LR_WasmDecoder : public Decoder {
   void PrintStackForDebugging() { PrintProduction(0); }
 
   void PrintProduction(size_t depth) {
-    if (depth >= stack_.size()) return;
+    if (depth >= stack_.size())
+      return;
     Production* p = &stack_[depth];
-    for (size_t d = 0; d < depth; d++) PrintF("  ");
+    for (size_t d = 0; d < depth; d++)
+      PrintF("  ");
     PrintF("@%d %s [%d]\n", static_cast<int>(p->tree->pc - start_),
            WasmOpcodes::OpcodeName(p->opcode()), p->tree->count);
     for (int i = 0; i < p->index; i++) {
       Tree* child = p->tree->children[i];
-      for (size_t d = 0; d <= depth; d++) PrintF("  ");
+      for (size_t d = 0; d <= depth; d++)
+        PrintF("  ");
       PrintF("@%d %s [%d]", static_cast<int>(child->pc - start_),
              WasmOpcodes::OpcodeName(child->opcode()), child->count);
       if (child->node) {
@@ -1358,8 +1383,9 @@ class LR_WasmDecoder : public Decoder {
 #endif
 };
 
-
-TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
+TreeResult VerifyWasmCode(FunctionEnv* env,
+                          const byte* base,
+                          const byte* start,
                           const byte* end) {
   Zone zone;
   LR_WasmDecoder decoder(&zone, nullptr);
@@ -1367,15 +1393,16 @@ TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
   return result;
 }
 
-
-TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
-                        const byte* start, const byte* end) {
+TreeResult BuildTFGraph(TFGraph* graph,
+                        FunctionEnv* env,
+                        const byte* base,
+                        const byte* start,
+                        const byte* end) {
   Zone zone;
   LR_WasmDecoder decoder(&zone, graph);
   TreeResult result = decoder.Decode(env, base, start, end);
   return result;
 }
-
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree) {
   if (tree.pc == nullptr) {
@@ -1383,12 +1410,15 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree) {
     return os;
   }
   PrintF("%s", WasmOpcodes::OpcodeName(tree.opcode()));
-  if (tree.count > 0) os << "(";
+  if (tree.count > 0)
+    os << "(";
   for (int i = 0; i < tree.count; i++) {
-    if (i > 0) os << ", ";
+    if (i > 0)
+      os << ", ";
     os << *tree.children[i];
   }
-  if (tree.count > 0) os << ")";
+  if (tree.count > 0)
+    os << ")";
   return os;
 }
 
@@ -1399,13 +1429,15 @@ ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte* pc,
   *result = 0;
   const byte* ptr = pc;
   const byte* end = pc + 5;  // maximum 5 bytes.
-  if (end > limit) end = limit;
+  if (end > limit)
+    end = limit;
   int shift = 0;
   byte b = 0;
   while (ptr < end) {
     b = *ptr++;
     *result = *result | ((b & 0x7F) << shift);
-    if ((b & 0x80) == 0) break;
+    if ((b & 0x80) == 0)
+      break;
     shift += 7;
   }
   DCHECK_LE(ptr - pc, 5);

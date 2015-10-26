@@ -12,9 +12,9 @@
       'direct_dependent_settings': {
         'include_dirs': ['../../..'],
         'sources': [
-          'decoder-unittest.cc',
+          'ast-decoder-unittest.cc',
           'wasm-macro-gen-unittest.cc',
-          'wasm-module-unittest.cc',
+          'module-decoder-unittest.cc',
         ],
       },
     },

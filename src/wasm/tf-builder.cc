@@ -92,15 +92,18 @@ TFBuilder::TFBuilder(Zone* z, TFGraph* g)
       control(nullptr),
       effect(nullptr),
       cur_buffer(def_buffer),
-      cur_bufsize(kDefaultBufferSize) {}
+      cur_bufsize(kDefaultBufferSize) {
+}
 
 TFNode* TFBuilder::Error() {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   return graph->Dead();
 }
 
 TFNode* TFBuilder::Start(unsigned params) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   compiler::Graph* g = graph->graph();
   TFNode* start = g->NewNode(graph->common()->Start(params));
   g->SetStart(start);
@@ -108,7 +111,8 @@ TFNode* TFBuilder::Start(unsigned params) {
 }
 
 TFNode* TFBuilder::Param(unsigned index, LocalType type) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   compiler::Graph* g = graph->graph();
   // TODO(titzer): use LocalType for parameters
   return g->NewNode(graph->common()->Parameter(index), g->start());
@@ -120,7 +124,8 @@ TFNode* TFBuilder::Loop(TFNode* entry) {
 }
 
 TFNode* TFBuilder::Terminate(TFNode* effect, TFNode* control) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   TFNode* terminate =
       graph->graph()->NewNode(graph->common()->Terminate(), effect, control);
   MergeControlToEnd(graph, terminate);
@@ -158,14 +163,18 @@ void TFBuilder::AppendToPhi(TFNode* merge, TFNode* phi, TFNode* from) {
 }
 
 TFNode* TFBuilder::Merge(unsigned count, TFNode** controls) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   return graph->graph()->NewNode(graph->common()->Merge(count), count,
                                  controls);
 }
 
-TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
+TFNode* TFBuilder::Phi(LocalType type,
+                       unsigned count,
+                       TFNode** vals,
                        TFNode* control) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   TFNode** buf = Realloc(vals, count + 1);
   buf[count] = control;
   compiler::MachineType machine_type = MachineTypeFor(type);
@@ -173,9 +182,11 @@ TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
                                  count + 1, buf);
 }
 
-TFNode* TFBuilder::EffectPhi(unsigned count, TFNode** effects,
+TFNode* TFBuilder::EffectPhi(unsigned count,
+                             TFNode** effects,
                              TFNode* control) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   TFNode** buf = Realloc(effects, count + 1);
   buf[count] = control;
   return graph->graph()->NewNode(graph->common()->EffectPhi(count), count + 1,
@@ -203,7 +214,8 @@ static const compiler::Operator* UnsupportedOpcode(WasmOpcode opcode) {
 
 TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
   // TODO(titzer): insert manual divide-by-zero checks.
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
@@ -425,7 +437,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
 }
 
 TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
@@ -497,24 +510,22 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprI32Clz:
       op = m->Word32Clz();
       break;
-    case kExprI32Ctz:
-      {
-        if (m->Word32Ctz().IsSupported()) {
-          op = m->Word32Ctz().op();
-          break;
-        } else {
-          return MakeI32Ctz(input);
-        }
+    case kExprI32Ctz: {
+      if (m->Word32Ctz().IsSupported()) {
+        op = m->Word32Ctz().op();
+        break;
+      } else {
+        return MakeI32Ctz(input);
       }
-    case kExprI32Popcnt:
-      {
-        if (m->Word32Popcnt().IsSupported()) {
-          op = m->Word32Popcnt().op();
-          break;
-        } else {
-          return MakeI32Popcnt(input);
-        }
+    }
+    case kExprI32Popcnt: {
+      if (m->Word32Popcnt().IsSupported()) {
+        op = m->Word32Popcnt().op();
+        break;
+      } else {
+        return MakeI32Popcnt(input);
       }
+    }
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
@@ -553,7 +564,8 @@ TFNode* TFBuilder::Constant(Handle<Object> value) {
 }
 
 void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
-  if (!graph) return;
+  if (!graph)
+    return;
   DCHECK_NOT_NULL(*control);
   TFNode* branch =
       graph->graph()->NewNode(graph->common()->Branch(), cond, *control);
@@ -562,7 +574,8 @@ void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
 }
 
 void TFBuilder::Return(unsigned count, TFNode** vals) {
-  if (!graph) return;
+  if (!graph)
+    return;
   DCHECK_NOT_NULL(*control);
   DCHECK_NOT_NULL(*effect);
 
@@ -586,9 +599,7 @@ void TFBuilder::ReturnVoid() {
   Return(0, vals);
 }
 
-
 TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
-
   //// Implement the following code as TF graph.
   // value = value | (value << 1);
   // value = value | (value << 2);
@@ -597,31 +608,31 @@ TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   // value = value | (value << 16);
   // return CountPopulation32(0xffffffff XOR value);
 
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
 
   TFNode* result = Binop(kExprI32Ior, input,
-      Binop(kExprI32Shl, input, graph->Int32Constant(1)));
+                         Binop(kExprI32Shl, input, graph->Int32Constant(1)));
 
   result = Binop(kExprI32Ior, result,
-      Binop(kExprI32Shl, result, graph->Int32Constant(2))); 
+                 Binop(kExprI32Shl, result, graph->Int32Constant(2)));
 
   result = Binop(kExprI32Ior, result,
-      Binop(kExprI32Shl, result, graph->Int32Constant(4))); 
+                 Binop(kExprI32Shl, result, graph->Int32Constant(4)));
 
   result = Binop(kExprI32Ior, result,
-      Binop(kExprI32Shl, result, graph->Int32Constant(8))); 
+                 Binop(kExprI32Shl, result, graph->Int32Constant(8)));
 
   result = Binop(kExprI32Ior, result,
-      Binop(kExprI32Shl, result, graph->Int32Constant(16)));
+                 Binop(kExprI32Shl, result, graph->Int32Constant(16)));
 
-  result = MakeI32Popcnt(Binop(kExprI32Xor, graph->Int32Constant(0xffffffff), result));
+  result = MakeI32Popcnt(
+      Binop(kExprI32Xor, graph->Int32Constant(0xffffffff), result));
 
   return result;
 }
 
-
 TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
-
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
   // value = ((value >> 2) & 0x33333333) + (value & 0x33333333);
@@ -629,41 +640,38 @@ TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
   // value = ((value >> 8) & 0x00ff00ff) + (value & 0x00ff00ff);
   // value = ((value >> 16) & 0x0000ffff) + (value & 0x0000ffff);
 
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
 
-  TFNode* result = Binop(kExprI32Add,
-    Binop(kExprI32And,
-      Binop(kExprI32ShrU, input, graph->Int32Constant(1)),
-      graph->Int32Constant(0x55555555)),
-    Binop(kExprI32And, input, graph->Int32Constant(0x55555555)));
+  TFNode* result = Binop(
+      kExprI32Add,
+      Binop(kExprI32And, Binop(kExprI32ShrU, input, graph->Int32Constant(1)),
+            graph->Int32Constant(0x55555555)),
+      Binop(kExprI32And, input, graph->Int32Constant(0x55555555)));
 
-  result = Binop(kExprI32Add,
-    Binop(kExprI32And,
-      Binop(kExprI32ShrU, result, graph->Int32Constant(2)),
-      graph->Int32Constant(0x33333333)),
-    Binop(kExprI32And, result, graph->Int32Constant(0x33333333)));
+  result = Binop(kExprI32Add, Binop(kExprI32And, Binop(kExprI32ShrU, result,
+                                                       graph->Int32Constant(2)),
+                                    graph->Int32Constant(0x33333333)),
+                 Binop(kExprI32And, result, graph->Int32Constant(0x33333333)));
 
-  result = Binop(kExprI32Add,
-    Binop(kExprI32And,
-      Binop(kExprI32ShrU, result, graph->Int32Constant(4)),
-      graph->Int32Constant(0x0f0f0f0f)),
-    Binop(kExprI32And, result, graph->Int32Constant(0x0f0f0f0f)));
+  result = Binop(kExprI32Add, Binop(kExprI32And, Binop(kExprI32ShrU, result,
+                                                       graph->Int32Constant(4)),
+                                    graph->Int32Constant(0x0f0f0f0f)),
+                 Binop(kExprI32And, result, graph->Int32Constant(0x0f0f0f0f)));
 
-  result = Binop(kExprI32Add,
-    Binop(kExprI32And,
-      Binop(kExprI32ShrU, result, graph->Int32Constant(8)),
-      graph->Int32Constant(0x00ff00ff)),
-    Binop(kExprI32And, result, graph->Int32Constant(0x00ff00ff)));
+  result = Binop(kExprI32Add, Binop(kExprI32And, Binop(kExprI32ShrU, result,
+                                                       graph->Int32Constant(8)),
+                                    graph->Int32Constant(0x00ff00ff)),
+                 Binop(kExprI32And, result, graph->Int32Constant(0x00ff00ff)));
 
-  result = Binop(kExprI32Add,
-    Binop(kExprI32And,
-      Binop(kExprI32ShrU, result, graph->Int32Constant(16)),
-      graph->Int32Constant(0x0000ffff)),
-    Binop(kExprI32And, result, graph->Int32Constant(0x0000ffff)));
+  result = Binop(
+      kExprI32Add,
+      Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(16)),
+            graph->Int32Constant(0x0000ffff)),
+      Binop(kExprI32And, result, graph->Int32Constant(0x0000ffff)));
 
   return result;
 }
-
 
 TFNode* TFBuilder::MakeWasmCall(FunctionSig* sig, TFNode** args) {
   const size_t params = sig->parameter_count();
@@ -685,10 +693,10 @@ TFNode* TFBuilder::MakeWasmCall(FunctionSig* sig, TFNode** args) {
   return call;
 }
 
-
 TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   DCHECK_NULL(args[0]);
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
 
   // Add code object as constant.
   args[0] = Constant(module->GetFunctionCode(index));
@@ -697,9 +705,9 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   return MakeWasmCall(sig, args);
 }
 
-
 TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   DCHECK_NOT_NULL(args[0]);
   compiler::Graph* g = graph->graph();
   compiler::MachineOperatorBuilder* machine = graph->machine();
@@ -751,14 +759,16 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
 }
 
 TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   compiler::Graph* g = graph->graph();
   compiler::SimplifiedOperatorBuilder simplified(graph->zone());
   switch (type) {
     case kAstI32:
       return g->NewNode(simplified.ChangeInt32ToTagged(), node);
     case kAstI64:
-      // TODO(titzer): i64->JS has no good solution right now. Using lower 32 bits.
+      // TODO(titzer): i64->JS has no good solution right now. Using lower 32
+      // bits.
       node = g->NewNode(graph->machine()->TruncateInt64ToInt32(), node);
       return g->NewNode(simplified.ChangeInt32ToTagged(), node);
     case kAstF32:
@@ -772,7 +782,8 @@ TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
 }
 
 TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   compiler::Graph* g = graph->graph();
   // Do a JavaScript ToNumber.
   TFNode* num = g->NewNode(graph->javascript()->ToNumber(), node, context,
@@ -811,7 +822,8 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
 }
 
 TFNode* TFBuilder::Invert(TFNode* node) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   return Unop(kExprBoolNot, node);
 }
 
@@ -913,20 +925,24 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
 }
 
 TFNode* TFBuilder::MemBuffer() {
-  if (!graph) return nullptr;
-  if (!mem_buffer) mem_buffer = graph->IntPtrConstant(module->mem_start);
+  if (!graph)
+    return nullptr;
+  if (!mem_buffer)
+    mem_buffer = graph->IntPtrConstant(module->mem_start);
   return mem_buffer;
 }
 
 TFNode* TFBuilder::MemSize() {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   if (!mem_size)
     mem_size = graph->IntPtrConstant(module->mem_end - module->mem_start);
   return mem_size;
 }
 
 TFNode* TFBuilder::FunctionTable() {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   if (!function_table) {
     DCHECK(!module->function_table.is_null());
     function_table = graph->Constant(module->function_table);
@@ -935,7 +951,8 @@ TFNode* TFBuilder::FunctionTable() {
 }
 
 TFNode* TFBuilder::LoadGlobal(uint32_t index) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   MemType mem_type = module->GetGlobalType(index);
   TFNode* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
@@ -948,7 +965,8 @@ TFNode* TFBuilder::LoadGlobal(uint32_t index) {
 }
 
 TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   MemType mem_type = module->GetGlobalType(index);
   TFNode* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
@@ -962,7 +980,8 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
 }
 
 TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   const compiler::Operator* op =
       graph->machine()->CheckedLoad(MachineTypeFor(memtype));
   TFNode* mem_buffer = MemBuffer();
@@ -989,7 +1008,8 @@ TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index) {
 }
 
 TFNode* TFBuilder::StoreMem(MemType type, TFNode* index, TFNode* val) {
-  if (!graph) return nullptr;
+  if (!graph)
+    return nullptr;
   const compiler::Operator* op =
       graph->machine()->CheckedStore(MachineTypeFor(type));
   TFNode* mem_buffer = MemBuffer();
@@ -1003,7 +1023,6 @@ TFNode* TFBuilder::StoreMem(MemType type, TFNode* index, TFNode* val) {
 void TFBuilder::PrintDebugName(TFNode* node) {
   PrintF("#%d:%s", node->id(), node->op()->mnemonic());
 }
-
 
 void TFBuilder::AddTrapUnless(TFNode* cond) {
   compiler::Graph* g = graph->graph();

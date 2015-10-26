@@ -8,7 +8,7 @@
 #include "src/compiler/graph-visualizer.h"
 #include "src/compiler/js-graph.h"
 
-#include "src/wasm/decoder.h"
+#include "src/wasm/ast-decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"

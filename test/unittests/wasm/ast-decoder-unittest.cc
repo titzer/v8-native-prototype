@@ -10,7 +10,7 @@
 
 #include "src/objects.h"
 
-#include "src/wasm/decoder.h"
+#include "src/wasm/ast-decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-module.h"
 

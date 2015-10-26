@@ -28,9 +28,9 @@ std::ostream& operator<<(std::ostream& os, const ErrorCode& error_code) {
   return os;
 }
 
-
 void ErrorThrower::Error(const char* format, ...) {
-  if (error_) return;  // only report the first error.
+  if (error_)
+    return;  // only report the first error.
   error_ = true;
   char buffer[256];
 
@@ -38,7 +38,6 @@ void ErrorThrower::Error(const char* format, ...) {
   va_start(arguments, format);
   base::OS::VSNPrintF(buffer, 255, format, arguments);
   va_end(arguments);
-
 
   std::ostringstream str;
   if (context_ != nullptr) {

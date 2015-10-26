@@ -24,11 +24,12 @@ class WasmFunctionEncoder : public ZoneObject {
  public:
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;
-  void Serialize(byte* buffer, byte** header,
-                 byte** body) const;
+  void Serialize(byte* buffer, byte** header, byte** body) const;
 
  private:
-  WasmFunctionEncoder(Zone* zone, uint8_t return_type, uint8_t exported,
+  WasmFunctionEncoder(Zone* zone,
+                      uint8_t return_type,
+                      uint8_t exported,
                       uint8_t external);
   friend class WasmFunctionBuilder;
   uint16_t signature_index_;
@@ -42,10 +43,8 @@ class WasmFunctionEncoder : public ZoneObject {
   ZoneVector<uint8_t> body_;
 
   bool HasLocals() const {
-    return (local_int32_count_ +
-	    local_int64_count_ +
-	    local_float32_count_ +
-	    local_float64_count_) > 0;
+    return (local_int32_count_ + local_int64_count_ + local_float32_count_ +
+            local_float64_count_) > 0;
   }
 };
 
@@ -55,8 +54,10 @@ class WasmFunctionBuilder : public ZoneObject {
   uint16_t AddLocal(uint8_t type);
   void ReturnType(uint8_t type);
   void AddBody(const byte* code, uint32_t code_size);
-  void AddBody(const byte* code, uint32_t code_size,
-               const uint32_t* local_indices, uint32_t indices_size);
+  void AddBody(const byte* code,
+               uint32_t code_size,
+               const uint32_t* local_indices,
+               uint32_t indices_size);
   void AppendCode(const byte opcode, bool add_local_operand);
   void Exported(uint8_t flag);
   void External(uint8_t flag);
@@ -73,17 +74,18 @@ class WasmFunctionBuilder : public ZoneObject {
   ZoneVector<uint8_t> body_;
   ZoneVector<uint32_t> local_indices_;
   uint16_t AddVar(uint8_t type, bool param);
-  void IndexVars(WasmFunctionEncoder*  e, uint16_t* var_index) const;
+  void IndexVars(WasmFunctionEncoder* e, uint16_t* var_index) const;
 };
 
 class WasmDataSegmentEncoder : public ZoneObject {
  public:
-  WasmDataSegmentEncoder(Zone* zone, const byte* data, uint32_t size,
+  WasmDataSegmentEncoder(Zone* zone,
+                         const byte* data,
+                         uint32_t size,
                          uint32_t dest);
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;
-  void Serialize(byte* buffer, byte** header,
-                 byte** body) const;
+  void Serialize(byte* buffer, byte** header, byte** body) const;
 
  private:
   ZoneVector<byte> data_;
@@ -141,10 +143,8 @@ class WasmModuleBuilder : public ZoneObject {
 };
 
 std::vector<uint8_t> UnsignedLEB128From(uint32_t result);
-
 }
 }
 }
-
 
 #endif  // V8_WASM_ENCODER_H_

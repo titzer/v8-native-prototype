@@ -15,14 +15,13 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-
-#define RECURSE(call)               \
-  do {                              \
-    DCHECK(!HasStackOverflow());    \
-    call;                           \
-    if (HasStackOverflow()) return; \
+#define RECURSE(call)            \
+  do {                           \
+    DCHECK(!HasStackOverflow()); \
+    call;                        \
+    if (HasStackOverflow())      \
+      return;                    \
   } while (false)
-
 
 class AsmWasmBuilderImpl : public AstVisitor {
  public:
@@ -36,17 +35,15 @@ class AsmWasmBuilderImpl : public AstVisitor {
         in_function_(false),
         is_set_op_(false),
         marking_exported(false),
-        builder_(new(zone) WasmModuleBuilder(zone)),
+        builder_(new (zone) WasmModuleBuilder(zone)),
         current_function_builder_(NULL),
         literal_(literal),
         isolate_(isolate),
-	zone_(zone) {
+        zone_(zone) {
     InitializeAstVisitor(isolate);
   }
 
-  void Compile() {
-    RECURSE(VisitFunctionLiteral(literal_));
-  }
+  void Compile() { RECURSE(VisitFunctionLiteral(literal_)); }
 
   void VisitVariableDeclaration(VariableDeclaration* decl) {}
 
@@ -70,13 +67,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
     for (int i = 0; i < stmts->length(); ++i) {
       Statement* stmt = stmts->at(i);
       RECURSE(Visit(stmt));
-      if (stmt->IsJump()) break;
+      if (stmt->IsJump())
+        break;
     }
   }
 
-  void VisitBlock(Block* stmt) {
-    RECURSE(VisitStatements(stmt->statements()));
-  }
+  void VisitBlock(Block* stmt) { RECURSE(VisitStatements(stmt->statements())); }
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
     RECURSE(Visit(stmt->expression()));
@@ -84,9 +80,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitEmptyStatement(EmptyStatement* stmt) {}
 
-  void VisitEmptyParentheses(EmptyParentheses* paren) {
-    UNREACHABLE();
-  }
+  void VisitEmptyParentheses(EmptyParentheses* paren) { UNREACHABLE(); }
 
   void VisitIfStatement(IfStatement* stmt) {
     RECURSE(Visit(stmt->condition()));
@@ -285,9 +279,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(expr->expression()));
   }
 
-  void VisitThrow(Throw* expr) {
-    RECURSE(Visit(expr->exception()));
-  }
+  void VisitThrow(Throw* expr) { RECURSE(Visit(expr->exception())); }
 
   void VisitProperty(Property* expr) {
     RECURSE(Visit(expr->obj()));
@@ -313,13 +305,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-  void VisitCallNew(CallNew* expr) {
-    UNREACHABLE();
-  }
+  void VisitCallNew(CallNew* expr) { UNREACHABLE(); }
 
-  void VisitCallRuntime(CallRuntime* expr) {
-    UNREACHABLE();
-  }
+  void VisitCallRuntime(CallRuntime* expr) { UNREACHABLE(); }
 
   void VisitUnaryOperation(UnaryOperation* expr) {
     RECURSE(Visit(expr->expression()));
@@ -363,15 +351,13 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitSpread(Spread* expr) {}
 
-  void VisitSuperPropertyReference(SuperPropertyReference* expr) {
-  }
+  void VisitSuperPropertyReference(SuperPropertyReference* expr) {}
 
   void VisitSuperCallReference(SuperCallReference* expr) {}
 
   void VisitSloppyBlockFunctionStatement(SloppyBlockFunctionStatement* expr) {}
 
-  void VisitDoExpression(DoExpression* expr) {
-  }
+  void VisitDoExpression(DoExpression* expr) {}
 
   struct IndexContainer : public ZoneObject {
     uint16_t index;
@@ -430,11 +416,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };
 
-AsmWasmBuilder::AsmWasmBuilder(
-    Isolate* isolate, Zone* zone, FunctionLiteral* literal)
-    : isolate_(isolate),
-      zone_(zone),
-      literal_(literal) {}
+AsmWasmBuilder::AsmWasmBuilder(Isolate* isolate,
+                               Zone* zone,
+                               FunctionLiteral* literal)
+    : isolate_(isolate), zone_(zone), literal_(literal) {
+}
 
 /*TODO: probably should take zone (to write wasm to) as input so that zone in
   constructor may be thrown away once wasm module is written */

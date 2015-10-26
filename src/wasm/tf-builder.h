@@ -56,7 +56,8 @@ struct TFBuilder {
 
   TFNode** Realloc(TFNode** buffer, size_t count) {
     TFNode** buf = Buffer(count);
-    if (buf != buffer) memcpy(buf, buffer, count * sizeof(TFNode*));
+    if (buf != buffer)
+      memcpy(buf, buffer, count * sizeof(TFNode*));
     return buf;
   }
 
@@ -99,8 +100,8 @@ struct TFBuilder {
   TFNode* Invert(TFNode* node);
   TFNode* FunctionTable();
   TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
-  TFNode* MakeI32Ctz(TFNode* input); 
-  TFNode* MakeI32Popcnt(TFNode* input); 
+  TFNode* MakeI32Ctz(TFNode* input);
+  TFNode* MakeI32Popcnt(TFNode* input);
 
   //-----------------------------------------------------------------------
   // Operations that access the linear memory.
@@ -120,6 +121,5 @@ struct TFBuilder {
 }
 }
 }  // namespace v8::internal::wasm
-
 
 #endif  // V8_WASM_TF_BUILDER_H_

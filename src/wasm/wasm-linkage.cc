@@ -38,22 +38,18 @@ MachineType MachineTypeFor(LocalType type) {
   }
 }
 
-
 // Platform-specific configuration for C calling convention.
 LinkageLocation regloc(Register reg) {
   return LinkageLocation::ForRegister(reg.code());
 }
 
-
 LinkageLocation regloc(DoubleRegister reg) {
   return LinkageLocation::ForRegister(reg.code());
 }
 
-
 LinkageLocation stackloc(int i) {
   return LinkageLocation::ForCallerFrameSlot(i);
 }
-
 
 #if V8_TARGET_ARCH_IA32
 // ===========================================================================
@@ -185,7 +181,6 @@ struct Allocator {
   }
 };
 }  // namespace
-
 
 // General code uses the above configuration data.
 CallDescriptor* ModuleEnv::GetWasmCallDescriptor(Zone* zone,

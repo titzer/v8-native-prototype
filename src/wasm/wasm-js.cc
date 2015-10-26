@@ -17,6 +17,7 @@
 #include "src/wasm/encoder.h"
 #include "src/wasm/wasm-js.h"
 #include "src/wasm/wasm-module.h"
+#include "src/wasm/module-decoder.h"
 #include "src/wasm/wasm-result.h"
 
 typedef uint8_t byte;
@@ -33,7 +34,8 @@ struct RawBuffer {
 };
 
 RawBuffer GetRawBufferArgument(
-    ErrorThrower& thrower, const v8::FunctionCallbackInfo<v8::Value>& args) {
+    ErrorThrower& thrower,
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (args.Length() < 1 || !args[0]->IsArrayBuffer()) {
     thrower.Error("Argument 0 must be an array buffer");
     return {nullptr, nullptr};
@@ -59,7 +61,8 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   ErrorThrower thrower(isolate, "WASM.verifyModule()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (thrower.error()) return;
+  if (thrower.error())
+    return;
 
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
@@ -69,9 +72,9 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
     thrower.Failed("", result);
   }
 
-  if (result.val) delete result.val;
+  if (result.val)
+    delete result.val;
 }
-
 
 void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
@@ -80,7 +83,8 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   // TODO(titzer): no need to externalize to get the bytes for verification.
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (thrower.error()) return;
+  if (thrower.error())
+    return;
 
   internal::wasm::FunctionResult result;
   {
@@ -95,9 +99,9 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
     thrower.Failed("", result);
   }
 
-  if (result.val) delete result.val;
+  if (result.val)
+    delete result.val;
 }
-
 
 void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
@@ -105,7 +109,8 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   ErrorThrower thrower(isolate, "WASM.compileRun()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (thrower.error()) return;
+  if (thrower.error())
+    return;
 
   // Decode and pre-verify the functions before compiling and running.
   i::Zone zone;
@@ -120,9 +125,9 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
     args.GetReturnValue().Set(retval);
   }
 
-  if (result.val) delete result.val;
+  if (result.val)
+    delete result.val;
 }
-
 
 void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
@@ -155,16 +160,12 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
       info.scope()->declarations()->at(0)->AsFunctionDeclaration()->fun());
 
   v8::internal::wasm::WasmModuleIndex* module =
-      v8::internal::wasm::AsmWasmBuilder(
-          info.isolate(),
-          info.zone(),
-          info.literal()).Run();
-  int32_t result =
-      v8::internal::wasm::CompileAndRunWasmModule(
-          isolate, module->Begin(), module->End());
+      v8::internal::wasm::AsmWasmBuilder(info.isolate(), info.zone(),
+                                         info.literal()).Run();
+  int32_t result = v8::internal::wasm::CompileAndRunWasmModule(
+      isolate, module->Begin(), module->End());
   args.GetReturnValue().Set(result);
 }
-
 
 void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   HandleScope scope(args.GetIsolate());
@@ -172,7 +173,8 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   ErrorThrower thrower(isolate, "WASM.instantiateModule()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (buffer.start == nullptr) return;
+  if (buffer.start == nullptr)
+    return;
 
   // Decode but avoid a redundant pass over function bodies for verification.
   // Verification will happen during compilation.
@@ -197,10 +199,10 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
     }
   }
 
-  if (result.val) delete result.val;
+  if (result.val)
+    delete result.val;
 }
 }
-
 
 // TODO(titzer): we use the API to create the function template because the
 // internal guts are too ugly to replicate here.
@@ -211,15 +213,15 @@ static i::Handle<i::FunctionTemplateInfo> NewTemplate(i::Isolate* i_isolate,
   return v8::Utils::OpenHandle(*local);
 }
 
-
 namespace internal {
 static Handle<String> v8_str(Isolate* isolate, const char* str) {
   return isolate->factory()->NewStringFromAsciiChecked(str);
 }
 
-
-static void InstallFunc(Isolate* isolate, Handle<JSObject> object,
-                        const char* str, FunctionCallback func) {
+static void InstallFunc(Isolate* isolate,
+                        Handle<JSObject> object,
+                        const char* str,
+                        FunctionCallback func) {
   Handle<String> name = v8_str(isolate, str);
   Handle<FunctionTemplateInfo> temp = NewTemplate(isolate, func);
   Handle<JSFunction> function =
@@ -228,7 +230,6 @@ static void InstallFunc(Isolate* isolate, Handle<JSObject> object,
       static_cast<PropertyAttributes>(DONT_DELETE | READ_ONLY);
   JSObject::AddProperty(object, name, function, attributes);
 }
-
 
 void WasmJs::Install(Isolate* isolate, Handle<JSGlobalObject> global) {
   // Bind the WASM object.

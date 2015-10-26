@@ -99,7 +99,6 @@
   kExprSetLocal, static_cast<byte>(index), kExprI32Add, kExprGetLocal, \
       static_cast<byte>(index), kExprI8Const, static_cast<int8_t>(count)
 
-
 #define WASM_UNOP(opcode, x) static_cast<byte>(opcode), x
 #define WASM_BINOP(opcode, x, y) static_cast<byte>(opcode), x, y
 
@@ -187,7 +186,6 @@
 #define WASM_F32_GT(x, y) kExprF32Gt, x, y
 #define WASM_F32_GE(x, y) kExprF32Ge, x, y
 
-
 //------------------------------------------------------------------------------
 // Float64 operations
 //------------------------------------------------------------------------------
@@ -211,7 +209,6 @@
 #define WASM_F64_LE(x, y) kExprF64Le, x, y
 #define WASM_F64_GT(x, y) kExprF64Gt, x, y
 #define WASM_F64_GE(x, y) kExprF64Ge, x, y
-
 
 //------------------------------------------------------------------------------
 // Type conversions.

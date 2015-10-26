@@ -43,15 +43,20 @@ struct FunctionEnv {
   bool IsValidLocal(uint32_t index) { return index < total_locals; }
   uint32_t GetLocalCount() { return total_locals; }
   LocalType GetLocalType(uint32_t index) {
-    if (index < sig->parameter_count()) return sig->GetParam(index);
+    if (index < sig->parameter_count())
+      return sig->GetParam(index);
     index -= sig->parameter_count();
-    if (index < local_int32_count) return kAstI32;
+    if (index < local_int32_count)
+      return kAstI32;
     index -= local_int32_count;
-    if (index < local_int64_count) return kAstI64;
+    if (index < local_int64_count)
+      return kAstI64;
     index -= local_int64_count;
-    if (index < local_float32_count) return kAstF32;
+    if (index < local_float32_count)
+      return kAstF32;
     index -= local_float32_count;
-    if (index < local_float64_count) return kAstF64;
+    if (index < local_float64_count)
+      return kAstF64;
     return kAstStmt;
   }
 
@@ -90,25 +95,35 @@ typedef Result<Tree*> TreeResult;
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree);
 
-TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
+TreeResult VerifyWasmCode(FunctionEnv* env,
+                          const byte* base,
+                          const byte* start,
                           const byte* end);
-TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
-                        const byte* start, const byte* end);
+TreeResult BuildTFGraph(TFGraph* graph,
+                        FunctionEnv* env,
+                        const byte* base,
+                        const byte* start,
+                        const byte* end);
 
-inline TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
+inline TreeResult VerifyWasmCode(FunctionEnv* env,
+                                 const byte* start,
                                  const byte* end) {
   return VerifyWasmCode(env, nullptr, start, end);
 }
 
-inline TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env,
-                               const byte* start, const byte* end) {
+inline TreeResult BuildTFGraph(TFGraph* graph,
+                               FunctionEnv* env,
+                               const byte* start,
+                               const byte* end) {
   return BuildTFGraph(graph, env, nullptr, start, end);
 }
 
 enum ReadUnsignedLEB128ErrorCode { kNoError, kInvalidLEB128, kMissingLEB128 };
 
-ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte*, const byte*,
-                                                      int*, uint32_t*);
+ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte*,
+                                                      const byte*,
+                                                      int*,
+                                                      uint32_t*);
 
 // Computes the length of the opcode at the given address.
 int OpcodeLength(const byte* pc);
@@ -117,7 +132,11 @@ int OpcodeLength(const byte* pc);
 int OpcodeArity(FunctionEnv* env, const byte* pc);
 
 #if DEBUG
-#define TRACE(...) do { if (FLAG_trace_wasm_decoder) PrintF(__VA_ARGS__); } while(false)
+#define TRACE(...)               \
+  do {                           \
+    if (FLAG_trace_wasm_decoder) \
+      PrintF(__VA_ARGS__);       \
+  } while (false)
 #else
 #define TRACE(...)
 #endif
@@ -126,18 +145,19 @@ int OpcodeArity(FunctionEnv* env, const byte* pc);
 // a buffer of bytes.
 class Decoder {
  public:
-   Decoder(const byte* start, const byte* end)
-   : start_(start),
-     pc_(start),
-     limit_(end),
-     error_pc_(nullptr),
-     error_pt_(nullptr) { }
+  Decoder(const byte* start, const byte* end)
+      : start_(start),
+        pc_(start),
+        limit_(end),
+        error_pc_(nullptr),
+        error_pt_(nullptr) {}
 
-  virtual ~Decoder() { }
+  virtual ~Decoder() {}
 
   // Reads a 8-bit unsigned integer (byte) and advances {pc_}.
   uint8_t u8(const char* name = nullptr) {
-    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_), name ? name : "uint8_t");
+    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_),
+          name ? name : "uint8_t");
     if (checkAvailable(1)) {
       byte val = *(pc_++);
       TRACE("%02x = %d\n", val, val);
@@ -150,7 +170,8 @@ class Decoder {
 
   // Reads a 16-bit unsigned integer (little endian) and advances {pc_}.
   uint16_t u16(const char* name = nullptr) {
-    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_), name ? name : "uint16_t");
+    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_),
+          name ? name : "uint16_t");
     if (checkAvailable(2)) {
 #ifdef V8_TARGET_LITTLE_ENDIAN
       byte b0 = pc_[0];
@@ -171,7 +192,8 @@ class Decoder {
 
   // Reads a single 32-bit unsigned integer (little endian) and advances {pc_}.
   uint32_t u32(const char* name = nullptr) {
-    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_), name ? name : "uint32_t");
+    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_),
+          name ? name : "uint32_t");
     if (checkAvailable(4)) {
 #ifdef V8_TARGET_LITTLE_ENDIAN
       byte b0 = pc_[0];
@@ -184,10 +206,10 @@ class Decoder {
       byte b1 = pc_[2];
       byte b0 = pc_[3];
 #endif
-      uint32_t val = static_cast<uint32_t>(b3 << 24) | static_cast<uint32_t>(b2 << 16) |
-             static_cast<uint32_t>(b1 << 8) | b0;
-      TRACE("%02x %02x %02x %02x = %u\n", pc_[0], pc_[1],
-			 pc_[2], pc_[3], val);
+      uint32_t val = static_cast<uint32_t>(b3 << 24) |
+                     static_cast<uint32_t>(b2 << 16) |
+                     static_cast<uint32_t>(b1 << 8) | b0;
+      TRACE("%02x %02x %02x %02x = %u\n", pc_[0], pc_[1], pc_[2], pc_[3], val);
       pc_ += 4;
       return val;
     } else {
@@ -198,7 +220,8 @@ class Decoder {
 
   // Reads a LEB128 variable-length 32-bit integer and advances {pc_}.
   uint32_t u32v(int* length, const char* name = nullptr) {
-    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_), name ? name : "varint");
+    TRACE("  +%d  %-20s: ", static_cast<int>(pc_ - start_),
+          name ? name : "varint");
 
     if (!checkAvailable(1)) {
       error("expected at least 1 byte, but fell off end");
@@ -207,7 +230,8 @@ class Decoder {
 
     const byte* pos = pc_;
     const byte* end = pc_ + 5;
-    if (end > limit_) end = limit_;
+    if (end > limit_)
+      end = limit_;
 
     uint32_t result = 0;
     int shift = 0;
@@ -216,7 +240,8 @@ class Decoder {
       b = *pc_++;
       TRACE("%02x ", b);
       result = result | ((b & 0x7F) << shift);
-      if ((b & 0x80) == 0) break;
+      if ((b & 0x80) == 0)
+        break;
       shift += 7;
     }
 
@@ -265,8 +290,7 @@ class Decoder {
   }
 
   // Behavior triggered on first error, overridden in subclasses.
-  virtual void onFirstError() {
-  }
+  virtual void onFirstError() {}
 
   // Debugging helper to print bytes up to the end.
   template <typename T>
@@ -321,7 +345,6 @@ class Decoder {
 };
 
 #undef TRACE
-
 }
 }
 }
