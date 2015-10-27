@@ -163,8 +163,7 @@ void TFBuilder::AppendToPhi(TFNode* merge, TFNode* phi, TFNode* from) {
 }
 
 TFNode* TFBuilder::Merge(unsigned count, TFNode** controls) {
-  if (!graph)
-    return nullptr;
+  if (!graph) return nullptr;
   return graph->graph()->NewNode(graph->common()->Merge(count), count,
                                  controls);
 }
@@ -173,8 +172,8 @@ TFNode* TFBuilder::Phi(LocalType type,
                        unsigned count,
                        TFNode** vals,
                        TFNode* control) {
-  if (!graph)
-    return nullptr;
+  if (!graph) return nullptr;
+  DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(vals, count + 1);
   buf[count] = control;
   compiler::MachineType machine_type = MachineTypeFor(type);
@@ -185,8 +184,8 @@ TFNode* TFBuilder::Phi(LocalType type,
 TFNode* TFBuilder::EffectPhi(unsigned count,
                              TFNode** effects,
                              TFNode* control) {
-  if (!graph)
-    return nullptr;
+  if (!graph) return nullptr;
+  DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(effects, count + 1);
   buf[count] = control;
   return graph->graph()->NewNode(graph->common()->EffectPhi(count), count + 1,
@@ -444,7 +443,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
   switch (opcode) {
     case kExprBoolNot:
       op = m->Word32Equal();
-      return graph->graph()->NewNode(op, input, graph->ZeroConstant());
+      return graph->graph()->NewNode(op, input, graph->Int32Constant(0));
     case kExprF32Abs:
       op = m->Float32Abs();
       break;
@@ -564,8 +563,8 @@ TFNode* TFBuilder::Constant(Handle<Object> value) {
 }
 
 void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
-  if (!graph)
-    return;
+  if (!graph) return;
+  DCHECK_NOT_NULL(cond);
   DCHECK_NOT_NULL(*control);
   TFNode* branch =
       graph->graph()->NewNode(graph->common()->Branch(), cond, *control);
@@ -581,7 +580,7 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
 
   if (count == 0) {
     // Handle a return of void.
-    vals[0] = graph->ZeroConstant();
+    vals[0] = graph->Int32Constant(0);
     count = 1;
   }
 
@@ -958,7 +957,7 @@ TFNode* TFBuilder::LoadGlobal(uint32_t index) {
       module->globals_area + module->module->globals->at(index).offset);
   const compiler::Operator* op =
       graph->machine()->Load(MachineTypeFor(mem_type));
-  TFNode* node = graph->graph()->NewNode(op, addr, graph->ZeroConstant(),
+  TFNode* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0),
                                          *effect, *control);
   *effect = node;
   return node;
@@ -973,7 +972,7 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   const compiler::Operator* op =
       graph->machine()->Store(compiler::StoreRepresentation(
           MachineTypeFor(mem_type), compiler::kNoWriteBarrier));
-  TFNode* node = graph->graph()->NewNode(op, addr, graph->ZeroConstant(), val,
+  TFNode* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0), val,
                                          *effect, *control);
   *effect = node;
   return node;
