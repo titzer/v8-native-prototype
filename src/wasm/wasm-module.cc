@@ -167,7 +167,7 @@ Handle<Code> CompileFunction(ErrorThrower& thrower,
                              ModuleEnv* module_env,
                              const WasmFunction& function,
                              int index) {
-  if (FLAG_trace_wasm_compiler) {
+  if (FLAG_trace_wasm_compiler || FLAG_trace_wasm_decode_time) {
     // TODO(titzer): clean me up a bit.
     OFStream os(stdout);
     os << "Compiling WASM function #" << index << ":";
