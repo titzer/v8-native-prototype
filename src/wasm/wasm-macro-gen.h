@@ -10,22 +10,23 @@
 // Convenience macros for building Wasm bytecode directly into a byte array.
 
 //------------------------------------------------------------------------------
-// Statements.
+// Control.
 //------------------------------------------------------------------------------
-#define WASM_IF(cond, tstmt) kStmtIf, cond, tstmt
-#define WASM_IF_THEN(cond, tstmt, fstmt) kStmtIfThen, cond, tstmt, fstmt
-#define WASM_NOP kStmtNop
-#define WASM_BLOCK(count, ...) kStmtBlock, static_cast<byte>(count), __VA_ARGS__
-#define WASM_INFINITE_LOOP kStmtLoop, 0
-#define WASM_LOOP(count, ...) kStmtLoop, static_cast<byte>(count), __VA_ARGS__
-#define WASM_SWITCH(count, key, ...) \
-  kStmtSwitch, static_cast<byte>(count), key, __VA_ARGS__
-#define WASM_SWITCH_NF(count, key, ...) \
-  kStmtSwitchNf, static_cast<byte>(count), key, __VA_ARGS__
-#define WASM_CONTINUE(depth) kStmtContinue, static_cast<byte>(depth)
-#define WASM_BREAK(depth) kStmtBreak, static_cast<byte>(depth)
-#define WASM_RETURN0 kStmtReturn
-#define WASM_RETURN(...) kStmtReturn, __VA_ARGS__
+#define WASM_NOP kExprNop
+
+#define WASM_BLOCK(count, ...) kExprBlock, static_cast<byte>(count), __VA_ARGS__
+#define WASM_INFINITE_LOOP kExprLoop, 1, kExprBr, 0, kExprNop
+#define WASM_LOOP(count, ...) kExprLoop, static_cast<byte>(count), __VA_ARGS__
+#define WASM_IF(cond, tstmt) kExprIf, cond, tstmt
+#define WASM_IF_THEN(cond, tstmt, fstmt) kExprIfThen, cond, tstmt, fstmt
+#define WASM_SELECT(cond, tval, fval) kExprSelect, cond, tval, fval
+#define WASM_BR(depth) kExprBr, static_cast<byte>(depth), kExprNop
+#define WASM_BR_IF(depth, cond) kExprBrIf, static_cast<byte>(depth), cond, kExprNop
+#define WASM_BRV(depth, val) kExprBr, static_cast<byte>(depth), val
+#define WASM_BRV_IF(depth, cond, val) kExprBrIf, static_cast<byte>(depth), cond, val
+#define WASM_BREAK(depth) kExprBr, static_cast<byte>(depth + 1), kExprNop
+#define WASM_CONTINUE(depth) kExprBr, static_cast<byte>(depth), kExprNop
+#define WASM_BREAKV(depth, val) kExprBr, static_cast<byte>(depth + 1), val
 
 //------------------------------------------------------------------------------
 // Misc expressions.
@@ -79,19 +80,12 @@
 #define WASM_CALL_FUNCTION0(index) kExprCallFunction, static_cast<byte>(index)
 #define WASM_CALL_INDIRECT0(index, func) \
   kExprCallIndirect, static_cast<byte>(index), func
-#define WASM_EXPR_IF(cond, tval, fval) kExprIf, cond, tval, fval
-#define WASM_COMMA(left, right) kExprComma, left, right
 #define WASM_NOT(x) kExprBoolNot, x
-#define WASM_EXPR_BLOCK(count, ...) \
-  kExprBlock, static_cast<byte>(count), __VA_ARGS__
-#define WASM_EXPR_LOOP(count, ...) \
-  kExprLoop, static_cast<byte>(count), __VA_ARGS__
-#define WASM_EXPR_BREAK(depth, x) kExprBreak, static_cast<byte>(depth), x
 
 //------------------------------------------------------------------------------
 // Statements and expressions that are composed of multiple bytecodes.
 //------------------------------------------------------------------------------
-#define WASM_WHILE(x, y) kStmtLoop, 1, kStmtIfThen, x, y, kStmtBreak, 0
+#define WASM_WHILE(x, y) kExprLoop, 1, kExprIf, x, kExprBr, 0, y
 #define WASM_INC_LOCAL(index)                                          \
   kExprSetLocal, static_cast<byte>(index), kExprI32Add, kExprGetLocal, \
       static_cast<byte>(index), kExprI8Const, 1

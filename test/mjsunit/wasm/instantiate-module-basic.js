@@ -28,12 +28,31 @@ var kDeclFunctionExport = 0x08;
 
 var kAstStmt = 0;
 var kAstI32 = 1;
-var kStmtNop = 0;
-var kExprI8Const = 0x10;
-var kStmtReturn = 0x9;
+
+var kExprNop =    0x00;
+var kExprBlock =  0x01;
+var kExprLoop =   0x02;
+var kExprIf =     0x03;
+var kExprIfThen = 0x04;
+var kExprSelect = 0x05;
+var kExprBr = 0x06;
+var kExprBrIf = 0x07;
+var kExprI8Const = 0x09;
+var kExprI32Const = 0x0a;
+var kExprI64Const = 0x0b;
+var kExprF64Const = 0x0c;
+var kExprF32Const = 0x0d;
+var kExprGetLocal = 0x0e;
+var kExprSetLocal = 0x0f;
+var kExprLoadGlobal = 0x10;
+var kExprStoreGlobal = 0x11;
+var kExprCallFunction = 0x12;
+var kExprCallIndirect = 0x13;
+
+
 var kReturnValue = 117;
 
-var kBodySize = 3;
+var kBodySize = 2;
 var kNameOffset = 19 + kBodySize + 1;
 
 var data = bytes(
@@ -50,7 +69,6 @@ var data = bytes(
   kNameOffset, 0, 0, 0,       // name offset
   kBodySize, 0,               // body size
   // -- body
-  kStmtReturn,                // --
   kExprI8Const,               // --
   kReturnValue,               // --
   kDeclEnd,
