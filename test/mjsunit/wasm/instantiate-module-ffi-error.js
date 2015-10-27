@@ -31,17 +31,31 @@ var kAstI32 = 1;
 var kAstI64 = 2;
 var kAstF32 = 3;
 var kAstF64 = 4;
-var kStmtNop = 0;
-var kStmtBlock = 3;
-var kExprI8Const = 0x10;
-var kExprI32Sub = 0x41;
-var kExprGetLocal = 0x15;
+
+var kExprNop =    0x00;
+var kExprBlock =  0x01;
+var kExprLoop =   0x02;
+var kExprIf =     0x03;
+var kExprIfThen = 0x04;
+var kExprSelect = 0x05;
+var kExprBr = 0x06;
+var kExprBrIf = 0x07;
+var kExprI8Const = 0x09;
+var kExprI32Const = 0x0a;
+var kExprI64Const = 0x0b;
+var kExprF64Const = 0x0c;
+var kExprF32Const = 0x0d;
+var kExprGetLocal = 0x0e;
+var kExprSetLocal = 0x0f;
+var kExprLoadGlobal = 0x10;
+var kExprStoreGlobal = 0x11;
+var kExprCallFunction = 0x12;
+var kExprCallIndirect = 0x13;
+
 var kExprF64Lt = 0x99;
-var kStmtReturn = 0x9;
-var kExprCallFunction = 0x19;
 
 function testCallFFI(ffi) {
-  var kBodySize = 7;
+  var kBodySize = 6;
   var kNameAddOffset = 28 + kBodySize + 1;
   var kNameMainOffset = kNameAddOffset + 4;
 
@@ -62,7 +76,6 @@ function testCallFFI(ffi) {
     kNameMainOffset, 0, 0, 0,   // name offset
     kBodySize, 0,
     // main body
-    kStmtReturn,                // --
     kExprCallFunction, 0,       // --
     kExprGetLocal, 0,           // --
     kExprGetLocal, 1,           // --
