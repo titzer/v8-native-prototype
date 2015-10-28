@@ -267,8 +267,8 @@ void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
     if (!segment.init)
       continue;
     CHECK_LT(segment.dest_addr, mem_size);
-    CHECK_LT(segment.source_size, mem_size);
-    CHECK_LT(segment.dest_addr + segment.source_size, mem_size);
+    CHECK_LE(segment.source_size, mem_size);
+    CHECK_LE(segment.dest_addr + segment.source_size, mem_size);
     byte* addr = mem_addr + segment.dest_addr;
     memcpy(addr, module->module_start + segment.source_offset,
            segment.source_size);
