@@ -345,6 +345,15 @@ class ModuleDecoder : public Decoder {
   void VerifyFunctionBody(uint32_t func_num,
                           ModuleEnv* menv,
                           WasmFunction* function) {
+    if (FLAG_trace_wasm_decode_time) {
+      // TODO: clean me up a bit.
+      OFStream os(stdout);
+      os << "Verifying WASM function:";
+      if (function->name_offset > 0) {
+        os << menv->module->GetName(function->name_offset);
+      }
+      os << std::endl;
+    }
     FunctionEnv fenv;
     fenv.module = menv;
     fenv.sig = function->sig;
