@@ -1,14 +1,58 @@
-#include "test/cctest/cctest.h"
+// Copyright 2015 the V8 project authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
-#include "src/wasm/ast-decoder.h"
+#include "test/unittests/test-utils.h"
+
+#include "src/v8.h"
+
 #include "src/wasm/encoder.h"
-#include "src/wasm/wasm-opcodes.h"
+#include "src/wasm/ast-decoder.h"
 
-using namespace v8::base;
-using namespace v8::internal;
-using namespace v8::internal::wasm;
+namespace v8 {
+namespace internal {
+namespace wasm {
 
-TEST(Function_Builder_Variable_Indexing) {
+class EncoderTest : public TestWithZone {
+ protected:
+  void AddLocal(WasmFunctionBuilder* f, uint8_t type) {
+    uint16_t index = f->AddLocal(type);
+    const std::vector<uint8_t>& out_index = UnsignedLEB128From(index);
+    std::vector<uint8_t> code;
+    code.push_back(kExprGetLocal);
+    for(size_t i = 0; i < out_index.size(); i++) {
+      code.push_back(out_index.at(i));
+    }
+    uint32_t local_indices[] = {1};
+    f->AddBody(code.data(), static_cast<uint32_t>(code.size()), local_indices, 1);
+  }
+
+  void CheckReadValue(
+      uint8_t* leb_value,
+      uint32_t expected_result,
+      int expected_length,
+      ReadUnsignedLEB128ErrorCode expected_error_code) {
+    int length;
+    uint32_t result;
+    ReadUnsignedLEB128ErrorCode error_code =
+      ReadUnsignedLEB128Operand(leb_value, leb_value+5, &length, &result);
+    CHECK_EQ(error_code, expected_error_code);
+    if (error_code == 0) {
+      CHECK_EQ(result, expected_result);
+      CHECK_EQ(length, expected_length);
+    }
+  }
+
+  void CheckWriteValue(uint32_t input, int length, uint8_t* vals) {
+    const std::vector<uint8_t> result = UnsignedLEB128From(input);
+    CHECK_EQ(result.size(), length);
+    for (size_t i = 0; i < length; i++) {
+      CHECK_EQ(result.at(i), vals[i]);
+    }
+  }
+};
+
+TEST_F(EncoderTest, Function_Builder_Variable_Indexing) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
   uint16_t f_index = builder->AddFunction();
@@ -48,21 +92,7 @@ TEST(Function_Builder_Variable_Indexing) {
   }
 }
 
-namespace {
-  void AddLocal(WasmFunctionBuilder* f, uint8_t type) {
-    uint16_t index = f->AddLocal(type);
-    const std::vector<uint8_t>& out_index = UnsignedLEB128From(index);
-    std::vector<uint8_t> code;
-    code.push_back(kExprGetLocal);
-    for(size_t i = 0; i < out_index.size(); i++) {
-      code.push_back(out_index.at(i));
-    }
-    uint32_t local_indices[] = {1};
-    f->AddBody(code.data(), static_cast<uint32_t>(code.size()), local_indices, 1);
-  }
-}
-
-TEST(Function_Builder_Indexing_Variable_Width) {
+TEST_F(EncoderTest, Function_Builder_Indexing_Variable_Width) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
   uint16_t f_index = builder->AddFunction();
@@ -90,33 +120,7 @@ TEST(Function_Builder_Indexing_Variable_Width) {
   CHECK_EQ(0x00, static_cast<size_t>(*(body + 2*127 + 4)));
 }
 
-namespace {
-  void CheckReadValue(
-      uint8_t* leb_value,
-      uint32_t expected_result,
-      int expected_length,
-      ReadUnsignedLEB128ErrorCode expected_error_code) {
-    int length;
-    uint32_t result;
-    ReadUnsignedLEB128ErrorCode error_code =
-      ReadUnsignedLEB128Operand(leb_value, leb_value+5, &length, &result);
-    CHECK_EQ(error_code, expected_error_code);
-    if (error_code == 0) {
-      CHECK_EQ(result, expected_result);
-      CHECK_EQ(length, expected_length);
-    }
-  }
-
-  void CheckWriteValue(uint32_t input, int length, uint8_t* vals) {
-    const std::vector<uint8_t> result = UnsignedLEB128From(input);
-    CHECK_EQ(result.size(), length);
-    for (size_t i = 0; i < length; i++) {
-      CHECK_EQ(result.at(i), vals[i]);
-    }
-  }
-}
-
-TEST(Test_LEB_Functions) {
+TEST_F(EncoderTest, LEB_Functions) {
   byte leb_value[5] = {0, 0, 0, 0, 0};
   CheckReadValue(leb_value, 0, 1, kNoError);
   CheckWriteValue(0, 1, leb_value);
@@ -140,4 +144,8 @@ TEST(Test_LEB_Functions) {
   leb_value[3] = 0x80;
   leb_value[4] = 0x80;
   CheckReadValue(leb_value, -1, -1, kInvalidLEB128);
+}
+
+}
+}
 }

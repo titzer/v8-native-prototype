@@ -15,6 +15,7 @@
           'ast-decoder-unittest.cc',
           'wasm-macro-gen-unittest.cc',
           'module-decoder-unittest.cc',
+	  'encoder-unittest.cc',
         ],
       },
     },
