@@ -5,11 +5,13 @@
 #include "src/v8.h"
 
 #include "src/wasm/asm-wasm-builder.h"
+#include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-opcodes.h"
 
 #include "src/ast.h"
 #include "src/codegen.h"
 #include "src/scopes.h"
+#include "src/type-cache.h"
 
 namespace v8 {
 namespace internal {
@@ -22,6 +24,7 @@ namespace wasm {
     if (HasStackOverflow())      \
       return;                    \
   } while (false)
+
 
 class AsmWasmBuilderImpl : public AstVisitor {
  public:
@@ -39,7 +42,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
         current_function_builder_(NULL),
         literal_(literal),
         isolate_(isolate),
-        zone_(zone) {
+        zone_(zone),
+        cache_(TypeCache::Get()) {
     InitializeAstVisitor(isolate);
   }
 
@@ -72,7 +76,13 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-  void VisitBlock(Block* stmt) { RECURSE(VisitStatements(stmt->statements())); }
+  void VisitBlock(Block* stmt) {
+    DCHECK(in_function_);
+    current_function_builder_->AppendCode(kStmtBlock, false);
+    current_function_builder_->AppendCode(
+        static_cast<byte>(stmt->statements()->length()), false);
+    RECURSE(VisitStatements(stmt->statements()));
+  }
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
     RECURSE(Visit(stmt->expression()));
@@ -83,9 +93,21 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitEmptyParentheses(EmptyParentheses* paren) { UNREACHABLE(); }
 
   void VisitIfStatement(IfStatement* stmt) {
+    DCHECK(in_function_);
+    if(stmt->HasElseStatement()) {
+      current_function_builder_->AppendCode(kStmtIfThen, false);
+    } else {
+      current_function_builder_->AppendCode(kStmtIf, false);
+    }
     RECURSE(Visit(stmt->condition()));
-    RECURSE(Visit(stmt->then_statement()));
-    RECURSE(Visit(stmt->else_statement()));
+    if (stmt->HasThenStatement()) {
+      RECURSE(Visit(stmt->then_statement()));
+    } else {
+      current_function_builder_->AppendCode(kStmtNop, false);
+    }
+    if (stmt->HasElseStatement()) {
+      RECURSE(Visit(stmt->else_statement()));
+    }
   }
 
   void VisitContinueStatement(ContinueStatement* stmt) {}
@@ -174,11 +196,18 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitFunctionLiteral(FunctionLiteral* expr) {
     Scope* scope = expr->scope();
-    // TODO: confirm where to get type
     if (in_function_) {
-      current_function_builder_->ReturnType(kAstI32);
-      for (int i = 0; i < expr->parameter_count(); i++) {
-        LookupOrInsertLocal(scope->parameter(i), true);
+      if (expr->bounds().lower->IsFunction()) {
+        Type::FunctionType* func_type = expr->bounds().lower->AsFunction();
+        LocalType return_type = TypeFrom(func_type->Result());
+        current_function_builder_->ReturnType(return_type);
+        for(int i = 0; i < expr->parameter_count(); i++) {
+          LocalType type = TypeFrom(func_type->Parameter(i));
+          DCHECK(type != kAstStmt);
+          LookupOrInsertLocal(scope->parameter(i), type);
+        }
+      } else {
+        UNREACHABLE();
       }
     }
     RECURSE(VisitDeclarations(scope->declarations()));
@@ -205,8 +234,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
         if (!is_set_op_) {
           current_function_builder_->AppendCode(kExprGetLocal, false);
         }
+        LocalType var_type = TypeOf(expr);
+        DCHECK(var_type != kAstStmt);
         std::vector<uint8_t> index =
-            UnsignedLEB128From(LookupOrInsertLocal(var, false));
+            UnsignedLEB128From(LookupOrInsertLocal(var, var_type));
         uint32_t pos_of_index[1] = {0};
         current_function_builder_->AddBody(
             index.data(), static_cast<uint32_t>(index.size()), pos_of_index, 1);
@@ -223,16 +254,29 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitLiteral(Literal* expr) {
     if (in_function_) {
       if (expr->raw_value()->IsNumber()) {
-        // TODO: deal with type
-        int val = static_cast<int>(expr->raw_value()->AsNumber());
-        current_function_builder_->AppendCode(kExprI32Const, false);
-        current_function_builder_->AppendCode(static_cast<byte>(val), false);
-        current_function_builder_->AppendCode(static_cast<byte>(val >> 8),
-                                              false);
-        current_function_builder_->AppendCode(static_cast<byte>(val >> 16),
-                                              false);
-        current_function_builder_->AppendCode(static_cast<byte>(val >> 24),
-                                              false);
+        LocalType type = TypeOf(expr);
+        switch (type) {
+          case kAstI32: {
+            int val = static_cast<int>(expr->raw_value()->AsNumber());
+            byte code[] = {WASM_I32(val)};
+            current_function_builder_->AddBody(code, sizeof(code));
+          }
+          break;
+          case kAstF32: {
+            float val = static_cast<float>(expr->raw_value()->AsNumber());
+            byte code[] = {WASM_F32(val)};
+            current_function_builder_->AddBody(code, sizeof(code));
+          }
+          break;
+          case kAstF64: {
+            double val = static_cast<double>(expr->raw_value()->AsNumber());
+            byte code[] = {WASM_F64(val)};
+            current_function_builder_->AddBody(code, sizeof(code));
+          }
+          break;
+          default:
+            UNREACHABLE();
+        }
       }
     }
   }
@@ -317,26 +361,74 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(expr->expression()));
   }
 
+#define NON_SIGNED(op)                                             \
+  static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op,       \
+                                   kExprF32##op, kExprF64##op}
+
+#define SIGNED(op)                                                 \
+  static WasmOpcode opcodes[] = {kExprI32##op##S, kExprI32##op##U, \
+                                   kExprF32##op, kExprF64##op}
+
+#define NON_SIGNED_INT(op)                                         \
+  static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op}
+
+#define CASE(token, op, V)                                         \
+  case token: {                                                    \
+    V(op);                                                         \
+    int type = TypeIndexOf(expr->left(), expr->right());           \
+    current_function_builder_->AppendCode(opcodes[type], false);   \
+  }                                                                \
+  break
+
   void VisitBinaryOperation(BinaryOperation* expr) {
     switch (expr->op()) {
-      case Token::BIT_OR:
-        current_function_builder_->AppendCode(kExprI32Ior, false);
-        break;
-      case Token::ADD:
-        current_function_builder_->AppendCode(kExprI32Add, false);
-        break;
+      CASE(Token::ADD, Add, NON_SIGNED);
+      CASE(Token::SUB, Sub, NON_SIGNED);
+      CASE(Token::MUL, Mul, NON_SIGNED);
+      CASE(Token::DIV, Div, SIGNED);
+      CASE(Token::BIT_OR, Ior, NON_SIGNED_INT);
       default:
-        DCHECK(false);
-        break;
+        UNREACHABLE();
     }
     RECURSE(Visit(expr->left()));
     RECURSE(Visit(expr->right()));
   }
 
   void VisitCompareOperation(CompareOperation* expr) {
+    switch (expr->op()) {
+      CASE(Token::EQ, Eq, NON_SIGNED);
+      default:
+        UNREACHABLE();
+    }
     RECURSE(Visit(expr->left()));
     RECURSE(Visit(expr->right()));
   }
+
+  int TypeIndexOf(Expression* left, Expression* right) {
+    DCHECK(TypeIndexOf(left) == TypeIndexOf(right));
+    return TypeIndexOf(left);
+  }
+
+  int TypeIndexOf(Expression* expr) {
+    DCHECK(expr->bounds().lower == expr->bounds().upper);
+    TypeImpl<ZoneTypeConfig>* type = expr->bounds().lower;
+    if (type->Is(cache_.kInt32)) {
+      return 0;
+    } else if (type->Is(cache_.kUint32)) {
+      return 1;
+    } else if (type->Is(cache_.kFloat32)) {
+      return 2;
+    } else if (type->Is(cache_.kFloat64)) {
+      return 3;
+    } else {
+      UNREACHABLE();
+    }
+  }
+
+#undef CASE
+#undef NON_SIGNED_INT
+#undef SIGNED
+#undef NON_SIGNED
 
   void VisitThisFunction(ThisFunction* expr) {}
 
@@ -363,16 +455,16 @@ class AsmWasmBuilderImpl : public AstVisitor {
     uint16_t index;
   };
 
-  uint16_t LookupOrInsertLocal(Variable* v, bool is_param) {
+  uint16_t LookupOrInsertLocal(Variable* v, LocalType type) {
     DCHECK(current_function_builder_ != NULL);
     ZoneHashMap::Entry* entry =
         local_variables_.Lookup(v, ComputePointerHash(v));
     if (entry == NULL) {
       uint16_t index;
-      if (is_param) {
-        index = current_function_builder_->AddParam(TypeOf(v));
+      if (v->IsParameter()) {
+        index = current_function_builder_->AddParam(type);
       } else {
-        index = current_function_builder_->AddLocal(TypeOf(v));
+        index = current_function_builder_->AddLocal(type);
       }
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
@@ -397,7 +489,22 @@ class AsmWasmBuilderImpl : public AstVisitor {
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;
   }
 
-  uint8_t TypeOf(Variable* v) { return kAstI32; }
+  LocalType TypeOf(Expression* expr) {
+    DCHECK(expr->bounds().lower == expr->bounds().upper);
+    return TypeFrom(expr->bounds().lower);
+  }
+
+  LocalType TypeFrom(TypeImpl<ZoneTypeConfig>* type) {
+    if (type->Is(cache_.kInt32)) {
+      return kAstI32;
+    } else if (type->Is(cache_.kFloat32)) {
+      return kAstF32;
+    } else if (type->Is(cache_.kFloat64)) {
+      return kAstF64;
+    } else {
+      return kAstStmt;
+    }
+  }
 
   Zone* zone() { return zone_; }
 
@@ -411,6 +518,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   FunctionLiteral* literal_;
   Isolate* isolate_;
   Zone* zone_;
+  TypeCache const& cache_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
