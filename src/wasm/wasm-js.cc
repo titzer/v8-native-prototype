@@ -137,9 +137,11 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   if (args.Length() != 1) {
     thrower.Error("Invalid argument count");
+    return;
   }
   if (!args[0]->IsString()) {
     thrower.Error("Invalid argument count");
+    return;
   }
 
   i::Factory* factory = isolate->factory();
@@ -162,7 +164,10 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   v8::internal::AsmTyper typer(info.isolate(), info.zone(), *(info.script()),
                          info.literal());
-  typer.Validate();
+  if (!typer.Validate()) {
+    thrower.Error("Asm.js validation failed");
+    return;
+  }
 
   v8::internal::wasm::WasmModuleIndex* module =
       v8::internal::wasm::AsmWasmBuilder(info.isolate(), info.zone(),

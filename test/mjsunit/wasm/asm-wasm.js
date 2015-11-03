@@ -43,3 +43,23 @@ function Float64Test() {
 }
 
 assertEquals(1, WASM.asmCompileRun(Float64Test.toString()));
+
+function BadModule() {
+  "use asm";
+  function caller(a, b) {
+    a = a|0;
+    b = b+0;
+    var c = (b + 1)|0
+    return (a + c + 1)|0;
+  }
+
+  function caller() {
+    return call(1, 2)|0;
+  }
+
+  return {caller: caller};
+}
+
+assertThrows(function() {
+  WASM.asmCompileRun(BadModule.toString())
+});
