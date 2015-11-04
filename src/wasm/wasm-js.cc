@@ -249,7 +249,7 @@ void WasmJs::Install(Isolate* isolate, Handle<JSGlobalObject> global) {
   JSFunction::SetInstancePrototype(
       cons, Handle<Object>(global->native_context()->initial_object_prototype(),
                            isolate));
-  cons->SetInstanceClassName(*name);
+  cons->shared()->set_instance_class_name(*name);
   Handle<JSObject> wasm_object = factory->NewJSObject(cons, TENURED);
   PropertyAttributes attributes = static_cast<PropertyAttributes>(DONT_ENUM);
   JSObject::AddProperty(global, name, wasm_object, attributes);

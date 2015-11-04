@@ -890,6 +890,7 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
         g->zone(), false, 1 + wasm_count, compiler::CallDescriptor::kNoFlags);
   } else {
     // call through the CallFunctionStub to adapt arguments.
+    // TODO(titzer): don't use the CallFunctionStub, but use the Call builtin.
     CallFunctionFlags flags = NO_CALL_FUNCTION_FLAGS;
     CallFunctionStub stub(isolate, wasm_count, flags);
     CallInterfaceDescriptor d = stub.GetCallInterfaceDescriptor();
@@ -910,6 +911,7 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
     args[pos++] = ToJS(param, context, sig->GetParam(i));
   }
 
+  args[pos++] = graph->Int32Constant(wasm_count);  // argument count
   args[pos++] = context;
   args[pos++] = *effect;
   args[pos++] = *control;
