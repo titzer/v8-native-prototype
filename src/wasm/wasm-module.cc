@@ -250,18 +250,6 @@ size_t AllocateGlobalsOffsets(std::vector<WasmGlobal>* globals) {
   return offset;
 }
 
-size_t ComputeGlobalsSize(std::vector<WasmGlobal>* globals) {
-  uint32_t globals_size = 0;
-  if (!globals)
-    return 0;
-  for (const WasmGlobal& global : *globals) {  // maximum of all globals.
-    uint32_t end = global.offset + WasmOpcodes::MemSize(global.type);
-    if (end > globals_size)
-      globals_size = end;
-  }
-  return globals_size;
-}
-
 void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
   for (const WasmDataSegment& segment : *module->data_segments) {
     if (!segment.init)
@@ -367,7 +355,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   //-------------------------------------------------------------------------
   // Allocate the globals area if necessary.
   //-------------------------------------------------------------------------
-  size_t globals_size = ComputeGlobalsSize(globals);
+  size_t globals_size = AllocateGlobalsOffsets(globals);
   byte* globals_addr = nullptr;
   if (globals_size > 0) {
     Handle<JSArrayBuffer> globals_buffer =
