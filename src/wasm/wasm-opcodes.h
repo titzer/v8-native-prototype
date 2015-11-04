@@ -259,7 +259,7 @@ typedef Signature<LocalType> FunctionSig;
   V(i_ll, kAstI32, kAstI64, kAstI64) \
   V(l_l, kAstI64, kAstI64)           \
   V(l_i, kAstI64, kAstI32)           \
-  V(l_f, kAstI64, kAstF64)           \
+  V(l_f, kAstI64, kAstF32)           \
   V(l_d, kAstI64, kAstF64)           \
   V(f_ff, kAstF32, kAstF32, kAstF32) \
   V(f_f, kAstF32, kAstF32)           \
