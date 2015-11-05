@@ -31,19 +31,35 @@ var kAstI32 = 1;
 var kAstI64 = 2;
 var kAstF32 = 3;
 var kAstF64 = 4;
-var kStmtNop = 0;
-var kStmtBlock = 3;
-var kExprI8Const = 0x10;
+
+var kExprNop =    0x00;
+var kExprBlock =  0x01;
+var kExprLoop =   0x02;
+var kExprIf =     0x03;
+var kExprIfThen = 0x04;
+var kExprSelect = 0x05;
+var kExprBr = 0x06;
+var kExprBrIf = 0x07;
+var kExprI8Const = 0x09;
+var kExprI32Const = 0x0a;
+var kExprI64Const = 0x0b;
+var kExprF64Const = 0x0c;
+var kExprF32Const = 0x0d;
+var kExprGetLocal = 0x0e;
+var kExprSetLocal = 0x0f;
+var kExprLoadGlobal = 0x10;
+var kExprStoreGlobal = 0x11;
+var kExprCallFunction = 0x12;
+var kExprCallIndirect = 0x13;
+
 var kExprI32Sub = 0x41;
-var kExprGetLocal = 0x15;
-var kStmtReturn = 0x9;
 
 function runSelect2(module, which, a, b) {
   assertEquals(which == 0 ? a : b, module.select(a, b));
 }
 
 function testSelect2(type) {
-  var kBodySize = 3;
+  var kBodySize = 2;
   var kNameOffset = 21 + kBodySize + 1;
 
   for (var which = 0; which < 2; which++) {
@@ -62,7 +78,6 @@ function testSelect2(type) {
       0, 0,
       kNameOffset, 0, 0, 0,       // name offset
       kBodySize, 0,               // body size
-      kStmtReturn,                // --       
       kExprGetLocal, which,       // --
       kDeclEnd,
       's','e','l','e','c','t',0   // name
@@ -120,7 +135,7 @@ function runSelect10(module, which, a, b) {
 }
 
 function testSelect10(type) {
-  var kBodySize = 3;
+  var kBodySize = 2;
   var kNameOffset = 29 + kBodySize + 1;
 
   for (var which = 0; which < 10; which++) {
@@ -139,7 +154,6 @@ function testSelect10(type) {
       0, 0,
       kNameOffset, 0, 0, 0,       // name offset
       kBodySize, 0,               // body size
-      kStmtReturn,                // --       
       kExprGetLocal, which,       // --
       kDeclEnd,
       's','e','l','e','c','t',0   // name

@@ -267,7 +267,7 @@ TEST_F(WasmModuleVerifyTest, OneEmptyVoidVoidFunction) {
     15, 6,                         // local float32 count
     17, 8,                         // local float64 count
     1, 0,                          // size
-    kStmtNop,
+    kExprNop,
   };
 
   {
@@ -346,7 +346,7 @@ TEST_F(WasmModuleVerifyTest, OneFunctionWithNopBody) {
       0,                             // no name, no locals
       0, 0,                          // signature index
       1, 0,                          // body size
-      kStmtNop                       // body
+      kExprNop                       // body
   };
 
   ModuleResult result = DecodeModule(data, data + arraysize(data));
@@ -385,7 +385,7 @@ TEST_F(WasmModuleVerifyTest, OneFunctionWithNopBody_WithLocals) {
       5, 6,                          // local float32 count
       7, 8,                          // local float64 count
       1, 0,                          // body size
-      kStmtNop                       // body
+      kExprNop                       // body
   };
 
   ModuleResult result = DecodeModule(data, data + arraysize(data));
@@ -430,9 +430,9 @@ TEST_F(WasmModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
       5, 6,                       // local float32 count
       7, 8,                       // local float64 count
       3, 0,                       // body size
-      kStmtNop,                   // func#0 body
-      kStmtNop,                   // func#0 body
-      kStmtNop,                   // func#0 body
+      kExprNop,                   // func#0 body
+      kExprNop,                   // func#0 body
+      kExprNop,                   // func#0 body
       // segment#0 -------------------------------------------------
       kDeclDataSegments, 1,
       0xae, 0xb3, 0x08, 0,        // dest addr
@@ -787,7 +787,7 @@ TEST_F(WasmFunctionVerifyTest, Ok_v_v_empty) {
       4,       0,         // local int64 count
       5,       0,         // local float32 count
       6,       0,         // local float64 count
-      kStmtNop            // body
+      kExprNop            // body
   };
 
   FunctionResult result = DecodeWasmFunction(nullptr, zone(), nullptr, data,

@@ -63,3 +63,22 @@ function BadModule() {
 assertThrows(function() {
   WASM.asmCompileRun(BadModule.toString())
 });
+
+function TestReturnInBlock() {
+  "use asm";
+
+  function caller() {
+    if(1) {
+      {
+        {
+          return 1;
+        }
+      }
+    }
+    return 0;
+  }
+
+  return {caller: caller};
+}
+
+assertEquals(1, WASM.asmCompileRun(TestReturnInBlock.toString()));

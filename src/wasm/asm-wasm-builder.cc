@@ -43,7 +43,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
         literal_(literal),
         isolate_(isolate),
         zone_(zone),
-        cache_(TypeCache::Get()) {
+        cache_(TypeCache::Get()),
+        block_depth_(0) {
     InitializeAstVisitor(isolate);
   }
 
@@ -54,6 +55,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitFunctionDeclaration(FunctionDeclaration* decl) {
     DCHECK(!in_function_);
     DCHECK(current_function_builder_ == NULL);
+    DCHECK(block_depth_ == 0);
     uint16_t index = LookupOrInsertFunction(decl->proxy()->var());
     current_function_builder_ = builder_->FunctionAt(index);
     in_function_ = true;
@@ -68,6 +70,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitExportDeclaration(ExportDeclaration* decl) {}
 
   void VisitStatements(ZoneList<Statement*>* stmts) {
+    if (in_function_) {
+      current_function_builder_->AppendCode(kExprBlock, false);
+      current_function_builder_->AppendCode(
+          static_cast<byte>(stmts->length()), false);
+    }
+
     for (int i = 0; i < stmts->length(); ++i) {
       Statement* stmt = stmts->at(i);
       RECURSE(Visit(stmt));
@@ -78,10 +86,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitBlock(Block* stmt) {
     DCHECK(in_function_);
-    current_function_builder_->AppendCode(kStmtBlock, false);
-    current_function_builder_->AppendCode(
-        static_cast<byte>(stmt->statements()->length()), false);
+    block_depth_++;
     RECURSE(VisitStatements(stmt->statements()));
+    block_depth_--;
   }
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
@@ -95,15 +102,15 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitIfStatement(IfStatement* stmt) {
     DCHECK(in_function_);
     if(stmt->HasElseStatement()) {
-      current_function_builder_->AppendCode(kStmtIfThen, false);
+      current_function_builder_->AppendCode(kExprIfThen, false);
     } else {
-      current_function_builder_->AppendCode(kStmtIf, false);
+      current_function_builder_->AppendCode(kExprIf, false);
     }
     RECURSE(Visit(stmt->condition()));
     if (stmt->HasThenStatement()) {
       RECURSE(Visit(stmt->then_statement()));
     } else {
-      current_function_builder_->AppendCode(kStmtNop, false);
+      current_function_builder_->AppendCode(kExprNop, false);
     }
     if (stmt->HasElseStatement()) {
       RECURSE(Visit(stmt->else_statement()));
@@ -116,7 +123,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitReturnStatement(ReturnStatement* stmt) {
     if (in_function_) {
-      current_function_builder_->AppendCode(kStmtReturn, false);
+      current_function_builder_->AppendCode(kExprBr, false);
+      current_function_builder_->AppendCode(block_depth_, false);
     } else {
       marking_exported = true;
     }
@@ -519,6 +527,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   Isolate* isolate_;
   Zone* zone_;
   TypeCache const& cache_;
+  int block_depth_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
