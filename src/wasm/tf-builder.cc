@@ -10,6 +10,7 @@
 #include "src/compiler/access-builder.h"
 
 #include "src/code-stubs.h"
+#include "src/code-factory.h"
 
 #include "src/compiler/linkage.h"
 
@@ -882,27 +883,30 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   TFNode* context = Constant(Handle<Context>(function->context(), isolate));
   TFNode** args = Buffer(wasm_count + 6);
 
+  bool arg_count_before_args = false;
+
   int pos = 0;
   if (js_count == wasm_count) {
     // exact arity match, just call the function directly.
     desc = compiler::Linkage::GetJSCallDescriptor(
-        g->zone(), false, 1 + wasm_count, compiler::CallDescriptor::kNoFlags);
+        g->zone(), false, wasm_count + 1, compiler::CallDescriptor::kNoFlags);
+    arg_count_before_args = false;
   } else {
-    // call through the CallFunctionStub to adapt arguments.
-    // TODO(titzer): don't use the CallFunctionStub, but use the Call builtin.
-    CallFunctionFlags flags = NO_CALL_FUNCTION_FLAGS;
-    CallFunctionStub stub(isolate, wasm_count, flags);
-    CallInterfaceDescriptor d = stub.GetCallInterfaceDescriptor();
-
-    args[pos++] = graph->HeapConstant(stub.GetCode());  // CallFunctionStub
-
+    // Use the Call builtin.
+    Callable callable = CodeFactory::Call(isolate);
+    args[pos++] = graph->HeapConstant(callable.code());
     desc = compiler::Linkage::GetStubCallDescriptor(
-        isolate, g->zone(), d, wasm_count + 1,
+        isolate, g->zone(), callable.descriptor(), wasm_count + 1,
         compiler::CallDescriptor::kNoFlags);
+    arg_count_before_args = true;
   }
 
   args[pos++] = graph->Constant(function);   // JS function.
   args[pos++] = graph->UndefinedConstant();  // JS receiver.
+
+  if (arg_count_before_args) {
+    args[pos++] = graph->Int32Constant(wasm_count);  // argument count
+  }
 
   // Convert WASM numbers to JS values.
   for (int i = 0; i < wasm_count; i++) {
@@ -910,7 +914,9 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
     args[pos++] = ToJS(param, context, sig->GetParam(i));
   }
 
-  args[pos++] = graph->Int32Constant(wasm_count);  // argument count
+  if (!arg_count_before_args) {
+    args[pos++] = graph->Int32Constant(wasm_count);  // argument count
+  }
   args[pos++] = context;
   args[pos++] = *effect;
   args[pos++] = *control;
