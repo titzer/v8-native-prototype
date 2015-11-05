@@ -43,7 +43,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
         literal_(literal),
         isolate_(isolate),
         zone_(zone),
-        cache_(TypeCache::Get()) {
+        cache_(TypeCache::Get()),
+        block_depth_(0) {
     InitializeAstVisitor(isolate);
   }
 
@@ -54,6 +55,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitFunctionDeclaration(FunctionDeclaration* decl) {
     DCHECK(!in_function_);
     DCHECK(current_function_builder_ == NULL);
+    DCHECK(block_depth_ == 0);
     uint16_t index = LookupOrInsertFunction(decl->proxy()->var());
     current_function_builder_ = builder_->FunctionAt(index);
     in_function_ = true;
@@ -71,7 +73,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     if (in_function_) {
       current_function_builder_->AppendCode(kExprBlock, false);
       current_function_builder_->AppendCode(
-	  static_cast<byte>(stmts->length()), false);
+          static_cast<byte>(stmts->length()), false);
     }
 
     for (int i = 0; i < stmts->length(); ++i) {
@@ -84,7 +86,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitBlock(Block* stmt) {
     DCHECK(in_function_);
+    block_depth_++;
     RECURSE(VisitStatements(stmt->statements()));
+    block_depth_--;
   }
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
@@ -118,10 +122,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitBreakStatement(BreakStatement* stmt) {}
 
   void VisitReturnStatement(ReturnStatement* stmt) {
-    // TODO(titzer): track return block nesting depth.
     if (in_function_) {
       current_function_builder_->AppendCode(kExprBr, false);
-      current_function_builder_->AppendCode(0, false);  // TODO(titzer): depth
+      current_function_builder_->AppendCode(block_depth_, false);
     } else {
       marking_exported = true;
     }
@@ -524,6 +527,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   Isolate* isolate_;
   Zone* zone_;
   TypeCache const& cache_;
+  int block_depth_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
