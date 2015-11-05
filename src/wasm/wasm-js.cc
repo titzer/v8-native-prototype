@@ -186,6 +186,16 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (buffer.start == nullptr)
     return;
 
+  i::Handle<i::JSArrayBuffer> memory = i::Handle<i::JSArrayBuffer>::null();
+  if (args.Length() > 2 && args[2]->IsArrayBuffer()) {
+    Local<Object> obj = Local<Object>::Cast(args[2]);
+    i::Handle<i::Object> mem_obj = v8::Utils::OpenHandle(*obj);
+    memory = i::Handle<i::JSArrayBuffer>(i::JSArrayBuffer::cast(*mem_obj));
+    i::Isolate* isolate = memory->GetIsolate();
+    memory->set_is_external(true);
+    isolate->heap()->UnregisterArrayBuffer(*memory);
+  }
+
   // Decode but avoid a redundant pass over function bodies for verification.
   // Verification will happen during compilation.
   i::Zone zone;
@@ -202,7 +212,8 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
       ffi = v8::Utils::OpenHandle(*obj);
     }
 
-    i::MaybeHandle<i::JSObject> object = result.val->Instantiate(isolate, ffi);
+    i::MaybeHandle<i::JSObject> object = result.val->Instantiate(
+        isolate, ffi, memory);
 
     if (!object.is_null()) {
       args.GetReturnValue().Set(v8::Utils::ToLocal(object.ToHandleChecked()));

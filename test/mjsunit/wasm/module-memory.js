@@ -60,7 +60,7 @@ var kExprI32Sub = 0x41;
 
 var kMemSize = 4096;
 
-function genModule() {
+function genModule(memory) {
   var kBodySize = 27;
   var kNameMainOffset = 28 + kBodySize + 1;
 
@@ -97,11 +97,11 @@ function genModule() {
     'm', 'a', 'i', 'n', 0       //  --
   );
 
-  return WASM.instantiateModule(data);
+  return WASM.instantiateModule(data, null, memory);
 }
 
 function testPokeMemory() {
-  var module = genModule();
+  var module = genModule(null);
   var buffer = module.memory;
   assertEquals(kMemSize, buffer.byteLength);
 
@@ -127,7 +127,7 @@ function testPokeMemory() {
 testPokeMemory();
 
 function testSurvivalAcrossGc() {
-  var checker = genModule().main;
+  var checker = genModule(null).main;
   for (var i = 0; i < 5; i++) {
     print("gc run ", i);
     assertEquals(0, checker(kMemSize - 4));
@@ -139,3 +139,45 @@ testSurvivalAcrossGc();
 testSurvivalAcrossGc();
 testSurvivalAcrossGc();
 testSurvivalAcrossGc();
+
+
+function testPokeOuterMemory() {
+  var buffer = new ArrayBuffer(kMemSize);
+  var module = genModule(buffer);
+  assertEquals(kMemSize, buffer.byteLength);
+
+  var array = new Int8Array(buffer);
+  assertEquals(kMemSize, array.length);
+
+  for (var i = 0; i < kMemSize; i++) {
+    assertEquals(0, array[i]);
+  }
+
+  for (var i = 0; i < 10; i++) {
+    assertEquals(0, module.main(kMemSize - 4));
+
+    array[kMemSize/2 + i] = 1;
+    assertEquals(0, module.main(kMemSize/2 - 4));
+    assertEquals(-1, module.main(kMemSize - 4));
+
+    array[kMemSize/2 + i] = 0;
+    assertEquals(0, module.main(kMemSize - 4));
+  }
+}
+
+testPokeOuterMemory();
+
+function testOuterMemorySurvivalAcrossGc() {
+  var buffer = new ArrayBuffer(kMemSize);
+  var checker = genModule(buffer).main;
+  for (var i = 0; i < 5; i++) {
+    print("gc run ", i);
+    assertEquals(0, checker(kMemSize - 4));
+    gc();
+  }
+}
+
+testOuterMemorySurvivalAcrossGc();
+testOuterMemorySurvivalAcrossGc();
+testOuterMemorySurvivalAcrossGc();
+testOuterMemorySurvivalAcrossGc();
