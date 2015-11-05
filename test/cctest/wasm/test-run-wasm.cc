@@ -1779,6 +1779,63 @@ TEST(Run_WasmMixedGlobals) {
   USE(unused);
 }
 
+// Test the WasmRunner with an Int64 return value and different numbers of
+// Int64 parameters.
+TEST(Run_TestI64WasmRunner) {
+  {
+    FOR_INT64_INPUTS(i) {
+      WasmRunner<int64_t> r;
+      BUILD(r, WASM_RETURN(WASM_I64(*i)));
+      CHECK_EQ(*i, r.Call());
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64);
+    BUILD(r, WASM_RETURN(WASM_GET_LOCAL(0)));
+    FOR_INT64_INPUTS(i) {
+      CHECK_EQ(*i, r.Call(*i));
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+    BUILD(r, WASM_RETURN(WASM_I64_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1))));
+    FOR_INT64_INPUTS(i) {
+      FOR_INT64_INPUTS(j) {
+        CHECK_EQ(*i + *j, r.Call(*i, *j));
+      }
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64, kMachInt64);
+    BUILD(r, WASM_RETURN(WASM_I64_ADD(WASM_GET_LOCAL(0), 
+                                      WASM_I64_ADD(WASM_GET_LOCAL(1), 
+                                                   WASM_GET_LOCAL(2)))));
+    FOR_INT64_INPUTS(i) {
+      FOR_INT64_INPUTS(j) {
+        CHECK_EQ(*i + *j + *j, r.Call(*i, *j, *j));
+        CHECK_EQ(*j + *i + *j, r.Call(*j, *i, *j));
+        CHECK_EQ(*j + *j + *i, r.Call(*j, *j, *i));
+      }
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64, kMachInt64, kMachInt64);
+    BUILD(r, WASM_RETURN(
+          WASM_I64_ADD(WASM_GET_LOCAL(0), 
+                       WASM_I64_ADD(WASM_GET_LOCAL(1), 
+                                    WASM_I64_ADD(WASM_GET_LOCAL(2),
+                                                 WASM_GET_LOCAL(3))))));
+    FOR_INT64_INPUTS(i) {
+      FOR_INT64_INPUTS(j) {
+        CHECK_EQ(*i + *j + *j + *j, r.Call(*i, *j, *j, *j));
+        CHECK_EQ(*j + *i + *j + *j, r.Call(*j, *i, *j, *j));
+        CHECK_EQ(*j + *j + *i + *j, r.Call(*j, *j, *i, *j));
+        CHECK_EQ(*j + *j + *j + *i, r.Call(*j, *j, *j, *i));
+      }
+    }
+  }
+}
+
 
 TEST(Run_WasmCallEmpty) {
   const int32_t kExpected = -414444;
