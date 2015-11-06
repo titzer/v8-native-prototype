@@ -13,16 +13,11 @@ typedef Signature<LocalType> FunctionSig;
 
 const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
   switch (opcode) {
-#define DECLARE_NAME_CASE(name, opcode, sig) \
-  case kStmt##name:                          \
-    return "Stmt" #name;
-    FOREACH_STMT_OPCODE(DECLARE_NAME_CASE)
-#undef DECLARE_NAME_CASE
 
 #define DECLARE_NAME_CASE(name, opcode, sig) \
   case kExpr##name:                          \
     return "Expr" #name;
-    FOREACH_EXPR_OPCODE(DECLARE_NAME_CASE)
+    FOREACH_OPCODE(DECLARE_NAME_CASE)
 #undef DECLARE_NAME_CASE
     default:
       break;
@@ -98,7 +93,7 @@ static byte kSimpleExprSigTable[256];
 static void InitSigTable() {
 #define SET_SIG_TABLE(name, opcode, sig) \
   kSimpleExprSigTable[opcode] = static_cast<int>(kSigEnum_##sig) + 1;
-  FOREACH_SIMPLE_EXPR_OPCODE(SET_SIG_TABLE);
+  FOREACH_SIMPLE_OPCODE(SET_SIG_TABLE);
 #undef SET_SIG_TABLE
 }
 
