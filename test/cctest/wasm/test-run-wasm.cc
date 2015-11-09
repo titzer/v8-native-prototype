@@ -14,6 +14,7 @@
 #include "src/wasm/wasm-opcodes.h"
 
 #include "test/cctest/cctest.h"
+#include "test/cctest/compiler/codegen-tester.h"
 #include "test/cctest/compiler/graph-builder-tester.h"
 #include "test/cctest/compiler/value-helper.h"
 
@@ -191,80 +192,6 @@ LocalType LocalTypeFor(MachineType type) {
   return kAstStmt;
 }
 
-// A helper class to build graphs from Wasm bytecode, generate machine
-// code, and run that code.
-template <typename ReturnType>
-class WasmRunner : public GraphBuilderTester<ReturnType> {
- public:
-  WasmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
-             MachineType p2 = kMachNone, MachineType p3 = kMachNone,
-             MachineType p4 = kMachNone)
-      : GraphBuilderTester<ReturnType>(p0, p1, p2, p3, p4),
-        jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
-		nullptr,
-                this->machine()),
-        sig(0, 0, storage) {
-
-    int param_count = 5;
-    set_param(4, p4, &param_count);
-    set_param(3, p3, &param_count);
-    set_param(2, p2, &param_count);
-    set_param(1, p1, &param_count);
-    set_param(0, p0, &param_count);
-
-    MachineType ret = MachineTypeForC<ReturnType>();
-    int return_count;
-    if (ret != kMachNone) {
-      storage[0] = LocalTypeFor(ret);
-      return_count = 1;
-    } else {
-      storage[0] = kAstStmt;
-      return_count = 0;
-    }
-    sig = FunctionSig(return_count, param_count, storage);
-    init_env(&env, &sig);
-  }
-
-  JSGraph jsgraph;
-  TestSignatures sigs;
-  FunctionEnv env;
-  FunctionSig sig;
-  LocalType storage[6];
-
-  void Build(const byte* start, const byte* end) {
-    TreeResult result = BuildTFGraph(&jsgraph, &env, start, end);
-    if (result.failed()) {
-      ptrdiff_t pc = result.error_pc - result.start;
-      ptrdiff_t pt = result.error_pt - result.start;
-      std::ostringstream str;
-      str << "Verification failed: " << result.error_code << " pc = +" << pc;
-      if (result.error_pt) str << ", pt = +" << pt;
-      str << ", msg = " << result.error_msg.get();
-      FATAL(str.str().c_str());
-    }
-    if (FLAG_trace_turbo_graph) {
-      OFStream os(stdout);
-      os << AsRPO(*jsgraph.graph());
-    }
-  }
-
-  byte AllocateLocal(LocalType type) {
-    int result = static_cast<int>(env.total_locals);
-    env.AddLocals(type, 1);
-    byte b = static_cast<byte>(result);
-    CHECK_EQ(result, b);
-    return b;
-  }
-
-  void set_param(int index, MachineType p, int* count) {
-    if (p == kMachNone) {
-      *count = index;
-    } else {
-      storage[index + 1] = LocalTypeFor(p);
-    }
-  }
-};
-
 
 // A helper for compiling functions that are only internally callable WASM code.
 class WasmFunctionCompiler : public HandleAndZoneScope,
@@ -272,20 +199,27 @@ class WasmFunctionCompiler : public HandleAndZoneScope,
  public:
   explicit WasmFunctionCompiler(FunctionSig* sig)
       : GraphAndBuilders(main_zone()),
-        jsgraph(this->isolate(), this->graph(), this->common(), nullptr,
-		nullptr,
-                this->machine()) {
+        jsgraph(this->isolate(),
+                this->graph(),
+                this->common(),
+                nullptr,
+                nullptr,
+                this->machine()),
+        descriptor_(nullptr) {
     init_env(&env, sig);
   }
 
   JSGraph jsgraph;
   FunctionEnv env;
+  // The call descriptor is initialized when the function is compiled.
+  CallDescriptor* descriptor_;
 
   Isolate* isolate() { return main_isolate(); }
   Graph* graph() const { return main_graph_; }
   Zone* zone() const { return graph()->zone(); }
   CommonOperatorBuilder* common() { return &main_common_; }
   MachineOperatorBuilder* machine() { return &main_machine_; }
+  CallDescriptor* descriptor() { return descriptor_; }
 
   void Build(const byte* start, const byte* end) {
     TreeResult result = BuildTFGraph(&jsgraph, &env, start, end);
@@ -313,10 +247,10 @@ class WasmFunctionCompiler : public HandleAndZoneScope,
   }
 
   Handle<Code> Compile(ModuleEnv* module) {
-    CallDescriptor* desc = module->GetWasmCallDescriptor(this->zone(), env.sig);
+    descriptor_ = module->GetWasmCallDescriptor(this->zone(), env.sig);
     CompilationInfo info("wasm compile", this->isolate(), this->zone());
     Handle<Code> result =
-        Pipeline::GenerateCodeForTesting(&info, desc, this->graph());
+        Pipeline::GenerateCodeForTesting(&info, descriptor_, this->graph());
 #if DEBUG
     if (!result.is_null() && FLAG_print_opt_code) {
       OFStream os(stdout);
@@ -337,6 +271,117 @@ class WasmFunctionCompiler : public HandleAndZoneScope,
   }
 };
 
+
+// A helper class to build graphs from Wasm bytecode, generate machine
+// code, and run that code.
+template <typename ReturnType>
+class WasmRunner {
+ public:
+  WasmRunner(MachineType p0 = kMachNone, MachineType p1 = kMachNone,
+             MachineType p2 = kMachNone, MachineType p3 = kMachNone) :
+    signature_(MachineTypeForC<ReturnType>() == kMachNone ? 0 : 1,
+               GetParameterCount(p0, p1, p2, p3),
+               storage_),
+    compiler_(&signature_),
+    call_wrapper_(p0, p1, p2, p3),
+    compilation_done_(false) {
+
+    int index = 0;
+    MachineType ret = MachineTypeForC<ReturnType>();
+    if (ret != kMachNone) {
+      storage_[index++] = LocalTypeFor(ret);
+    }
+    if (p0 != kMachNone) storage_[index++] = LocalTypeFor(p0);
+    if (p1 != kMachNone) storage_[index++] = LocalTypeFor(p1);
+    if (p2 != kMachNone) storage_[index++] = LocalTypeFor(p2);
+    if (p3 != kMachNone) storage_[index++] = LocalTypeFor(p3);
+  }
+
+
+  FunctionEnv* env() { return &compiler_.env; }
+
+
+  // Builds a graph from the given Wasm code, and generates the machine
+  // code and call wrapper for that graph. This method must not be called
+  // more than once.
+  void Build(const byte* start, const byte* end) {
+    DCHECK(!compilation_done_);
+    compilation_done_ = true;
+    // Build the TF graph.
+    compiler_.Build(start, end);
+    // Generate code.
+    Handle<Code> code = compiler_.Compile(env()->module);
+
+    // Construct the call wrapper.
+    Node* inputs[5];
+    int input_count = 0;
+    inputs[input_count++] = call_wrapper_.HeapConstant(code);
+    for (int i = 0; i < signature_.parameter_count(); i++) {
+      inputs[input_count++] = call_wrapper_.Parameter(i);
+    }
+
+    call_wrapper_.Return(
+      call_wrapper_.AddNode(
+        call_wrapper_.common()->Call(compiler_.descriptor()),
+        input_count, inputs));
+  }
+
+
+  ReturnType Call() {
+    return call_wrapper_.Call();
+  }
+
+
+  template <typename P0>
+  ReturnType Call(P0 p0) {
+    return call_wrapper_.Call(p0);
+  }
+
+
+  template <typename P0, typename P1>
+  ReturnType Call(P0 p0, P1 p1) {
+    return call_wrapper_.Call(p0, p1);
+  }
+
+
+  template <typename P0, typename P1, typename P2>
+  ReturnType Call(P0 p0, P1 p1, P2 p2) {
+    return call_wrapper_.Call(p0, p1, p2);
+  }
+
+
+  template <typename P0, typename P1, typename P2, typename P3>
+  ReturnType Call(P0 p0, P1 p1, P2 p2, P3 p3) {
+    return call_wrapper_.Call(p0, p1, p2, p3);
+  }
+
+
+  byte AllocateLocal(LocalType type) {
+    int result = static_cast<int>(env()->total_locals);
+    env()->AddLocals(type, 1);
+    byte b = static_cast<byte>(result);
+    CHECK_EQ(result, b);
+    return b;
+  }
+
+
+ private:
+  LocalType storage_[5];
+  FunctionSig signature_;
+  WasmFunctionCompiler compiler_;
+  BufferedRawMachineAssemblerTester<ReturnType> call_wrapper_;
+  bool compilation_done_;
+
+  static size_t GetParameterCount(MachineType p0, MachineType p1,
+                                  MachineType p2, MachineType p3) {
+
+    if (p0 == kMachNone) return 0;
+    if (p1 == kMachNone) return 1;
+    if (p2 == kMachNone) return 2;
+    if (p3 == kMachNone) return 3;
+    return 4;
+  }
+};
 
 #define BUILD(r, ...)                      \
   do {                                     \
@@ -419,7 +464,7 @@ TEST(Run_WasmMemorySize) {
   WasmRunner<int32_t> r;
   TestingModule module;
   module.AddMemory(1024);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, kExprMemorySize);
   CHECK_EQ(1024, r.Call());
 }
@@ -858,7 +903,7 @@ TEST(Run_Wasm_F32ReinterpretI32) {
   WasmRunner<int32_t> r;
   TestingModule module;
   int32_t* memory = module.AddMemoryElems<int32_t>(8);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_I32_REINTERPRET_F32(WASM_LOAD_MEM(kMemF32, WASM_ZERO)));
 
@@ -874,7 +919,7 @@ TEST(Run_Wasm_I32ReinterpretF32) {
   WasmRunner<int32_t> r(kMachInt32);
   TestingModule module;
   int32_t* memory = module.AddMemoryElems<int32_t>(8);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_BLOCK(2,
                       WASM_STORE_MEM(kMemF32,
@@ -894,7 +939,7 @@ TEST(Run_Wasm_ReturnStore) {
   WasmRunner<int32_t> r;
   TestingModule module;
   int32_t* memory = module.AddMemoryElems<int32_t>(8);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_STORE_MEM(kMemI32, WASM_ZERO, WASM_LOAD_MEM(kMemI32, WASM_ZERO)));
 
@@ -1054,7 +1099,7 @@ TEST(Run_Wasm_LoadMemI32) {
   TestingModule module;
   int32_t* memory = module.AddMemoryElems<int32_t>(8);
   module.RandomizeMemory(1111);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_LOAD_MEM(kMemI32, WASM_I8(0)));
 
@@ -1074,7 +1119,7 @@ TEST(Run_Wasm_F64ReinterpretI64) {
   WasmRunner<int64_t> r;
   TestingModule module;
   int64_t* memory = module.AddMemoryElems<int64_t>(8);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_I64_REINTERPRET_F64(WASM_LOAD_MEM(kMemF64, WASM_ZERO)));
 
@@ -1090,7 +1135,7 @@ TEST(Run_Wasm_I64ReinterpretF64) {
   WasmRunner<int64_t> r(kMachInt64);
   TestingModule module;
   int64_t* memory = module.AddMemoryElems<int64_t>(8);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_BLOCK(2,
                       WASM_STORE_MEM(kMemF64,
@@ -1111,7 +1156,7 @@ TEST(Run_Wasm_LoadMemI64) {
   TestingModule module;
   int64_t* memory = module.AddMemoryElems<int64_t>(8);
   module.RandomizeMemory(1111);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_LOAD_MEM(kMemI64, WASM_I8(0)));
 
@@ -1133,7 +1178,7 @@ TEST(Run_Wasm_LoadMemI32_P) {
   TestingModule module;
   int32_t* memory = module.AddMemoryElems<int32_t>(kNumElems);
   module.RandomizeMemory(2222);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_LOAD_MEM(kMemI32, WASM_GET_LOCAL(0)));
 
@@ -1149,7 +1194,7 @@ TEST(Run_Wasm_MemI32_Sum) {
   const byte kSum = r.AllocateLocal(kAstI32);
   TestingModule module;
   uint32_t* memory = module.AddMemoryElems<uint32_t>(kNumElems);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(
       r,
@@ -1183,7 +1228,7 @@ TEST(Run_Wasm_CheckMemIsZero) {
   const int kNumElems = 55;
   TestingModule module;
   module.AddMemoryElems<uint32_t>(kNumElems);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r,
     kExprBlock,2,
@@ -1211,7 +1256,7 @@ TEST(Run_Wasm_MemF32_Sum) {
   float buffer[kSize] = {-99.25, -888.25, -77.25, 66666.25, 5555.25};
   module.mem_start = reinterpret_cast<uintptr_t>(&buffer);
   module.mem_end = reinterpret_cast<uintptr_t>(&buffer[kSize]);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(
       r,
@@ -1241,7 +1286,7 @@ TEST(Run_Wasm_MemI64_Sum) {
   const byte kSum = r.AllocateLocal(kAstI64);
   TestingModule module;
   uint64_t* memory = module.AddMemoryElems<uint64_t>(kNumElems);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(
       r,
@@ -1279,7 +1324,7 @@ void GenerateAndRunFold(WasmOpcode binop, T* buffer, size_t size,
   ModuleEnv module;
   module.mem_start = reinterpret_cast<uintptr_t>(buffer);
   module.mem_end = reinterpret_cast<uintptr_t>(buffer + size);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r,
         WASM_BLOCK(
@@ -1312,7 +1357,6 @@ TEST(Build_Wasm_Infinite_Loop) {
   WasmRunner<int32_t> r(kMachInt32);
   // Only build the graph and compile, don't run.
   BUILD(r, WASM_INFINITE_LOOP);
-  r.GenerateCode();
 }
 
 
@@ -1320,17 +1364,16 @@ TEST(Build_Wasm_Infinite_Loop_effect) {
   WasmRunner<int32_t> r(kMachInt32);
   TestingModule module;
   module.AddMemoryElems<int8_t>(16);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   // Only build the graph and compile, don't run.
   BUILD(r, WASM_LOOP(1, WASM_LOAD_MEM(kMemI32, WASM_ZERO)));
-  r.GenerateCode();
 }
 
 
 TEST(Run_Wasm_Infinite_Loop_not_taken1) {
   WasmRunner<int32_t> r(kMachInt32);
-  BUILD(r, WASM_BLOCK(2, 
+  BUILD(r, WASM_BLOCK(2,
 		      WASM_IF(WASM_GET_LOCAL(0), WASM_INFINITE_LOOP),
 		      WASM_I8(45)));
   // Run the code, but don't go into the infinite loop.
@@ -1349,16 +1392,15 @@ TEST(Run_Wasm_Infinite_Loop_not_taken2) {
 
 static void TestBuildGraphForUnop(WasmOpcode opcode, FunctionSig* sig) {
   WasmRunner<int32_t> r(kMachInt32);
-  init_env(&r.env, sig);
+  init_env(r.env(), sig);
   BUILD(r, static_cast<byte>(opcode), kExprGetLocal, 0);
 }
 
 
 static void TestBuildGraphForBinop(WasmOpcode opcode, FunctionSig* sig) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
-  init_env(&r.env, sig);
-  BUILD(r, static_cast<byte>(opcode), kExprGetLocal, 0,
-        kExprGetLocal, 1);
+  init_env(r.env(), sig);
+  BUILD(r, static_cast<byte>(opcode), kExprGetLocal, 0, kExprGetLocal, 1);
 }
 
 
@@ -1367,6 +1409,7 @@ TEST(Build_Wasm_SimpleExprs) {
 #define GRAPH_BUILD_TEST(name, opcode, sig)                 \
   if (WasmOpcodes::IsSupported(kExpr##name)) {              \
     FunctionSig* sig = WasmOpcodes::Signature(kExpr##name); \
+    printf("expression: " #name "\n");                      \
     if (sig->parameter_count() == 1) {                      \
       TestBuildGraphForUnop(kExpr##name, sig);              \
     } else {                                                \
@@ -1387,7 +1430,7 @@ TEST(Run_Wasm_Int32LoadInt8_signext) {
   module.RandomizeMemory();
   memory[0] = -1;
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_LOAD_MEM(kMemI8, WASM_GET_LOCAL(0)));
 
   for (size_t i = 0; i < kNumElems; i++) {
@@ -1403,7 +1446,7 @@ TEST(Run_Wasm_Int32LoadInt8_zeroext) {
   module.RandomizeMemory(77);
   memory[0] = 255;
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_LOAD_MEM(kMemU8, WASM_GET_LOCAL(0)));
 
   for (size_t i = 0; i < kNumElems; i++) {
@@ -1419,7 +1462,7 @@ TEST(Run_Wasm_Int32LoadInt16_signext) {
   module.RandomizeMemory(888);
   memory[1] = 200;
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_LOAD_MEM(kMemI16, WASM_GET_LOCAL(0)));
 
   for (size_t i = 0; i < kNumBytes; i += 2) {
@@ -1436,7 +1479,7 @@ TEST(Run_Wasm_Int32LoadInt16_zeroext) {
   module.RandomizeMemory(9999);
   memory[1] = 204;
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_LOAD_MEM(kMemU16, WASM_GET_LOCAL(0)));
 
   for (size_t i = 0; i < kNumBytes; i += 2) {
@@ -1450,7 +1493,7 @@ TEST(Run_WasmInt32Global) {
   TestingModule module;
   int32_t* global = module.AddGlobal<int32_t>(kMemI32);
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   // global = global + p0
   BUILD(r, WASM_STORE_GLOBAL(
                0, WASM_I32_ADD(WASM_LOAD_GLOBAL(0), WASM_GET_LOCAL(0))));
@@ -1474,7 +1517,7 @@ TEST(Run_WasmInt32Globals_DontAlias) {
   for (int g = 0; g < kNumGlobals; g++) {
     // global = global + p0
     WasmRunner<int32_t> r(kMachInt32);
-    r.env.module = &module;
+    r.env()->module = &module;
     BUILD(r, WASM_STORE_GLOBAL(
                  g, WASM_I32_ADD(WASM_LOAD_GLOBAL(g), WASM_GET_LOCAL(0))));
 
@@ -1499,7 +1542,7 @@ TEST(Run_WasmInt64Global) {
   TestingModule module;
   int64_t* global = module.AddGlobal<int64_t>(kMemI64);
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   // global = global + p0
   BUILD(r, WASM_BLOCK(
                2, WASM_STORE_GLOBAL(0, WASM_I64_ADD(WASM_LOAD_GLOBAL(0),
@@ -1521,7 +1564,7 @@ TEST(Run_WasmFloat32Global) {
   TestingModule module;
   float* global = module.AddGlobal<float>(kMemF32);
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   // global = global + p0
   BUILD(r, WASM_BLOCK(2, WASM_STORE_GLOBAL(
                              0, WASM_F32_ADD(WASM_LOAD_GLOBAL(0),
@@ -1542,7 +1585,7 @@ TEST(Run_WasmFloat64Global) {
   TestingModule module;
   double* global = module.AddGlobal<double>(kMemF64);
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   // global = global + p0
   BUILD(r, WASM_BLOCK(2, WASM_STORE_GLOBAL(
                              0, WASM_F64_ADD(WASM_LOAD_GLOBAL(0),
@@ -1574,7 +1617,7 @@ TEST(Run_WasmMixedGlobals) {
   double* var_double = module.AddGlobal<double>(kMemF64);
 
   WasmRunner<int32_t> r(kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r,
         WASM_BLOCK(9, WASM_STORE_GLOBAL(1, WASM_LOAD_MEM(kMemI8, WASM_ZERO)),
@@ -1609,6 +1652,62 @@ TEST(Run_WasmMixedGlobals) {
   USE(unused);
 }
 
+// Test the WasmRunner with an Int64 return value and different numbers of
+// Int64 parameters.
+TEST(Run_TestI64WasmRunner) {
+  {
+    FOR_INT64_INPUTS(i) {
+      WasmRunner<int64_t> r;
+      BUILD(r, WASM_I64(*i));
+      CHECK_EQ(*i, r.Call());
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64);
+    BUILD(r, WASM_GET_LOCAL(0));
+    FOR_INT64_INPUTS(i) {
+      CHECK_EQ(*i, r.Call(*i));
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+    BUILD(r, WASM_I64_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+    FOR_INT64_INPUTS(i) {
+      FOR_INT64_INPUTS(j) {
+        CHECK_EQ(*i + *j, r.Call(*i, *j));
+      }
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64, kMachInt64);
+    BUILD(r, WASM_I64_ADD(WASM_GET_LOCAL(0),
+                                      WASM_I64_ADD(WASM_GET_LOCAL(1),
+                                                   WASM_GET_LOCAL(2))));
+    FOR_INT64_INPUTS(i) {
+      FOR_INT64_INPUTS(j) {
+        CHECK_EQ(*i + *j + *j, r.Call(*i, *j, *j));
+        CHECK_EQ(*j + *i + *j, r.Call(*j, *i, *j));
+        CHECK_EQ(*j + *j + *i, r.Call(*j, *j, *i));
+      }
+    }
+  }
+  {
+    WasmRunner<int64_t> r(kMachInt64, kMachInt64, kMachInt64, kMachInt64);
+    BUILD(r, WASM_I64_ADD(WASM_GET_LOCAL(0),
+                          WASM_I64_ADD(WASM_GET_LOCAL(1),
+                                       WASM_I64_ADD(WASM_GET_LOCAL(2),
+                                                    WASM_GET_LOCAL(3)))));
+    FOR_INT64_INPUTS(i) {
+      FOR_INT64_INPUTS(j) {
+        CHECK_EQ(*i + *j + *j + *j, r.Call(*i, *j, *j, *j));
+        CHECK_EQ(*j + *i + *j + *j, r.Call(*j, *i, *j, *j));
+        CHECK_EQ(*j + *j + *i + *j, r.Call(*j, *j, *i, *j));
+        CHECK_EQ(*j + *j + *j + *i, r.Call(*j, *j, *j, *i));
+      }
+    }
+  }
+}
+
 
 TEST(Run_WasmCallEmpty) {
   const int32_t kExpected = -414444;
@@ -1621,7 +1720,7 @@ TEST(Run_WasmCallEmpty) {
 
   // Build the calling function.
   WasmRunner<int32_t> r;
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_CALL_FUNCTION0(index));
 
   int32_t result = r.Call();
@@ -1646,7 +1745,7 @@ TEST(Run_WasmCallVoid) {
 
   // Build the calling function.
   WasmRunner<int32_t> r;
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_CALL_FUNCTION0(index),
         WASM_LOAD_MEM(kMemI32, WASM_I8(kMemOffset)));
 
@@ -1666,7 +1765,7 @@ TEST(Run_WasmCall_Int32Add) {
 
   // Build the caller function.
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_CALL_FUNCTION(index, WASM_GET_LOCAL(0),
                                           WASM_GET_LOCAL(1)));
 
@@ -1691,7 +1790,7 @@ TEST(Run_WasmCall_Int64Sub) {
 
   // Build the caller function.
   WasmRunner<int64_t> r(kMachInt64, kMachInt64);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_CALL_FUNCTION(index, WASM_GET_LOCAL(0),
                                           WASM_GET_LOCAL(1)));
 
@@ -1722,7 +1821,7 @@ TEST(Run_WasmCall_Float32Sub) {
 
   // Builder the caller function.
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
-  r.env.module = &module;
+  r.env()->module = &module;
   BUILD(r, WASM_I32_SCONVERT_F32(WASM_CALL_FUNCTION(
                index, WASM_F32_SCONVERT_I32(WASM_GET_LOCAL(0)),
                WASM_F32_SCONVERT_I32(WASM_GET_LOCAL(1)))));
@@ -1741,7 +1840,7 @@ TEST(Run_WasmCall_Float64Sub) {
   WasmRunner<int32_t> r;
   TestingModule module;
   double* memory = module.AddMemoryElems<double>(16);
-  r.env.module = &module;
+  r.env()->module = &module;
 
   BUILD(r, WASM_BLOCK(2,
                       WASM_STORE_MEM(kMemF64,
@@ -1815,7 +1914,7 @@ void Run_WasmMixedCall_N(int start) {
     // Build the calling function.
     // =========================================================================
     WasmRunner<int32_t> r;
-    r.env.module = &module;
+    r.env()->module = &module;
 
     {
       std::vector<byte> code;
@@ -1999,7 +2098,7 @@ TEST(Run_Wasm_LoadStoreI64_sx) {
     WasmRunner<int64_t> r;
     TestingModule module;
     byte* memory = module.AddMemoryElems<byte>(16);
-    r.env.module = &module;
+    r.env()->module = &module;
 
     byte code[] = {kExprI64StoreMemL, WasmOpcodes::LoadStoreAccessOf(kMemI64),
                    kExprI8Const, 8,
@@ -2031,20 +2130,21 @@ TEST(Run_Wasm_SimpleCallIndirect) {
   Isolate* isolate = CcTest::InitIsolateOnce();
 
   WasmRunner<int32_t> r(kMachInt32);
+  TestSignatures sigs;
   TestingModule module;
-  r.env.module = &module;
-  WasmFunctionCompiler t1(r.sigs.i_ii());
+  r.env()->module = &module;
+  WasmFunctionCompiler t1(sigs.i_ii());
   BUILD(t1, WASM_I32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
   t1.CompileAndAdd(&module);
 
-  WasmFunctionCompiler t2(r.sigs.i_ii());
+  WasmFunctionCompiler t2(sigs.i_ii());
   BUILD(t2, WASM_I32_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
   t2.CompileAndAdd(&module);
 
   // Signature table.
-  module.AddSignature(r.sigs.f_ff());
-  module.AddSignature(r.sigs.i_ii());
-  module.AddSignature(r.sigs.d_dd());
+  module.AddSignature(sigs.f_ff());
+  module.AddSignature(sigs.i_ii());
+  module.AddSignature(sigs.d_dd());
 
   // Function table.
   int table_size = 2;
