@@ -306,13 +306,14 @@ Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate,
 //  * installs named properties on the object for exported functions
 //  * compiles wasm code to machine code
 MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
-                                              Handle<JSObject> ffi) {
+                                              Handle<JSObject> ffi,
+                                              Handle<JSArrayBuffer> memory) {
   this->shared_isolate = isolate;  // TODO: have a real shared isolate.
   ErrorThrower thrower(isolate, "WasmModule::Instantiate()");
 
   Factory* factory = isolate->factory();
   // Memory is bigger than maximum supported size.
-  if (min_mem_size_log2 > kMaxMemSize) {
+  if (memory.is_null() && min_mem_size_log2 > kMaxMemSize) {
     thrower.Error("Out of memory: wasm memory too large");
     return MaybeHandle<JSObject>();
   }
@@ -333,12 +334,19 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   //-------------------------------------------------------------------------
   uint32_t mem_size = 1 << min_mem_size_log2;
   byte* mem_addr = nullptr;
-  Handle<JSArrayBuffer> mem_buffer =
-      NewArrayBuffer(isolate, mem_size, &mem_addr);
-  if (!mem_addr) {
-    // Not enough space for backing store of memory
-    thrower.Error("Out of memory: wasm memory");
-    return MaybeHandle<JSObject>();
+  Handle<JSArrayBuffer> mem_buffer;
+  if (!memory.is_null()) {
+    memory->set_is_neuterable(false);
+    mem_addr = reinterpret_cast<byte*>(memory->backing_store());
+    mem_size = memory->byte_length()->Number();
+    mem_buffer = memory;
+  } else {
+    mem_buffer = NewArrayBuffer(isolate, mem_size, &mem_addr);
+    if (!mem_addr) {
+      // Not enough space for backing store of memory
+      thrower.Error("Out of memory: wasm memory");
+      return MaybeHandle<JSObject>();
+    }
   }
 
   // Load initialized data segments.
@@ -384,6 +392,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   module_env.linker = &linker;
   module_env.function_code = nullptr;
   module_env.function_table = BuildFunctionTable(isolate, this);
+  module_env.memory = memory;
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {

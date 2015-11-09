@@ -8,6 +8,7 @@
 #include "wasm-opcodes.h"
 #include "wasm-result.h"
 
+#include "src/api.h"
 #include "src/handles.h"
 
 namespace v8 {
@@ -113,7 +114,8 @@ struct WasmModule {
   }
 
   // Creates a new instantiation of the module in the given isolate.
-  MaybeHandle<JSObject> Instantiate(Isolate* isolate, Handle<JSObject> ffi);
+  MaybeHandle<JSObject> Instantiate(Isolate* isolate, Handle<JSObject> ffi,
+                                    Handle<JSArrayBuffer> memory);
 };
 
 // forward declaration.
@@ -130,6 +132,7 @@ struct ModuleEnv {
   WasmLinker* linker;
   std::vector<Handle<Code>>* function_code;
   Handle<FixedArray> function_table;
+  Handle<JSArrayBuffer> memory;
 
   bool IsValidGlobal(uint32_t index) {
     return module && index < module->globals->size();
