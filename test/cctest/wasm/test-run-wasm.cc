@@ -899,6 +899,19 @@ TEST(Run_Wasm_IfThen_P) {
 }
 
 
+TEST(Run_Wasm_BrIf_strict) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2,
+		      WASM_BLOCK(1,
+				 WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_SET_LOCAL(0, WASM_I8(99)))),
+		      WASM_GET_LOCAL(0)));
+
+  FOR_INT32_INPUTS(i) {
+    CHECK_EQ(99, r.Call(*i));
+  }
+}
+
+
 TEST(Run_Wasm_F32ReinterpretI32) {
   WasmRunner<int32_t> r;
   TestingModule module;
@@ -965,6 +978,18 @@ TEST(Run_Wasm_Block_If_P) {
                       WASM_IF(WASM_GET_LOCAL(0),          // --
                               WASM_BRV(0, WASM_I8(51))),  // --
                       WASM_I8(52)));                      // --
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i ? 51 : 52;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_Block_BrIf_P) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2,
+                      WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_I8(51)),
+                      WASM_I8(52)));
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 51 : 52;
     CHECK_EQ(expected, r.Call(*i));
@@ -1073,6 +1098,18 @@ TEST(Run_Wasm_WhileCountDown) {
 TEST(Run_Wasm_Loop_if_break1) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(0)),
+                                   WASM_SET_LOCAL(0, WASM_I8(99))),
+                      WASM_GET_LOCAL(0)));
+  CHECK_EQ(99, r.Call(0));
+  CHECK_EQ(3, r.Call(3));
+  CHECK_EQ(10000, r.Call(10000));
+  CHECK_EQ(-29, r.Call(-29));
+}
+
+
+TEST(Run_Wasm_Loop_if_break2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_LOOP(2, WASM_BR_IF(1, WASM_GET_LOCAL(0)),
                                    WASM_SET_LOCAL(0, WASM_I8(99))),
                       WASM_GET_LOCAL(0)));
   CHECK_EQ(99, r.Call(0));
@@ -1385,6 +1422,16 @@ TEST(Run_Wasm_Infinite_Loop_not_taken2) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_BLOCK(1, WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_BRV(0, WASM_I8(45)),
 				      WASM_INFINITE_LOOP)));
+  // Run the code, but don't go into the infinite loop.
+  CHECK_EQ(45, r.Call(1));
+}
+
+
+TEST(Run_Wasm_Infinite_Loop_not_taken2_brif) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2,
+		      WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_I8(45)),
+		      WASM_INFINITE_LOOP));
   // Run the code, but don't go into the infinite loop.
   CHECK_EQ(45, r.Call(1));
 }
@@ -1996,6 +2043,28 @@ TEST(Run_Wasm_ExprBlock2b) {
 }
 
 
+TEST(Run_Wasm_ExprBlock2c) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_BLOCK(2,
+		   WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_I8(1)),
+		   WASM_I8(1)));
+  CHECK_EQ(1, r.Call(0));
+  CHECK_EQ(1, r.Call(1));
+}
+
+
+TEST(Run_Wasm_ExprBlock2d) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_BLOCK(2,
+		   WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_I8(1)),
+		   WASM_I8(2)));
+  CHECK_EQ(2, r.Call(0));
+  CHECK_EQ(1, r.Call(1));
+}
+
+
 TEST(Run_Wasm_ExprBlock_ManualSwitch) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r,
@@ -2011,6 +2080,31 @@ TEST(Run_Wasm_ExprBlock_ManualSwitch) {
                         WASM_IF(WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(5)),
                                 WASM_BRV(0, WASM_I8(15))),
                         WASM_I8(99)));
+  CHECK_EQ(99, r.Call(0));
+  CHECK_EQ(11, r.Call(1));
+  CHECK_EQ(12, r.Call(2));
+  CHECK_EQ(13, r.Call(3));
+  CHECK_EQ(14, r.Call(4));
+  CHECK_EQ(15, r.Call(5));
+  CHECK_EQ(99, r.Call(6));
+}
+
+
+TEST(Run_Wasm_ExprBlock_ManualSwitch_brif) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_BLOCK(6,
+		   WASM_BRV_IF(0, WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(1)),
+			       WASM_I8(11)),
+		   WASM_BRV_IF(0, WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(2)),
+			       WASM_I8(12)),
+		   WASM_BRV_IF(0, WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(3)),
+			       WASM_I8(13)),
+		   WASM_BRV_IF(0, WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(4)),
+			       WASM_I8(14)),
+		   WASM_BRV_IF(0, WASM_I32_EQ(WASM_GET_LOCAL(0), WASM_I8(5)),
+			       WASM_I8(15)),
+		   WASM_I8(99)));
   CHECK_EQ(99, r.Call(0));
   CHECK_EQ(11, r.Call(1));
   CHECK_EQ(12, r.Call(2));
