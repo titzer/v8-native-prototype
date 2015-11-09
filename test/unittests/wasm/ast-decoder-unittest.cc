@@ -1704,6 +1704,29 @@ TEST_F(WasmDecoderTest, ExprBreakNesting1) {
                          WASM_LOOP(1, WASM_BR(1)));
 }
 
+
+TEST_F(WasmDecoderTest, Select) {
+  EXPECT_VERIFIES_INLINE(&env_i_i, WASM_SELECT(WASM_GET_LOCAL(0),
+					       WASM_GET_LOCAL(0),
+					       WASM_GET_LOCAL(0)));
+}
+
+
+TEST_F(WasmDecoderTest, Select_TypeCheck) {
+  EXPECT_FAILURE_INLINE(&env_i_i, WASM_SELECT(WASM_F32(9.9),
+					      WASM_GET_LOCAL(0),
+					      WASM_GET_LOCAL(0)));
+
+  EXPECT_FAILURE_INLINE(&env_i_i, WASM_SELECT(WASM_GET_LOCAL(0),
+					      WASM_F64(0.25),
+					      WASM_GET_LOCAL(0)));
+
+  EXPECT_FAILURE_INLINE(&env_i_i, WASM_SELECT(WASM_F32(9.9),
+					      WASM_GET_LOCAL(0),
+					      WASM_I64(0)));
+}
+
+
 class WasmOpcodeLengthTest : public TestWithZone {
  public:
   WasmOpcodeLengthTest() : TestWithZone() { }

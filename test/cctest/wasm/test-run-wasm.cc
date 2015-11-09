@@ -899,6 +899,43 @@ TEST(Run_Wasm_IfThen_P) {
 }
 
 
+TEST(Run_Wasm_Select) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // return select(a, 11, 22);
+  BUILD(r, WASM_SELECT(WASM_GET_LOCAL(0), WASM_I8(11), WASM_I8(22)));
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i ? 11 : 22;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_Select_strict1) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // select(a, a = 11, 22); return a
+  BUILD(r, WASM_BLOCK(2, WASM_SELECT(WASM_GET_LOCAL(0),
+				     WASM_SET_LOCAL(0, WASM_I8(11)),
+				     WASM_I8(22)),
+		      WASM_GET_LOCAL(0)));
+  FOR_INT32_INPUTS(i) {
+    CHECK_EQ(11, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_Select_strict2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // select(a, 11, a = 22); return a;
+  BUILD(r, WASM_BLOCK(2, WASM_SELECT(WASM_GET_LOCAL(0),
+				     WASM_I8(11),
+				     WASM_SET_LOCAL(0, WASM_I8(22))),
+		      WASM_GET_LOCAL(0)));
+  FOR_INT32_INPUTS(i) {
+    CHECK_EQ(22, r.Call(*i));
+  }
+}
+
+
 TEST(Run_Wasm_BrIf_strict) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_BLOCK(2,
