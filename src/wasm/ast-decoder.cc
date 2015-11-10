@@ -122,12 +122,17 @@ class LR_WasmDecoder : public Decoder {
     Tree* tree = nullptr;
     if (ok()) {
       if (ssa_env_->go()) {
-        AddImplicitReturnAtEnd();
+	if (stack_.size() > 0) {
+	  error(stack_.back().pc(), end, "fell off end of code");
+	}
+	AddImplicitReturnAtEnd();
       }
       if (trees_.size() == 0) {
-        error(start_, "no trees created");
+	if (function_env_->sig->return_count() > 0) {
+	  error(start_, "no trees created");
+	}
       } else {
-        tree = trees_[0];
+	tree = trees_[0];
       }
     }
 

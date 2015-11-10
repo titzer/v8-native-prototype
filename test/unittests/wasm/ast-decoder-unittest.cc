@@ -196,6 +196,27 @@ TEST_F(WasmDecoderTest, Int8Const) {
 }
 
 
+TEST_F(WasmDecoderTest, EmptyFunction) {
+  byte code[] = {0};
+  Verify(kSuccess, &env_v_v, code, code);
+  Verify(kError, &env_i_i, code, code);
+}
+
+
+TEST_F(WasmDecoderTest, IncompleteIf1) {
+  byte code[] = {kExprIf};
+  EXPECT_FAILURE(&env_v_v, code);
+  EXPECT_FAILURE(&env_i_i, code);
+}
+
+
+TEST_F(WasmDecoderTest, IncompleteIf2) {
+  byte code[] = {kExprIf, kExprI8Const, 0};
+  EXPECT_FAILURE(&env_v_v, code);
+  EXPECT_FAILURE(&env_i_i, code);
+}
+
+
 TEST_F(WasmDecoderTest, Int8Const_fallthru) {
   byte code[] = {kExprI8Const, 0, kExprI8Const, 1};
   EXPECT_VERIFIES(&env_i_i, code);
