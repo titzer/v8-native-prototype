@@ -44,7 +44,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
         isolate_(isolate),
         zone_(zone),
         cache_(TypeCache::Get()),
-        block_depth_(0) {
+        block_depth_(0),
+        breakable_blocks_(zone) {
     InitializeAstVisitor(isolate);
   }
 
@@ -87,8 +88,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitBlock(Block* stmt) {
     DCHECK(in_function_);
     block_depth_++;
+    breakable_blocks_.push_back(
+        std::make_pair(stmt->AsBreakableStatement(), false));
     RECURSE(VisitStatements(stmt->statements()));
     block_depth_--;
+    breakable_blocks_.pop_back();
   }
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
@@ -117,9 +121,49 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-  void VisitContinueStatement(ContinueStatement* stmt) {}
+  void VisitContinueStatement(ContinueStatement* stmt) {
+    DCHECK(in_function_);
+    int i = static_cast<int>(breakable_blocks_.size()) - 1;
+    int block_distance = 0;
+    for (; i >= 0; i--) {
+      auto elem = breakable_blocks_.at(i);
+      if (elem.first == stmt->target()) {
+        DCHECK(elem.second);
+        break;
+      } else if (elem.second) {
+        block_distance += 2;
+      } else {
+        block_distance += 1;
+      }
+    }
+    DCHECK(i >= 0);
+    current_function_builder_->AppendCode(kExprBr, false);
+    current_function_builder_->AppendCode(block_distance, false);
+    current_function_builder_->AppendCode(kExprNop, false);
+  }
 
-  void VisitBreakStatement(BreakStatement* stmt) {}
+  void VisitBreakStatement(BreakStatement* stmt) {
+    DCHECK(in_function_);
+    int i = static_cast<int>(breakable_blocks_.size()) - 1;
+    int block_distance = 0;
+    for (; i >= 0; i--) {
+      auto elem = breakable_blocks_.at(i);
+      if (elem.first == stmt->target()) {
+        if (elem.second) {
+          block_distance++;
+        }
+        break;
+      } else if (elem.second) {
+        block_distance += 2;
+      } else {
+        block_distance += 1;
+      }
+    }
+    DCHECK(i >= 0);
+    current_function_builder_->AppendCode(kExprBr, false);
+    current_function_builder_->AppendCode(block_distance, false);
+    current_function_builder_->AppendCode(kExprNop, false);
+  }
 
   void VisitReturnStatement(ReturnStatement* stmt) {
     if (in_function_) {
@@ -163,8 +207,19 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitWhileStatement(WhileStatement* stmt) {
+    DCHECK(in_function_);
+    current_function_builder_->AppendCode(kExprLoop, false);
+    current_function_builder_->AppendCode(1, false);
+    block_depth_ += 2;
+    breakable_blocks_.push_back(
+        std::make_pair(stmt->AsBreakableStatement(), true));
+    current_function_builder_->AppendCode(kExprIf, false);
     RECURSE(Visit(stmt->cond()));
+    current_function_builder_->AppendCode(kExprBr, false);
+    current_function_builder_->AppendCode(0, false);
     RECURSE(Visit(stmt->body()));
+    block_depth_ -= 2;
+    breakable_blocks_.pop_back();
   }
 
   void VisitForStatement(ForStatement* stmt) {
@@ -369,18 +424,18 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(expr->expression()));
   }
 
-#define NON_SIGNED(op)                                             \
+#define NON_SIGNED_BINOP(op)                                       \
   static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op,       \
                                    kExprF32##op, kExprF64##op}
 
-#define SIGNED(op)                                                 \
+#define SIGNED_BINOP(op)                                           \
   static WasmOpcode opcodes[] = {kExprI32##op##S, kExprI32##op##U, \
                                    kExprF32##op, kExprF64##op}
 
-#define NON_SIGNED_INT(op)                                         \
+#define NON_SIGNED_INT_BINOP(op)                                   \
   static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op}
 
-#define CASE(token, op, V)                                         \
+#define BINOP_CASE(token, op, V)                                   \
   case token: {                                                    \
     V(op);                                                         \
     int type = TypeIndexOf(expr->left(), expr->right());           \
@@ -390,11 +445,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitBinaryOperation(BinaryOperation* expr) {
     switch (expr->op()) {
-      CASE(Token::ADD, Add, NON_SIGNED);
-      CASE(Token::SUB, Sub, NON_SIGNED);
-      CASE(Token::MUL, Mul, NON_SIGNED);
-      CASE(Token::DIV, Div, SIGNED);
-      CASE(Token::BIT_OR, Ior, NON_SIGNED_INT);
+      BINOP_CASE(Token::ADD, Add, NON_SIGNED_BINOP);
+      BINOP_CASE(Token::SUB, Sub, NON_SIGNED_BINOP);
+      BINOP_CASE(Token::MUL, Mul, NON_SIGNED_BINOP);
+      BINOP_CASE(Token::DIV, Div, SIGNED_BINOP);
+      BINOP_CASE(Token::BIT_OR, Ior, NON_SIGNED_INT_BINOP);
       default:
         UNREACHABLE();
     }
@@ -404,13 +459,25 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitCompareOperation(CompareOperation* expr) {
     switch (expr->op()) {
-      CASE(Token::EQ, Eq, NON_SIGNED);
+      BINOP_CASE(Token::EQ, Eq, NON_SIGNED_BINOP);
+      BINOP_CASE(Token::EQ_STRICT, Eq, NON_SIGNED_BINOP);
+      //BINOP_CASE(Token::NE, Ne, NON_SIGNED_BINOP);
+      //BINOP_CASE(Token::NE_STRICT, Ne, NON_SIGNED_BINOP);
+      BINOP_CASE(Token::LT, Lt, SIGNED_BINOP);
+      BINOP_CASE(Token::LTE, Le, SIGNED_BINOP);
+      BINOP_CASE(Token::GT, Gt, SIGNED_BINOP);
+      BINOP_CASE(Token::GTE, Ge, SIGNED_BINOP);
       default:
         UNREACHABLE();
     }
     RECURSE(Visit(expr->left()));
     RECURSE(Visit(expr->right()));
   }
+
+#undef BINOP_CASE
+#undef NON_SIGNED_INT_BINOP
+#undef SIGNED_BINOP
+#undef NON_SIGNED_BINOP
 
   int TypeIndexOf(Expression* left, Expression* right) {
     DCHECK(TypeIndexOf(left) == TypeIndexOf(right));
@@ -528,6 +595,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   Zone* zone_;
   TypeCache const& cache_;
   int block_depth_;
+  ZoneVector<std::pair<BreakableStatement*, bool>> breakable_blocks_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
