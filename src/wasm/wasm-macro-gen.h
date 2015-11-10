@@ -27,6 +27,9 @@
 #define WASM_BREAK(depth) kExprBr, static_cast<byte>(depth + 1), kExprNop
 #define WASM_CONTINUE(depth) kExprBr, static_cast<byte>(depth), kExprNop
 #define WASM_BREAKV(depth, val) kExprBr, static_cast<byte>(depth + 1), val
+#define WASM_RETURN0 kExprReturn
+#define WASM_RETURN(...) kExprReturn, __VA_ARGS__
+#define WASM_UNREACHABLE kExprUnreachable
 
 //------------------------------------------------------------------------------
 // Misc expressions.

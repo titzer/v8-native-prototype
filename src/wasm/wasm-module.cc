@@ -393,6 +393,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   module_env.function_code = nullptr;
   module_env.function_table = BuildFunctionTable(isolate, this);
   module_env.memory = memory;
+  module_env.context = isolate->native_context();
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {

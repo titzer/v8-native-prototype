@@ -375,6 +375,20 @@ class LR_WasmDecoder : public Decoder {
           len = 2;
           break;
         }
+        case kExprTableSwitch: {
+	  error("tableswitch unimplemented");
+	  break;
+        }
+        case kExprReturn: {
+	  error("return unimplemented");
+	  break;
+        }
+        case kExprUnreachable: {
+	  Leaf(kAstStmt, nullptr);
+	  builder_.Unreachable();
+	  ssa_env_->Kill();
+	  break;
+        }
         case kExprI8Const: {
           int32_t value = Operand<int8_t>(pc_);
           Leaf(kAstI32, builder_.Int32Constant(value));
@@ -764,6 +778,14 @@ class LR_WasmDecoder : public Decoder {
 	}
         break;
       }
+      case kExprTableSwitch: {
+	error("tableswitch unimplemented");
+	break;
+      }
+      case kExprReturn: {
+	error("return unimplemented");
+	break;
+      }
       case kExprSetLocal: {
         int unused = 0;
         uint32_t index;
@@ -771,7 +793,7 @@ class LR_WasmDecoder : public Decoder {
         Tree* val = p->last();
         if (type == val->type) {
           if (builder_.graph)
-            ssa_env_->locals[index] = val->node;
+           ssa_env_->locals[index] = val->node;
           p->tree->node = val->node;
         } else {
           error(p->pc(), val->pc, "Typecheck failed in SetLocal");
@@ -1368,6 +1390,7 @@ int OpcodeArity(FunctionEnv* env, const byte* pc) {
     case kExprGetLocal:
     case kExprLoadGlobal:
     case kExprNop:
+    case kExprUnreachable: 
       return 0;
 
     case kExprBr:
@@ -1395,6 +1418,11 @@ int OpcodeArity(FunctionEnv* env, const byte* pc) {
       return 1 + static_cast<int>(
                      env->module->GetSignature(index)->parameter_count());
     }
+    case kExprReturn: 
+      return static_cast<int>(env->sig->return_count());
+    case kExprTableSwitch:
+      UNIMPLEMENTED();
+      return 0;
 
 #define DECLARE_OPCODE_CASE(name, opcode, sig) \
   case kExpr##name:                            \
