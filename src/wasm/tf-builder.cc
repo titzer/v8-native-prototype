@@ -574,8 +574,7 @@ void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
 }
 
 void TFBuilder::Return(unsigned count, TFNode** vals) {
-  if (!graph)
-    return;
+  if (!graph) return;
   DCHECK_NOT_NULL(*control);
   DCHECK_NOT_NULL(*effect);
 
@@ -594,10 +593,17 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   MergeControlToEnd(graph, ret);
 }
 
+
 void TFBuilder::ReturnVoid() {
   TFNode** vals = Buffer(0);
   Return(0, vals);
 }
+
+void TFBuilder::Unreachable() {
+  if (!graph) return;
+  AddThrow(String("unreachable"));
+}
+
 
 TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   //// Implement the following code as TF graph.
@@ -721,7 +727,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   {
     TFNode* size = Int32Constant(static_cast<int>(table_size));
     TFNode* in_bounds = g->NewNode(machine->Uint32LessThan(), key, size);
-    AddTrapUnless(in_bounds);
+    AddTrapUnless(in_bounds, String("function pointer out of bounds"));
   }
 
   // Load signature from the table and check.
@@ -740,7 +746,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
                    *effect, *control);
     TFNode* sig_match =
         g->NewNode(machine->WordEqual(), load_sig, graph->SmiConstant(index));
-    AddTrapUnless(sig_match);
+    AddTrapUnless(sig_match, String("function signature mismatch"));
   }
 
   // Load code object from the table.
@@ -1031,49 +1037,69 @@ void TFBuilder::PrintDebugName(TFNode* node) {
   PrintF("#%d:%s", node->id(), node->op()->mnemonic());
 }
 
-void TFBuilder::AddTrapUnless(TFNode* cond) {
+TFNode* TFBuilder::String(const char* string) {
+  if (!graph) return nullptr;
+  return graph->Constant(graph->isolate()->factory()->NewStringFromAsciiChecked(string));
+}
+
+void TFBuilder::AddTrapUnless(TFNode* cond, TFNode* exception) {
   compiler::Graph* g = graph->graph();
   TFNode* branch = g->NewNode(
       graph->common()->Branch(compiler::BranchHint::kTrue), cond, *control);
 
   TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
-  if (trap == nullptr) {
-    // First trap.
-
-    /****
-         TODO: Insert a runtime call to throw a JS exception.
-         Runtime::Function const* function =
-         Runtime::FunctionForId(Runtime::kThrow);
-         CallDescriptor const* descriptor = Linkage::GetRuntimeCallDescriptor(
-         zone(), function->function_id, 1, Operator::kNoProperties);
-    ****/
-    TFNode* call_rt = if_false;  // TODO
-
-    // Add a return zero, even though the runtime should never really return.
-    TFNode* ret_zero =
-        g->NewNode(graph->common()->Return(), graph->Int32Constant(0xdeadbeef),
-                   *effect, call_rt);
-
-    /****
-         TODO: Insert a throw to end the block.
-    TFNode* thrw = g->NewNode(graph->common()->Throw(),
-                              graph->ZeroConstant(), *effect, ret_zero);
-
-    ****/
-    MergeControlToEnd(graph, trap = ret_zero);
-  } else {
-    if (trap->opcode() != compiler::IrOpcode::kMerge) {
-      // Second trap. Introduce a merge.
-      TFNode* merge =
-          g->NewNode(graph->common()->Merge(2), trap->InputAt(2), if_false);
-      trap->ReplaceInput(2, merge);  // replace control input to throw.
-      trap = merge;
-    } else {
-      // Third or moreth trap. Append to the merge.
-      AppendToMerge(trap, if_false);
-    }
-  }
+  *control = if_false;
+  TFNode* before = *effect;
+  AddThrow(exception);
   *control = g->NewNode(graph->common()->IfTrue(), branch);
+  *effect = before;
+}
+
+
+void TFBuilder::AddThrow(TFNode* exception) {
+  compiler::Graph* g = graph->graph();
+  TFNode* end;
+
+  if (!module->context.is_null()) {
+    // Use the module context to call the runtime to throw an exception.
+    Runtime::FunctionId f = Runtime::kThrow;
+    const Runtime::Function* fun = Runtime::FunctionForId(f);
+    compiler::CallDescriptor* desc =
+      compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs, 
+						  compiler::Operator::kNoProperties);
+    TFNode* inputs[] = {
+      graph->CEntryStubConstant(fun->result_size),                     // C entry
+      exception,                                                       // exception
+      graph->ExternalConstant(ExternalReference(f, graph->isolate())), // ref
+      graph->Int32Constant(fun->nargs),                                // arity
+      graph->Constant(module->context),                                // context
+      graph->EmptyFrameState(),
+      *effect,
+      *control
+    };
+    
+    TFNode* node = g->NewNode(graph->common()->Call(desc),
+			      static_cast<int>(arraysize(inputs)), inputs);
+    *control = node;
+    *effect = node;
+
+  }
+  if (false) {
+    // End the control flow with a throw
+    TFNode* thrw = g->NewNode(graph->common()->Throw(),
+			      graph->ZeroConstant(), *effect, *control);
+    end = thrw;
+  } else {
+    // End the control flow with returning 0xdeadbeef
+    TFNode* ret_dead =
+      g->NewNode(graph->common()->Return(), graph->Int32Constant(0xdeadbeef),
+	       *effect, *control);
+    end = ret_dead;
+  }
+
+  // TODO(turbofan): merge all the runtime calls into a single throwing place
+  // and introduce a phi for the exception being thrown.
+  MergeControlToEnd(graph, end);
 }
 }
 }

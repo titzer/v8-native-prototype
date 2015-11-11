@@ -688,6 +688,11 @@ TEST_F(WasmDecoderTest, ReturnVoid3) {
 }
 
 
+TEST_F(WasmDecoderTest, Unreachable) {
+  EXPECT_VERIFIES_INLINE(&env_v_v, kExprUnreachable);
+}
+
+
 TEST_F(WasmDecoderTest, UnreachableCode1) {
   EXPECT_FAILURE_INLINE(&env_v_v, kExprBr, 0, kExprNop, kExprNop);
 }

@@ -90,6 +90,7 @@ struct TFBuilder {
   void Branch(TFNode* cond, TFNode** true_node, TFNode** false_node);
   void Return(unsigned count, TFNode** vals);
   void ReturnVoid();
+  void Unreachable();
 
   TFNode* CallDirect(uint32_t index, TFNode** args);
   TFNode* CallIndirect(uint32_t index, TFNode** args);
@@ -114,9 +115,11 @@ struct TFBuilder {
   TFNode* StoreMem(MemType type, TFNode* index, TFNode* val);
 
   // Adds a branch that traps unless {cond} is true.
-  void AddTrapUnless(TFNode* cond);
+  void AddTrapUnless(TFNode* cond, TFNode* exception);
+  void AddThrow(TFNode* exception);
 
   static void PrintDebugName(TFNode* node);
+  TFNode* String(const char* string);
 };
 }
 }

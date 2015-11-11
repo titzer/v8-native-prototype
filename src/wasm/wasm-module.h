@@ -133,6 +133,7 @@ struct ModuleEnv {
   std::vector<Handle<Code>>* function_code;
   Handle<FixedArray> function_table;
   Handle<JSArrayBuffer> memory;
+  Handle<Context> context;
 
   bool IsValidGlobal(uint32_t index) {
     return module && index < module->globals->size();
