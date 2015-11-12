@@ -330,3 +330,56 @@ testCallBinopVoid(kAstI32);
 // TODO testCallBinopVoid(kAstI64);
 testCallBinopVoid(kAstF32);
 testCallBinopVoid(kAstF64);
+
+
+
+function testCallPrint() {
+  var kBodySize = 10;
+  var kNamePrintOffset = 10 + 7 + 7 + 9 + kBodySize + 1;
+  var kNameMainOffset = kNamePrintOffset + 6;
+
+  var ffi = new Object();
+  ffi.print = print;
+
+  var data = bytes(
+    // -- signatures
+    kDeclSignatures, 2,
+    1, kAstStmt, kAstI32,       // i32->void
+    1, kAstStmt, kAstF64,       // f64->int
+    kDeclFunctions, 3,
+    // -- import print i32
+    kDeclFunctionName | kDeclFunctionImport,
+    0, 0,                       // signature index
+    kNamePrintOffset, 0, 0, 0,  // name offset
+    // -- import print f64
+    kDeclFunctionName | kDeclFunctionImport,
+    1, 0,                       // signature index
+    kNamePrintOffset, 0, 0, 0,  // name offset
+    // -- decl main
+    kDeclFunctionName | kDeclFunctionExport,
+    1, 0,                       // signature index
+    kNameMainOffset, 0, 0, 0,   // name offset
+    kBodySize, 0,               // body size
+    // main body
+    kExprBlock, 2,              // --
+    kExprCallFunction, 0,       // --
+    kExprI8Const, 97,           // --
+    kExprCallFunction, 1,       // --
+    kExprGetLocal, 0,           // --
+    // names
+    kDeclEnd,
+    'p', 'r', 'i', 'n', 't', 0, // --
+    'm', 'a', 'i', 'n', 0       // --
+  );
+
+  var module = WASM.instantiateModule(data, ffi);
+
+  assertEquals("function", typeof module.main);
+
+  for (var i = -9; i < 900; i += 6.125) {
+      module.main(i);
+  }
+}
+
+testCallPrint();
+testCallPrint();
