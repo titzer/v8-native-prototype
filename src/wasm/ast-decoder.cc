@@ -764,10 +764,14 @@ class LR_WasmDecoder : public Decoder {
         break;
       }
       case kExprBrIf: {
-        uint32_t depth = Operand<uint8_t>(p->pc());
-        if (depth >= blocks_.size()) {
-          error("improperly nested branch");
-        } else if (ssa_env_->go() && p->done()) {
+	if (p->index == 1) {
+	  TypeCheckLast(p, kAstI32);
+	} else if (p->done()) {
+	  uint32_t depth = Operand<uint8_t>(p->pc());
+	  if (depth >= blocks_.size()) {
+	    error("improperly nested branch");
+	    break;
+	  }
 	  Block* block = &blocks_[blocks_.size() - depth - 1];
 	  SsaEnv* fenv = ssa_env_;
 	  SsaEnv* tenv = Split(fenv);

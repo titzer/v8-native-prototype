@@ -1670,6 +1670,40 @@ TEST_F(WasmDecoderTest, ExprBr_Unify) {
   }
 }
 
+TEST_F(WasmDecoderTest, ExprBrIf_type) {
+  EXPECT_VERIFIES_INLINE(&env_i_i, 
+			 WASM_BLOCK(2,
+				    WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_GET_LOCAL(0)),
+				    WASM_GET_LOCAL(0)));
+  EXPECT_FAILURE_INLINE(&env_d_dd, 
+			 WASM_BLOCK(2,
+				    WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_GET_LOCAL(0)),
+				    WASM_GET_LOCAL(0)));
+
+  FunctionEnv env;
+  for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
+    LocalType type = kLocalTypes[i];
+    LocalType storage[] = {kAstI32, kAstI32, type};
+    FunctionSig sig(1, 2, storage);
+    init_env(&env, &sig);  // (i32, X) -> i32
+
+    byte code1[] = {WASM_BLOCK(2,
+			       WASM_BRV_IF(0, WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)),
+			       WASM_GET_LOCAL(0))};
+
+    byte code2[] = {WASM_BLOCK(2,
+			       WASM_BRV_IF(0, WASM_GET_LOCAL(1), WASM_GET_LOCAL(0)),
+			       WASM_GET_LOCAL(0))};
+    if (type == kAstI32) {
+      EXPECT_VERIFIES(&env, code1);
+      EXPECT_VERIFIES(&env, code2);
+    } else {
+      EXPECT_FAILURE(&env, code1);
+      EXPECT_FAILURE(&env, code2);
+    }
+  }
+}
+
 
 TEST_F(WasmDecoderTest, ExprBrIf_Unify) {
   FunctionEnv env;
