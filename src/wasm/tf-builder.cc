@@ -908,11 +908,10 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   }
 
   args[pos++] = graph->Constant(function);   // JS function.
-  args[pos++] = graph->UndefinedConstant();  // JS receiver.
-
   if (arg_count_before_args) {
     args[pos++] = graph->Int32Constant(wasm_count);  // argument count
   }
+  args[pos++] = graph->UndefinedConstant();  // JS receiver.
 
   // Convert WASM numbers to JS values.
   for (int i = 0; i < wasm_count; i++) {
