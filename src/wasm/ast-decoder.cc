@@ -528,12 +528,8 @@ class LR_WasmDecoder : public Decoder {
           uint32_t unused;
           FunctionSig* sig = SigOperand(pc_, &unused, &len);
           if (sig) {
-            LocalType type = kAstI32;
-            if (sig->return_count() == 1) {
-              type = sig->GetReturn();
-            } else {
-              error("function call should return exactly 1 result");
-            }
+            LocalType type =
+                sig->return_count() == 0 ? kAstStmt : sig->GetReturn();
             Shift(type, static_cast<int>(1 + sig->parameter_count()));
           } else {
             Leaf(kAstI32);  // error
