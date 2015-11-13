@@ -380,9 +380,16 @@ class LR_WasmDecoder : public Decoder {
 	  break;
         }
         case kExprReturn: {
-	  error("return unimplemented");
+	  int count = static_cast<int>(function_env_->sig->return_count());
+	  if (count == 0) {
+	    builder_.Return(0, builder_.Buffer(0));
+	    ssa_env_->Kill();
+	    Leaf(kAstStmt);
+	  } else {
+	    Shift(kAstStmt, count);
+	  }
 	  break;
-        }
+	}
         case kExprUnreachable: {
 	  Leaf(kAstStmt, nullptr);
 	  builder_.Unreachable();
@@ -783,7 +790,16 @@ class LR_WasmDecoder : public Decoder {
 	break;
       }
       case kExprReturn: {
-	error("return unimplemented");
+	TypeCheckLast(p, function_env_->sig->GetReturn(p->index - 1));
+        if (p->done()) {
+          int count = p->tree->count;
+          TFNode** buffer = builder_.Buffer(count);
+          for (int i = 0; i < count; i++) {
+            buffer[i] = p->tree->children[i]->node;
+          }
+          builder_.Return(count, buffer);
+          ssa_env_->state = SsaEnv::kControlEnd;
+        }
 	break;
       }
       case kExprSetLocal: {

@@ -899,7 +899,6 @@ TEST_F(WasmDecoderTest, MacrosNestedBlocks) {
 }
 
 
-  /** TODO(titzer): bring back multiple return.
 TEST_F(WasmDecoderTest, MultipleReturn) {
   static LocalType kIntTypes5[] = {kAstI32, kAstI32, kAstI32, kAstI32,
                                    kAstI32};
@@ -934,7 +933,6 @@ TEST_F(WasmDecoderTest, MultipleReturn_fallthru) {
   EXPECT_VERIFIES_INLINE(&env_iii_v, WASM_ZERO, WASM_ONE, WASM_I8(44));
   EXPECT_FAILURE_INLINE(&env_iii_v, WASM_ZERO, WASM_ONE);
 }
-  **/
 
 
 TEST_F(WasmDecoderTest, MacrosInt32) {
@@ -2034,6 +2032,15 @@ TEST_F(WasmOpcodeArityTest, Control) {
 
   EXPECT_ARITY(1, kExprBr);
   EXPECT_ARITY(2, kExprBrIf);
+
+  {
+    TestSignatures sigs;
+    FunctionEnv env;
+    WasmDecoderTest::init_env(&env, sigs.v_v());
+    EXPECT_ARITY(0, kExprReturn);
+    WasmDecoderTest::init_env(&env, sigs.i_i());
+    EXPECT_ARITY(1, kExprReturn);
+  }
 }
 
 TEST_F(WasmOpcodeArityTest, Misc) {

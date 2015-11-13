@@ -899,6 +899,80 @@ TEST(Run_Wasm_IfThen_P) {
 }
 
 
+TEST(Run_Wasm_Return12) {
+  WasmRunner<int32_t> r;
+
+  BUILD(r, WASM_RETURN(WASM_I8(12)));
+  CHECK_EQ(12, r.Call());
+}
+
+
+TEST(Run_Wasm_Return17) {
+  WasmRunner<int32_t> r;
+
+  BUILD(r, WASM_BLOCK(1, WASM_RETURN(WASM_I8(17))));
+  CHECK_EQ(17, r.Call());
+}
+
+
+TEST(Run_Wasm_Return_I32) {
+  WasmRunner<int32_t> r(kMachInt32);
+
+  BUILD(r, WASM_RETURN(WASM_GET_LOCAL(0)));
+
+  FOR_INT32_INPUTS(i) {
+    CHECK_EQ(*i, r.Call(*i));
+  }
+}
+
+
+#if WASM_64
+TEST(Run_Wasm_Return_I64) {
+  WasmRunner<int64_t> r(kMachInt64);
+
+  BUILD(r, WASM_RETURN(WASM_GET_LOCAL(0)));
+
+  FOR_INT64_INPUTS(i) {
+    CHECK_EQ(*i, r.Call(*i));
+  }
+}
+#endif
+
+
+TEST(Run_Wasm_Return_F32) {
+  WasmRunner<float> r(kMachFloat32);
+
+  BUILD(r, WASM_RETURN(WASM_GET_LOCAL(0)));
+
+  FOR_FLOAT32_INPUTS(i) {
+    float expect = *i;
+    float result = r.Call(expect);
+    if (std::isnan(expect)) {
+      CHECK(std::isnan(result));
+    } else {
+      CHECK_EQ(expect, result);
+    }
+  }
+}
+
+
+TEST(Run_Wasm_Return_F64) {
+  WasmRunner<double> r(kMachFloat64);
+
+  BUILD(r, WASM_RETURN(WASM_GET_LOCAL(0)));
+
+  FOR_FLOAT64_INPUTS(i) {
+    double expect = *i;
+    double result = r.Call(expect);
+    if (std::isnan(expect)) {
+      CHECK(std::isnan(result));
+    } else {
+      CHECK_EQ(expect, result);
+    }
+  }
+}
+
+
 TEST(Run_Wasm_Select) {
   WasmRunner<int32_t> r(kMachInt32);
   // return select(a, 11, 22);
@@ -1001,9 +1075,16 @@ TEST(Run_Wasm_ReturnStore) {
 }
 
 
-TEST(Run_Wasm_VoidReturn) {
+TEST(Run_Wasm_VoidReturn1) {
   WasmRunner<void> r;
   BUILD(r, kExprNop);
+  r.Call();
+}
+
+
+TEST(Run_Wasm_VoidReturn2) {
+  WasmRunner<void> r;
+  BUILD(r, WASM_RETURN0);
   r.Call();
 }
 
@@ -1044,6 +1125,20 @@ TEST(Run_Wasm_Block_IfThen_P_assign) {
                       WASM_GET_LOCAL(0)));
   FOR_INT32_INPUTS(i) {
     int32_t expected = *i ? 71 : 72;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_Block_IfThen_P_return) {
+  WasmRunner<int32_t> r(kMachInt32);
+  // if (p0) return 81; else return 82;
+  BUILD(r,                                        // --
+	WASM_IF_THEN(WASM_GET_LOCAL(0),           // --
+		     WASM_RETURN(WASM_I8(81)),    // --
+		     WASM_RETURN(WASM_I8(82))));  // --
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i ? 81 : 82;
     CHECK_EQ(expected, r.Call(*i));
   }
 }
