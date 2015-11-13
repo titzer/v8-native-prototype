@@ -268,3 +268,74 @@ function TestContinueInNamedWhile() {
 }
 
 assertEquals(20, WASM.asmCompileRun(TestContinueInNamedWhile.toString()));
+
+function TestNot() {
+  "use asm";
+
+  function caller() {
+    var a = !(2 > 3);
+    return a | 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(1, WASM.asmCompileRun(TestNot.toString()));
+
+function TestNotEquals() {
+  "use asm";
+
+  function caller() {
+    var a = 3;
+    if (a != 2) {
+      return 21;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(21, WASM.asmCompileRun(TestNotEquals.toString()));
+
+/*
+TODO: fix typer to not simplify literals under SHR to allow them to be marked
+      unsigned.
+
+function TestUnsignedComparison() {
+  "use asm";
+
+  function caller() {
+    var a = 0xffffffff;
+    if ((a>>>0) > (0>>>0)) {
+      return 22;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(22, WASM.asmCompileRun(TestUnsignedComparison.toString()));
+
+function TestMixedAdd() {
+  "use asm";
+
+  function caller() {
+    var a = 0x80000000;
+    var b = 0x7fffffff;
+    var c = 0;
+    c = ((a>>>0) + b)|0;
+    if ((c >>> 0) > (0>>>0)) {
+      if (c < 0) {
+        return 23;
+      }
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(23, WASM.asmCompileRun(TestMixedAdd.toString()));
+*/

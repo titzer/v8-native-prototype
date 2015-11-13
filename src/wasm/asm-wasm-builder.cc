@@ -417,6 +417,16 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitCallRuntime(CallRuntime* expr) { UNREACHABLE(); }
 
   void VisitUnaryOperation(UnaryOperation* expr) {
+    switch (expr->op()) {
+      case Token::NOT: {
+        int type = TypeIndexOf(expr->expression());
+        DCHECK(type == 0);
+        current_function_builder_->AppendCode(kExprBoolNot, false);
+      }
+      break;
+      default:
+        UNREACHABLE();
+    }
     RECURSE(Visit(expr->expression()));
   }
 
@@ -424,32 +434,40 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(expr->expression()));
   }
 
-#define NON_SIGNED_BINOP(op)                                       \
-  static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op,       \
-                                   kExprF32##op, kExprF64##op}
+#define NON_SIGNED_BINOP(op)                                          \
+  static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op,          \
+                                 kExprF32##op, kExprF64##op}
 
-#define SIGNED_BINOP(op)                                           \
-  static WasmOpcode opcodes[] = {kExprI32##op##S, kExprI32##op##U, \
-                                   kExprF32##op, kExprF64##op}
+#define SIGNED_BINOP(op)                                              \
+  static WasmOpcode opcodes[] = {kExprI32##op##S, kExprI32##op##U,    \
+                                 kExprF32##op, kExprF64##op}
 
-#define NON_SIGNED_INT_BINOP(op)                                   \
+#define NON_SIGNED_INT_BINOP(op)                                      \
   static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op}
 
-#define BINOP_CASE(token, op, V)                                   \
-  case token: {                                                    \
-    V(op);                                                         \
-    int type = TypeIndexOf(expr->left(), expr->right());           \
-    current_function_builder_->AppendCode(opcodes[type], false);   \
-  }                                                                \
+#define BINOP_CASE(token, op, V, ignore_sign)                         \
+  case token: {                                                       \
+    V(op);                                                            \
+    int type = TypeIndexOf(expr->left(), expr->right(), ignore_sign); \
+    current_function_builder_->AppendCode(opcodes[type], false);      \
+  }                                                                   \
   break
 
   void VisitBinaryOperation(BinaryOperation* expr) {
     switch (expr->op()) {
-      BINOP_CASE(Token::ADD, Add, NON_SIGNED_BINOP);
-      BINOP_CASE(Token::SUB, Sub, NON_SIGNED_BINOP);
-      BINOP_CASE(Token::MUL, Mul, NON_SIGNED_BINOP);
-      BINOP_CASE(Token::DIV, Div, SIGNED_BINOP);
-      BINOP_CASE(Token::BIT_OR, Ior, NON_SIGNED_INT_BINOP);
+      BINOP_CASE(Token::ADD, Add, NON_SIGNED_BINOP, true);
+      BINOP_CASE(Token::SUB, Sub, NON_SIGNED_BINOP, true);
+      BINOP_CASE(Token::MUL, Mul, NON_SIGNED_BINOP, true);
+      BINOP_CASE(Token::DIV, Div, SIGNED_BINOP, false);
+      BINOP_CASE(Token::BIT_OR, Ior, NON_SIGNED_INT_BINOP, true);
+      BINOP_CASE(Token::BIT_XOR, Xor, NON_SIGNED_INT_BINOP, true);
+      BINOP_CASE(Token::SHL, Shl, NON_SIGNED_INT_BINOP, true);
+      BINOP_CASE(Token::SAR, ShrS, NON_SIGNED_INT_BINOP, true);
+      BINOP_CASE(Token::SHR, ShrU, NON_SIGNED_INT_BINOP, true);
+      case Token::MOD: {
+        UNREACHABLE();
+      }
+      break;
       default:
         UNREACHABLE();
     }
@@ -459,14 +477,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitCompareOperation(CompareOperation* expr) {
     switch (expr->op()) {
-      BINOP_CASE(Token::EQ, Eq, NON_SIGNED_BINOP);
-      BINOP_CASE(Token::EQ_STRICT, Eq, NON_SIGNED_BINOP);
-      //BINOP_CASE(Token::NE, Ne, NON_SIGNED_BINOP);
-      //BINOP_CASE(Token::NE_STRICT, Ne, NON_SIGNED_BINOP);
-      BINOP_CASE(Token::LT, Lt, SIGNED_BINOP);
-      BINOP_CASE(Token::LTE, Le, SIGNED_BINOP);
-      BINOP_CASE(Token::GT, Gt, SIGNED_BINOP);
-      BINOP_CASE(Token::GTE, Ge, SIGNED_BINOP);
+      BINOP_CASE(Token::EQ, Eq, NON_SIGNED_BINOP, false);
+      BINOP_CASE(Token::LT, Lt, SIGNED_BINOP, false);
+      BINOP_CASE(Token::LTE, Le, SIGNED_BINOP, false);
+      BINOP_CASE(Token::GT, Gt, SIGNED_BINOP, false);
+      BINOP_CASE(Token::GTE, Ge, SIGNED_BINOP, false);
       default:
         UNREACHABLE();
     }
@@ -479,9 +494,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
 #undef SIGNED_BINOP
 #undef NON_SIGNED_BINOP
 
-  int TypeIndexOf(Expression* left, Expression* right) {
-    DCHECK(TypeIndexOf(left) == TypeIndexOf(right));
-    return TypeIndexOf(left);
+  int TypeIndexOf(Expression* left, Expression* right, bool ignore_sign) {
+    int left_index = TypeIndexOf(left);
+    int right_index = TypeIndexOf(right);
+    DCHECK((left_index == right_index) ||
+        (ignore_sign && (left_index <= 1) && (right_index <= 1)));
+    return left_index;
   }
 
   int TypeIndexOf(Expression* expr) {
