@@ -161,7 +161,7 @@ class ModuleDecoder : public Decoder {
           CheckForPreviousSection(sections, kDeclFunctions, true);
           int length;
           uint32_t function_table_count = u32v(&length, "function table count");
-          module->globals->reserve(SafeReserve(function_table_count));
+          module->function_table->reserve(SafeReserve(function_table_count));
           // Decode function table.
           for (uint32_t i = 0; i < function_table_count; i++) {
             if (failed())

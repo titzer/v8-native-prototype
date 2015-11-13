@@ -479,7 +479,7 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
   // -- emit function table ----------------------------------------------------
   if (indirect_functions_.size() > 0) {
     EmitUint8(&header, kDeclFunctionTable);
-    EmitVarInt(&header, data_segments_.size());
+    EmitVarInt(&header, indirect_functions_.size());
 
     for (auto index : indirect_functions_) {
       EmitUint16(&header, index);
