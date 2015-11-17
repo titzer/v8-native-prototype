@@ -526,6 +526,43 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         return MakeI32Popcnt(input);
       }
     }
+    case kExprF64Floor: {
+      if (m->Float64RoundDown().IsSupported()) {
+        op = m->Float64RoundDown().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Ceil: {
+      if (m->Float64RoundUp().IsSupported()) {
+        op = m->Float64RoundUp().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Trunc: {
+      if (m->Float64RoundTruncate().IsSupported()) {
+        op = m->Float64RoundTruncate().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64NearestInt: {
+      if (m->Float64RoundTiesEven().IsSupported()) {
+        op = m->Float64RoundTiesEven().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
@@ -1064,7 +1101,7 @@ void TFBuilder::AddThrow(TFNode* exception) {
     Runtime::FunctionId f = Runtime::kThrow;
     const Runtime::Function* fun = Runtime::FunctionForId(f);
     compiler::CallDescriptor* desc =
-      compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs, 
+      compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs,
 						  compiler::Operator::kNoProperties);
     TFNode* inputs[] = {
       graph->CEntryStubConstant(fun->result_size),                     // C entry
@@ -1076,7 +1113,7 @@ void TFBuilder::AddThrow(TFNode* exception) {
       *effect,
       *control
     };
-    
+
     TFNode* node = g->NewNode(graph->common()->Call(desc),
 			      static_cast<int>(arraysize(inputs)), inputs);
     *control = node;
