@@ -535,6 +535,33 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
+    case kExprF64Ceil: {
+      if (m->Float64RoundUp().IsSupported()) {
+        op = m->Float64RoundUp().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Trunc: {
+      if (m->Float64RoundTruncate().IsSupported()) {
+        op = m->Float64RoundTruncate().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64NearestInt: {
+      if (m->Float64RoundTiesEven().IsSupported()) {
+        op = m->Float64RoundTiesEven().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
 
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.

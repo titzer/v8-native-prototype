@@ -1819,6 +1819,8 @@ TEST(Run_WasmMixedGlobals) {
   USE(unused);
 }
 
+
+#if WASM_64
 // Test the WasmRunner with an Int64 return value and different numbers of
 // Int64 parameters.
 TEST(Run_TestI64WasmRunner) {
@@ -1874,6 +1876,7 @@ TEST(Run_TestI64WasmRunner) {
     }
   }
 }
+#endif
 
 
 TEST(Run_WasmCallEmpty) {
@@ -2390,5 +2393,35 @@ TEST(Run_Wasm_F64Floor) {
 
   FOR_FLOAT64_INPUTS(i) {
     CheckDoubleEq(floor(*i), r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_F64Ceil) {
+  WasmRunner<double> r(kMachFloat64);
+  BUILD(r, WASM_F64_CEIL(WASM_GET_LOCAL(0)));
+
+  FOR_FLOAT64_INPUTS(i) {
+    CheckDoubleEq(ceil(*i), r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_F64Trunc) {
+  WasmRunner<double> r(kMachFloat64);
+  BUILD(r, WASM_F64_TRUNC(WASM_GET_LOCAL(0)));
+
+  FOR_FLOAT64_INPUTS(i) {
+    CheckDoubleEq(trunc(*i), r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_F64NearestInt) {
+  WasmRunner<double> r(kMachFloat64);
+  BUILD(r, WASM_F64_NEARESTINT(WASM_GET_LOCAL(0)));
+
+  FOR_FLOAT64_INPUTS(i) {
+    CheckDoubleEq(nearbyint(*i), r.Call(*i));
   }
 }
