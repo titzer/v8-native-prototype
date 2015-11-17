@@ -112,7 +112,6 @@ typedef Signature<LocalType> FunctionSig;
 
 // Load memory expressions.
 #define FOREACH_MISC_MEM_OPCODE(V) \
-  V(PageSize, 0x38, i_v)                \
   V(MemorySize, 0x3b, i_v)              \
   V(ResizeMemL, 0x39, i_i)              \
   V(ResizeMemH, 0x3a, l_l)

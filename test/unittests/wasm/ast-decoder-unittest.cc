@@ -1021,13 +1021,6 @@ TEST_F(WasmDecoderTest, AllSimpleExpressions) {
 }
 
 
-TEST_F(WasmDecoderTest, PageSize) {
-  byte code[] = {kExprPageSize};
-  EXPECT_VERIFIES(&env_i_i, code);
-  EXPECT_FAILURE(&env_f_ff, code);
-}
-
-
 TEST_F(WasmDecoderTest, MemorySize) {
   byte code[] = {kExprMemorySize};
   EXPECT_VERIFIES(&env_i_i, code);
@@ -1869,7 +1862,6 @@ TEST_F(WasmOpcodeLengthTest, LoadsAndStores) {
 
 
 TEST_F(WasmOpcodeLengthTest, MiscMemExpressions) {
-  EXPECT_LENGTH(1, kExprPageSize);
   EXPECT_LENGTH(1, kExprMemorySize);
   EXPECT_LENGTH(1, kExprResizeMemL);
   EXPECT_LENGTH(1, kExprResizeMemH);
@@ -2118,7 +2110,6 @@ TEST_F(WasmOpcodeArityTest, LoadsAndStores) {
 TEST_F(WasmOpcodeArityTest, MiscMemExpressions) {
   FunctionEnv env;
 
-  EXPECT_ARITY(0, kExprPageSize);
   EXPECT_ARITY(0, kExprMemorySize);
   EXPECT_ARITY(1, kExprResizeMemL);
   EXPECT_ARITY(1, kExprResizeMemH);

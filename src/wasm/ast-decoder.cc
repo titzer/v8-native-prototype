@@ -505,11 +505,6 @@ class LR_WasmDecoder : public Decoder {
           Shift(kAstF64, 2);
           len = 2;
           break;
-        case kExprPageSize:
-          // TODO(titzer): is this the correct constant for all platforms?
-          Leaf(kAstI32, builder_.Int32Constant(
-                            static_cast<int32_t>(base::OS::CommitPageSize())));
-          break;
         case kExprMemorySize:
           Leaf(kAstI32, builder_.MemSize());
           break;
