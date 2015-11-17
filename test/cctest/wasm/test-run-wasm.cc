@@ -2384,3 +2384,11 @@ TEST(Run_Wasm_SimpleCallIndirect) {
 }
 
 
+TEST(Run_Wasm_F64Floor) {
+  WasmRunner<double> r(kMachFloat64);
+  BUILD(r, WASM_F64_FLOOR(WASM_GET_LOCAL(0)));
+
+  FOR_FLOAT64_INPUTS(i) {
+    CheckDoubleEq(floor(*i), r.Call(*i));
+  }
+}
