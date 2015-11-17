@@ -103,6 +103,8 @@ struct TFBuilder {
   TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
   TFNode* MakeI32Ctz(TFNode* input);
   TFNode* MakeI32Popcnt(TFNode* input);
+  TFNode* MakeI64Ctz(TFNode* input);
+  TFNode* MakeI64Popcnt(TFNode* input);
 
   //-----------------------------------------------------------------------
   // Operations that access the linear memory.

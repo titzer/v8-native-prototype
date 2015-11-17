@@ -616,7 +616,7 @@ void TestInt32Unop(WasmOpcode opcode, int32_t expected, int32_t a) {
   }
   {
     WasmRunner<int32_t> r(kMachInt32);
-    // return a op b
+    // return op a
     BUILD(r, WASM_UNOP(opcode, WASM_GET_LOCAL(0)));
     CHECK_EQ(expected, r.Call(a));
   }
@@ -765,6 +765,171 @@ TEST(Run_WasmInt64Binops) {
   TestInt64Cmp(kExprI64LtU, 1, 0, -6);
   TestInt64Cmp(kExprI64LeU, 1, 98978, 0xF0000000);
 }
+
+
+void TestInt64ToInt32Unop(WasmOpcode opcode, int32_t expected, int64_t a) {
+  {
+    WasmRunner<int32_t> r;
+    // return op K
+    BUILD(r, WASM_UNOP(opcode, WASM_I64(a)));
+    CHECK_EQ(expected, r.Call());
+  }
+  {
+    WasmRunner<int32_t> r(kMachInt64);
+    // return op a
+    BUILD(r, WASM_UNOP(opcode, WASM_GET_LOCAL(0)));
+    CHECK_EQ(expected, r.Call(a));
+  }
+}
+
+
+TEST(Run_WasmInt64Clz) {
+  TestInt64ToInt32Unop(kExprI64Clz, 0, 0x8000100000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 1, 0x4000050000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 2, 0x2000030000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 3, 0x1000000300000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 4, 0x0805000000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 5, 0x0400600000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 6, 0x0200000000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 7, 0x010000a000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 8, 0x00800c0000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 9, 0x0040000000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 10, 0x0020000d00000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 11, 0x00100f0000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 12, 0x0008000000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 13, 0x0004100000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 14, 0x0002002000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 15, 0x0001030000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 16, 0x0000804000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 17, 0x0000400500000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 18, 0x0000205000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 19, 0x0000170000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 20, 0x0000087000000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 21, 0x0000040500000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 22, 0x0000020300000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 23, 0x0000010100000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 24, 0x0000008900000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 25, 0x0000004100000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 26, 0x0000002200000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 27, 0x0000001300000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 28, 0x0000000800000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 29, 0x0000000400000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 30, 0x0000000200000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 31, 0x0000000100000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 32, 0x0000000080001000);
+  TestInt64ToInt32Unop(kExprI64Clz, 33, 0x0000000040000500);
+  TestInt64ToInt32Unop(kExprI64Clz, 34, 0x0000000020000300);
+  TestInt64ToInt32Unop(kExprI64Clz, 35, 0x0000000010000003);
+  TestInt64ToInt32Unop(kExprI64Clz, 36, 0x0000000008050000);
+  TestInt64ToInt32Unop(kExprI64Clz, 37, 0x0000000004006000);
+  TestInt64ToInt32Unop(kExprI64Clz, 38, 0x0000000002000000);
+  TestInt64ToInt32Unop(kExprI64Clz, 39, 0x00000000010000a0);
+  TestInt64ToInt32Unop(kExprI64Clz, 40, 0x0000000000800c00);
+  TestInt64ToInt32Unop(kExprI64Clz, 41, 0x0000000000400000);
+  TestInt64ToInt32Unop(kExprI64Clz, 42, 0x000000000020000d);
+  TestInt64ToInt32Unop(kExprI64Clz, 43, 0x0000000000100f00);
+  TestInt64ToInt32Unop(kExprI64Clz, 44, 0x0000000000080000);
+  TestInt64ToInt32Unop(kExprI64Clz, 45, 0x0000000000041000);
+  TestInt64ToInt32Unop(kExprI64Clz, 46, 0x0000000000020020);
+  TestInt64ToInt32Unop(kExprI64Clz, 47, 0x0000000000010300);
+  TestInt64ToInt32Unop(kExprI64Clz, 48, 0x0000000000008040);
+  TestInt64ToInt32Unop(kExprI64Clz, 49, 0x0000000000004005);
+  TestInt64ToInt32Unop(kExprI64Clz, 50, 0x0000000000002050);
+  TestInt64ToInt32Unop(kExprI64Clz, 51, 0x0000000000001700);
+  TestInt64ToInt32Unop(kExprI64Clz, 52, 0x0000000000000870);
+  TestInt64ToInt32Unop(kExprI64Clz, 53, 0x0000000000000405);
+  TestInt64ToInt32Unop(kExprI64Clz, 54, 0x0000000000000203);
+  TestInt64ToInt32Unop(kExprI64Clz, 55, 0x0000000000000101);
+  TestInt64ToInt32Unop(kExprI64Clz, 56, 0x0000000000000089);
+  TestInt64ToInt32Unop(kExprI64Clz, 57, 0x0000000000000041);
+  TestInt64ToInt32Unop(kExprI64Clz, 58, 0x0000000000000022);
+  TestInt64ToInt32Unop(kExprI64Clz, 59, 0x0000000000000013);
+  TestInt64ToInt32Unop(kExprI64Clz, 60, 0x0000000000000008);
+  TestInt64ToInt32Unop(kExprI64Clz, 61, 0x0000000000000004);
+  TestInt64ToInt32Unop(kExprI64Clz, 62, 0x0000000000000002);
+  TestInt64ToInt32Unop(kExprI64Clz, 63, 0x0000000000000001);
+  TestInt64ToInt32Unop(kExprI64Clz, 64, 0x0000000000000000);
+}
+
+
+TEST(Run_WasmInt64Ctz) {
+  TestInt64ToInt32Unop(kExprI64Ctz, 64, 0x0000000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 63, 0x8000000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 62, 0x4000000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 61, 0x2000000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 60, 0x1000000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 59, 0xa800000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 58, 0xf400000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 57, 0x6200000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 56, 0x9100000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 55, 0xcd80000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 54, 0x0940000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 53, 0xaf20000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 52, 0xac10000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 51, 0xe0b8000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 50, 0x9ce4000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 49, 0xc792000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 48, 0xb8f1000000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 47, 0x3b9f800000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 46, 0xdb4c400000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 45, 0xe9a3200000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 44, 0xfca6100000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 43, 0x6c8a780000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 42, 0x8ce5a40000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 41, 0xcb7d020000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 40, 0xcb4dc10000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 39, 0xdfbec58000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 38, 0x27a9db4000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 37, 0xde3bcb2000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 36, 0xd7e8a61000000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 35, 0x9afdbc8800000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 34, 0x9afdbc8400000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 33, 0x9afdbc8200000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 32, 0x9afdbc8100000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 31, 0x0000000080000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 30, 0x0000000040000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 29, 0x0000000020000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 28, 0x0000000010000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 27, 0x00000000a8000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 26, 0x00000000f4000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 25, 0x0000000062000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 24, 0x0000000091000000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 23, 0x00000000cd800000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 22, 0x0000000009400000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 21, 0x00000000af200000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 20, 0x00000000ac100000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 19, 0x00000000e0b80000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 18, 0x000000009ce40000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 17, 0x00000000c7920000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 16, 0x00000000b8f10000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 15, 0x000000003b9f8000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 14, 0x00000000db4c4000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 13, 0x00000000e9a32000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 12, 0x00000000fca61000);
+  TestInt64ToInt32Unop(kExprI64Ctz, 11, 0x000000006c8a7800);
+  TestInt64ToInt32Unop(kExprI64Ctz, 10, 0x000000008ce5a400);
+  TestInt64ToInt32Unop(kExprI64Ctz, 9, 0x00000000cb7d0200);
+  TestInt64ToInt32Unop(kExprI64Ctz, 8, 0x00000000cb4dc100);
+  TestInt64ToInt32Unop(kExprI64Ctz, 7, 0x00000000dfbec580);
+  TestInt64ToInt32Unop(kExprI64Ctz, 6, 0x0000000027a9db40);
+  TestInt64ToInt32Unop(kExprI64Ctz, 5, 0x00000000de3bcb20);
+  TestInt64ToInt32Unop(kExprI64Ctz, 4, 0x00000000d7e8a610);
+  TestInt64ToInt32Unop(kExprI64Ctz, 3, 0x000000009afdbc88);
+  TestInt64ToInt32Unop(kExprI64Ctz, 2, 0x000000009afdbc84);
+  TestInt64ToInt32Unop(kExprI64Ctz, 1, 0x000000009afdbc82);
+  TestInt64ToInt32Unop(kExprI64Ctz, 0, 0x000000009afdbc81);
+}
+
+
+TEST(Run_WasmInt64Popcnt) {
+  TestInt64ToInt32Unop(kExprI64Popcnt, 64, 0xffffffffffffffff);
+  TestInt64ToInt32Unop(kExprI64Popcnt, 0, 0x0000000000000000);
+  TestInt64ToInt32Unop(kExprI64Popcnt, 2, 0x0000080000008000);
+  TestInt64ToInt32Unop(kExprI64Popcnt, 26, 0x1123456782345678);
+  TestInt64ToInt32Unop(kExprI64Popcnt, 38, 0xffedcba09edcba09);
+}
+
+
 #endif
 
 
@@ -2340,6 +2505,8 @@ TEST(Run_Wasm_LoadStoreI64_sx) {
     }
   }
 }
+
+
 #endif
 
 

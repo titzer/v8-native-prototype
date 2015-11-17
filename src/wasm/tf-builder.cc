@@ -581,6 +581,25 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
     case kExprI64ReinterpretF64:
       op = m->BitcastFloat64ToInt64();
       break;
+    case kExprI64Clz:
+      op = m->Word64Clz();
+      break;
+    case kExprI64Ctz: {
+      if (m->Word64Ctz().IsSupported()) {
+        op = m->Word64Ctz().op();
+        break;
+      } else {
+        return MakeI64Ctz(input);
+      }
+    }
+    case kExprI64Popcnt: {
+      if (m->Word64Popcnt().IsSupported()) {
+        op = m->Word64Popcnt().op();
+        break;
+      } else {
+        return MakeI64Popcnt(input);
+      }
+    }
 #endif
     default:
       op = UnsupportedOpcode(opcode);
@@ -675,6 +694,44 @@ TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   return result;
 }
 
+
+TFNode* TFBuilder::MakeI64Ctz(TFNode* input) {
+  //// Implement the following code as TF graph.
+  // value = value | (value << 1);
+  // value = value | (value << 2);
+  // value = value | (value << 4);
+  // value = value | (value << 8);
+  // value = value | (value << 16);
+  // value = value | (value << 32);
+  // return CountPopulation64(0xffffffffffffffff XOR value);
+
+  if (!graph)
+    return nullptr;
+
+  TFNode* result = Binop(kExprI64Ior, input,
+                         Binop(kExprI64Shl, input, graph->Int64Constant(1)));
+
+  result = Binop(kExprI64Ior, result,
+                 Binop(kExprI64Shl, result, graph->Int64Constant(2)));
+
+  result = Binop(kExprI64Ior, result,
+                 Binop(kExprI64Shl, result, graph->Int64Constant(4)));
+
+  result = Binop(kExprI64Ior, result,
+                 Binop(kExprI64Shl, result, graph->Int64Constant(8)));
+
+  result = Binop(kExprI64Ior, result,
+                 Binop(kExprI64Shl, result, graph->Int64Constant(16)));
+
+  result = Binop(kExprI64Ior, result,
+                 Binop(kExprI64Shl, result, graph->Int64Constant(32)));
+
+  result = MakeI64Popcnt(
+      Binop(kExprI64Xor, graph->Int64Constant(0xffffffffffffffff), result));
+
+  return result;
+}
+
 TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
@@ -715,6 +772,56 @@ TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
 
   return result;
 }
+
+
+TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
+  //// Implement the following code as a TF graph.
+  // value = ((value >> 1) & 0x5555555555555555) + (value & 0x5555555555555555);
+  // value = ((value >> 2) & 0x3333333333333333) + (value & 0x3333333333333333);
+  // value = ((value >> 4) & 0x0f0f0f0f0f0f0f0f) + (value & 0x0f0f0f0f0f0f0f0f);
+  // value = ((value >> 8) & 0x00ff00ff00ff00ff) + (value & 0x00ff00ff00ff00ff);
+  // value = ((value >> 16) & 0x0000ffff0000ffff) + (value & 0x0000ffff0000ffff);
+  // value = ((value >> 32) & 0x00000000ffffffff) + (value & 0x00000000ffffffff);
+
+  if (!graph)
+    return nullptr;
+
+  TFNode* result = Binop(
+      kExprI64Add,
+      Binop(kExprI64And, Binop(kExprI64ShrU, input, graph->Int64Constant(1)),
+            graph->Int64Constant(0x5555555555555555)),
+      Binop(kExprI64And, input, graph->Int64Constant(0x5555555555555555)));
+
+  result = Binop(kExprI64Add, Binop(kExprI64And, Binop(kExprI64ShrU, result,
+                                                       graph->Int64Constant(2)),
+                                    graph->Int64Constant(0x3333333333333333)),
+                 Binop(kExprI64And, result, graph->Int64Constant(0x3333333333333333)));
+
+  result = Binop(kExprI64Add, Binop(kExprI64And, Binop(kExprI64ShrU, result,
+                                                       graph->Int64Constant(4)),
+                                    graph->Int64Constant(0x0f0f0f0f0f0f0f0f)),
+                 Binop(kExprI64And, result, graph->Int64Constant(0x0f0f0f0f0f0f0f0f)));
+
+  result = Binop(kExprI64Add, Binop(kExprI64And, Binop(kExprI64ShrU, result,
+                                                       graph->Int64Constant(8)),
+                                    graph->Int64Constant(0x00ff00ff00ff00ff)),
+                 Binop(kExprI64And, result, graph->Int64Constant(0x00ff00ff00ff00ff)));
+
+  result = Binop(
+      kExprI64Add,
+      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(16)),
+            graph->Int64Constant(0x0000ffff0000ffff)),
+      Binop(kExprI64And, result, graph->Int64Constant(0x0000ffff0000ffff)));
+
+  result = Binop(
+      kExprI64Add,
+      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(32)),
+            graph->Int64Constant(0x00000000ffffffff)),
+      Binop(kExprI64And, result, graph->Int64Constant(0x00000000ffffffff)));
+
+  return result;
+}
+
 
 TFNode* TFBuilder::MakeWasmCall(FunctionSig* sig, TFNode** args) {
   const size_t params = sig->parameter_count();
