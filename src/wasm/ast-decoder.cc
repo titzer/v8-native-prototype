@@ -487,60 +487,47 @@ class LR_WasmDecoder : public Decoder {
           Shift(type, 1);
           break;
         }
-        case kExprI32LoadMemL:  // fallthru
-        case kExprI32LoadMemH: {
-          MemAccessTypeOperand(pc_, kAstI32);  // check width.
-          Shift(kAstI32, 1);
-          len = 2;
+        case kExprI32LoadMem8S:
+        case kExprI32LoadMem8U:
+        case kExprI32LoadMem16S:
+        case kExprI32LoadMem16U:
+        case kExprI32LoadMem:
+	  len = DecodeLoadMem(pc_, kAstI32);
           break;
-        }
-        case kExprI64LoadMemL:  // fallthru.
-        case kExprI64LoadMemH: {
-          MemAccessTypeOperand(pc_, kAstI64);  // check width.
-          Shift(kAstI64, 1);
-          len = 2;
+        case kExprI64LoadMem8S:
+        case kExprI64LoadMem8U:
+        case kExprI64LoadMem16S:
+        case kExprI64LoadMem16U:
+        case kExprI64LoadMem32S:
+        case kExprI64LoadMem32U:
+        case kExprI64LoadMem:
+          len = DecodeLoadMem(pc_, kAstI64);
           break;
-        }
-        case kExprF32LoadMemL:  // fallthru.
-        case kExprF32LoadMemH:
-          MemAccessTypeOperand(pc_, kAstF32);  // check width.
-          Shift(kAstF32, 1);
-          len = 2;
+        case kExprF32LoadMem:
+          len = DecodeLoadMem(pc_, kAstF32);
           break;
-        case kExprF64LoadMemL:  // fallthru.
-        case kExprF64LoadMemH:
-          MemAccessTypeOperand(pc_, kAstF64);  // check width.
-          Shift(kAstF64, 1);
-          len = 2;
+        case kExprF64LoadMem:
+          len = DecodeLoadMem(pc_, kAstF64);
           break;
-        case kExprI32StoreMemL:  // fallthru.
-        case kExprI32StoreMemH: {
-          MemAccessTypeOperand(pc_, kAstI32);  // check width.
-          Shift(kAstI32, 2);
-          len = 2;
+        case kExprI32StoreMem8:
+        case kExprI32StoreMem16:
+        case kExprI32StoreMem:
+	  len = DecodeStoreMem(pc_, kAstI32);
           break;
-        }
-        case kExprI64StoreMemL:  // fallthru.
-        case kExprI64StoreMemH: {
-          MemAccessTypeOperand(pc_, kAstI64);  // check width.
-          Shift(kAstI64, 2);
-          len = 2;
+        case kExprI64StoreMem8:
+        case kExprI64StoreMem16:
+        case kExprI64StoreMem32:
+        case kExprI64StoreMem:
+	  len = DecodeStoreMem(pc_, kAstI64);
           break;
-        }
-        case kExprF32StoreMemL:  // fallthru.
-        case kExprF32StoreMemH:
-          MemAccessTypeOperand(pc_, kAstF32);  // check width.
-          Shift(kAstF32, 2);
-          len = 2;
+        case kExprF32StoreMem:
+	  len = DecodeStoreMem(pc_, kAstF32);
           break;
-        case kExprF64StoreMemL:  // fallthru.
-        case kExprF64StoreMemH:
-          MemAccessTypeOperand(pc_, kAstF64);  // check width.
-          Shift(kAstF64, 2);
-          len = 2;
+        case kExprF64StoreMem:
+	  len = DecodeStoreMem(pc_, kAstF64);
           break;
         case kExprMemorySize:
-          Leaf(kAstI32, builder_.MemSize());
+          Leaf(kAstI32, builder_.MemSize(0));
           break;
         case kExprResizeMemL:
           Shift(kAstI32, 1);
@@ -589,6 +576,22 @@ class LR_WasmDecoder : public Decoder {
 
   void PushBlock(SsaEnv* ssa_env) {
     blocks_.push_back({ssa_env, static_cast<int>(stack_.size() - 1)});
+  }
+
+  int DecodeLoadMem(const byte* pc, LocalType type) {
+    int length = 2;
+    uint32_t offset;
+    MemoryAccessOperand(pc, &length, &offset);
+    Shift(type, 1);
+    return length;
+  }
+
+  int DecodeStoreMem(const byte* pc, LocalType type) {
+    int length = 2;
+    uint32_t offset;
+    MemoryAccessOperand(pc, &length, &offset);
+    Shift(type, 2);
+    return length;
   }
 
   Tree* GetLastValueIfBlock(Tree* tree) {
@@ -934,39 +937,60 @@ class LR_WasmDecoder : public Decoder {
         break;
       }
 
-      case kExprI32LoadMemL:
-        return ReduceLoadMem(p, false, kAstI32);
-      case kExprI32LoadMemH:
-        return ReduceLoadMem(p, true, kAstI32);
-      case kExprI64LoadMemL:
-        return ReduceLoadMem(p, false, kAstI64);
-      case kExprI64LoadMemH:
-        return ReduceLoadMem(p, true, kAstI64);
-      case kExprF32LoadMemL:
-        return ReduceLoadMem(p, false, kAstF32);
-      case kExprF32LoadMemH:
-        return ReduceLoadMem(p, true, kAstF32);
-      case kExprF64LoadMemL:
-        return ReduceLoadMem(p, false, kAstF64);
-      case kExprF64LoadMemH:
-        return ReduceLoadMem(p, true, kAstF64);
+      case kExprI32LoadMem8S:
+        return ReduceLoadMem(p, kAstI32, kMemI8);
+      case kExprI32LoadMem8U:
+        return ReduceLoadMem(p, kAstI32, kMemU8);
+      case kExprI32LoadMem16S:
+        return ReduceLoadMem(p, kAstI32, kMemI16);
+      case kExprI32LoadMem16U:
+        return ReduceLoadMem(p, kAstI32, kMemU16);
+      case kExprI32LoadMem:
+        return ReduceLoadMem(p, kAstI32, kMemI32);
 
-      case kExprI32StoreMemL:
-        return ReduceStoreMem(p, false, kAstI32);
-      case kExprI32StoreMemH:
-        return ReduceStoreMem(p, true, kAstI32);
-      case kExprI64StoreMemL:
-        return ReduceStoreMem(p, false, kAstI64);
-      case kExprI64StoreMemH:
-        return ReduceStoreMem(p, true, kAstI64);
-      case kExprF32StoreMemL:
-        return ReduceStoreMem(p, false, kAstF32);
-      case kExprF32StoreMemH:
-        return ReduceStoreMem(p, true, kAstF32);
-      case kExprF64StoreMemL:
-        return ReduceStoreMem(p, false, kAstF64);
-      case kExprF64StoreMemH:
-        return ReduceStoreMem(p, true, kAstF64);
+      case kExprI64LoadMem8S:
+        return ReduceLoadMem(p, kAstI64, kMemI8);
+      case kExprI64LoadMem8U:
+        return ReduceLoadMem(p, kAstI64, kMemU8);
+      case kExprI64LoadMem16S:
+        return ReduceLoadMem(p, kAstI64, kMemI16);
+      case kExprI64LoadMem16U:
+        return ReduceLoadMem(p, kAstI64, kMemU16);
+      case kExprI64LoadMem32S:
+        return ReduceLoadMem(p, kAstI64, kMemI32);
+      case kExprI64LoadMem32U:
+        return ReduceLoadMem(p, kAstI64, kMemU32);
+      case kExprI64LoadMem:
+        return ReduceLoadMem(p, kAstI64, kMemI64);
+
+      case kExprF32LoadMem:
+        return ReduceLoadMem(p, kAstF32, kMemF32);
+
+      case kExprF64LoadMem:
+        return ReduceLoadMem(p, kAstF64, kMemF64);
+
+      case kExprI32StoreMem8:
+        return ReduceStoreMem(p, kAstI32, kMemI8);
+      case kExprI32StoreMem16:
+        return ReduceStoreMem(p, kAstI32, kMemI16);
+      case kExprI32StoreMem:
+        return ReduceStoreMem(p, kAstI32, kMemI32);
+
+      case kExprI64StoreMem8:
+        return ReduceStoreMem(p, kAstI64, kMemI8);
+      case kExprI64StoreMem16:
+        return ReduceStoreMem(p, kAstI64, kMemI16);
+      case kExprI64StoreMem32:
+        return ReduceStoreMem(p, kAstI64, kMemI32);
+      case kExprI64StoreMem:
+        return ReduceStoreMem(p, kAstI64, kMemI64);
+
+      case kExprF32StoreMem:
+        return ReduceStoreMem(p, kAstF32, kMemF32);
+
+      case kExprF64StoreMem:
+        return ReduceStoreMem(p, kAstF64, kMemF64);
+
       case kExprResizeMemL:
         TypeCheckLast(p, kAstI32);
         // TODO: build node for ResizeMemL
@@ -1047,20 +1071,26 @@ class LR_WasmDecoder : public Decoder {
     }
   }
 
-  void ReduceLoadMem(Production* p, bool high, LocalType type) {
-    TypeCheckLast(p, high ? kAstI64 : kAstI32);  // index
-    MemType mem_type = MemAccessTypeOperand(p->pc(), type);
-    p->tree->node = builder_.LoadMem(type, mem_type, p->last()->node);
+  void ReduceLoadMem(Production* p, LocalType type, MemType mem_type) {
+    DCHECK_EQ(1, p->index);
+    TypeCheckLast(p, kAstI32);  // index
+    int length = 0;
+    uint32_t offset = 0;
+    MemoryAccessOperand(p->pc(), &length, &offset);
+    p->tree->node = builder_.LoadMem(type, mem_type, p->last()->node, offset);
   }
 
-  void ReduceStoreMem(Production* p, bool high, LocalType type) {
+  void ReduceStoreMem(Production* p, LocalType type, MemType mem_type) {
     if (p->index == 1) {
-      TypeCheckLast(p, high ? kAstI64 : kAstI32);  // index
-    } else if (p->index == 2) {
+      TypeCheckLast(p, kAstI32);  // index
+    } else {
+      DCHECK_EQ(2, p->index);
       TypeCheckLast(p, type);
-      MemType mem_type = MemAccessTypeOperand(p->pc(), type);
+      int length = 0;
+      uint32_t offset = 0;
+      MemoryAccessOperand(p->pc(), &length, &offset);
       TFNode* val = p->tree->children[1]->node;
-      builder_.StoreMem(mem_type, p->tree->children[0]->node, val);
+      builder_.StoreMem(mem_type, p->tree->children[0]->node, offset, val);
       p->tree->node = val;
     }
   }
@@ -1326,33 +1356,14 @@ class LR_WasmDecoder : public Decoder {
     return result;
   }
 
-  MemType MemAccessTypeOperand(const byte* pc, LocalType type) {
-    byte operand = Operand<uint8_t>(pc);
-    if (type == kAstF32)
-      return kMemF32;
-    if (type == kAstF64)
-      return kMemF64;
-    bool is64 = type == kAstI64;
-    bool signext = MemoryAccess::SignExtendField::decode(operand);
-    if (operand &
-        ~(MemoryAccess::SignExtendField::kMask |
-          MemoryAccess::IntWidthField::kMask)) {
-      error(pc, "unrecognized bits in memory access operand");
-      return kMemI32;
-    }
-    switch (MemoryAccess::IntWidthField::decode(operand)) {
-      case MemoryAccess::kI8:
-        return signext ? kMemI8 : kMemU8;
-      case MemoryAccess::kI16:
-        return signext ? kMemI16 : kMemU16;
-      case MemoryAccess::kI32:
-        return signext ? kMemI32 : kMemU32;
-      case MemoryAccess::kI64:
-        if (is64)
-          return signext ? kMemI64 : kMemU64;
-      default:
-        error(pc, "invalid width for int memory access");
-        return kMemI32;
+  void MemoryAccessOperand(const byte* pc, int* length, uint32_t* offset) {
+    byte bitfield = Operand<uint8_t>(pc);
+    if (MemoryAccess::OffsetField::decode(bitfield)) {
+      *offset = UnsignedLEB128Operand(pc + 1, length);
+      (*length)++;  // to account for the memory access byte
+    } else {
+      *offset = 0;
+      *length = 2;
     }
   }
 

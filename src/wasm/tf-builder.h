@@ -112,12 +112,12 @@ struct TFBuilder {
   //-----------------------------------------------------------------------
   // Operations that access the linear memory.
   //-----------------------------------------------------------------------
-  TFNode* MemBuffer();
-  TFNode* MemSize();
+  TFNode* MemBuffer(uint32_t offset);
+  TFNode* MemSize(uint32_t offset);
   TFNode* LoadGlobal(uint32_t index);
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
-  TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index);
-  TFNode* StoreMem(MemType type, TFNode* index, TFNode* val);
+  TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index, uint32_t offset);
+  TFNode* StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val);
 
   // Adds a branch that traps unless {cond} is true.
   void AddTrapUnless(TFNode* cond, TFNode* exception);

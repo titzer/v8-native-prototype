@@ -1101,20 +1101,25 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   MergeControlToEnd(graph, ret);
 }
 
-TFNode* TFBuilder::MemBuffer() {
-  if (!graph)
-    return nullptr;
-  if (!mem_buffer)
-    mem_buffer = graph->IntPtrConstant(module->mem_start);
-  return mem_buffer;
+TFNode* TFBuilder::MemBuffer(uint32_t offset) {
+  if (!graph) return nullptr;
+  if (offset == 0) {
+    if (!mem_buffer) mem_buffer = graph->IntPtrConstant(module->mem_start);
+    return mem_buffer;
+  } else {
+    return graph->IntPtrConstant(module->mem_start + offset);
+  }
 }
 
-TFNode* TFBuilder::MemSize() {
-  if (!graph)
-    return nullptr;
-  if (!mem_size)
-    mem_size = graph->IntPtrConstant(module->mem_end - module->mem_start);
-  return mem_size;
+TFNode* TFBuilder::MemSize(uint32_t offset) {
+  if (!graph) return nullptr;
+  int32_t size = static_cast<int>(module->mem_end - module->mem_start);
+  if (offset == 0) {
+    if (!mem_size) mem_size = graph->Int32Constant(size);
+    return mem_size;
+  } else {
+    return graph->Int32Constant(size + offset);
+  }
 }
 
 TFNode* TFBuilder::FunctionTable() {
@@ -1156,13 +1161,14 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   return node;
 }
 
-TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index) {
+  TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
+			     uint32_t offset) {
   if (!graph)
     return nullptr;
   const compiler::Operator* op =
       graph->machine()->CheckedLoad(MachineTypeFor(memtype));
-  TFNode* mem_buffer = MemBuffer();
-  TFNode* mem_size = MemSize();
+  TFNode* mem_buffer = MemBuffer(offset);
+  TFNode* mem_size = MemSize(offset);
   TFNode* node = graph->graph()->NewNode(op, mem_buffer, index, mem_size,
                                          *effect, *control);
 
@@ -1184,13 +1190,13 @@ TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index) {
   return node;
 }
 
-TFNode* TFBuilder::StoreMem(MemType type, TFNode* index, TFNode* val) {
+TFNode* TFBuilder::StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val) {
   if (!graph)
     return nullptr;
   const compiler::Operator* op =
       graph->machine()->CheckedStore(MachineTypeFor(type));
-  TFNode* mem_buffer = MemBuffer();
-  TFNode* mem_size = MemSize();
+  TFNode* mem_buffer = MemBuffer(offset);
+  TFNode* mem_size = MemSize(offset);
   TFNode* node = graph->graph()->NewNode(op, mem_buffer, index, mem_size, val,
                                          *effect, *control);
   *effect = node;

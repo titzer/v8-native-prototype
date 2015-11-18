@@ -300,6 +300,16 @@ TEST_F(WasmMacroGenTest, LoadsAndStores) {
     EXPECT_SIZE(6, WASM_STORE_MEM(kMemTypes[i], WASM_ZERO, WASM_GET_LOCAL(0)));
   }
 }
+
+
+TEST_F(WasmMacroGenTest, LoadsAndStoresWithOffset) {
+  for (size_t i = 0; i < arraysize(kMemTypes); i++) {
+    EXPECT_SIZE(5, WASM_LOAD_MEM_OFFSET(kMemTypes[i], 11, WASM_ZERO));
+  }
+  for (size_t i = 0; i < arraysize(kMemTypes); i++) {
+    EXPECT_SIZE(7, WASM_STORE_MEM_OFFSET(kMemTypes[i], 13, WASM_ZERO, WASM_GET_LOCAL(0)));
+  }
+}
 }
 }
 }
