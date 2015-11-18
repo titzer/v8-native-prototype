@@ -1730,6 +1730,137 @@ TEST_F(WasmDecoderTest, ExprBrIf_Unify) {
 }
 
 
+TEST_F(WasmDecoderTest, TableSwitch0) {
+  static byte code[] = { kExprTableSwitch, 0, 0, 0, 0 };
+  EXPECT_FAILURE(&env_v_v, code);
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch0b) {
+  static byte code[] = { kExprTableSwitch, 0, 0, 0, 0, kExprI8Const, 11 };
+  EXPECT_FAILURE(&env_v_v, code);
+  EXPECT_FAILURE(&env_i_i, code);
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch0c) {
+  static byte code[] = {
+    WASM_BLOCK(1, 
+               WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(0)),
+               WASM_I8(67))
+  };
+  EXPECT_VERIFIES(&env_v_v, code);
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch1) {
+  static byte code[] = {
+    WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+    WASM_TABLESWITCH_BODY(WASM_I8(0), WASM_I8(9))
+  };
+  EXPECT_VERIFIES(&env_i_i, code);
+  EXPECT_VERIFIES(&env_v_v, code);
+  EXPECT_FAILURE(&env_f_ff, code);
+  EXPECT_FAILURE(&env_d_dd, code);
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch_off_end) {
+  static byte code[] = {
+    WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+    WASM_TABLESWITCH_BODY(WASM_I8(0), WASM_I8(9))
+  };
+  for (size_t len = arraysize(code) - 1; len > 0; len--) {
+    Verify(kError, &env_v_v, code, code + len);
+  }
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch2) {
+  static byte code[] = {
+    WASM_TABLESWITCH_OP(2, 2, WASM_CASE(0), WASM_CASE(1)),
+    WASM_TABLESWITCH_BODY(WASM_I8(3), WASM_I8(10), WASM_I8(11))
+  };
+  EXPECT_VERIFIES(&env_i_i, code);
+  EXPECT_VERIFIES(&env_v_v, code);
+  EXPECT_FAILURE(&env_f_ff, code);
+  EXPECT_FAILURE(&env_d_dd, code);
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch1b) {
+  EXPECT_VERIFIES_INLINE(&env_i_i, 
+                         WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+                         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                               WASM_ZERO));
+
+  EXPECT_VERIFIES_INLINE(&env_f_ff, 
+                         WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+                         WASM_TABLESWITCH_BODY(WASM_ZERO,
+                                               WASM_F32(0.0)));
+
+  EXPECT_VERIFIES_INLINE(&env_d_dd, 
+                         WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+                         WASM_TABLESWITCH_BODY(WASM_ZERO,
+                                               WASM_F64(0.0)));
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch_invalid_br) {
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(0)),
+                        WASM_GET_LOCAL(0));
+  EXPECT_VERIFIES_INLINE(&env_i_i, 
+                         WASM_BLOCK(1,
+                                    WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(0)),
+                                    WASM_GET_LOCAL(0)));
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch_invalid_case_ref) {
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_TABLESWITCH_OP(0, 1, WASM_CASE(0)),
+                        WASM_GET_LOCAL(0));
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_TABLESWITCH_OP(1, 1, WASM_CASE(1)),
+                        WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                              WASM_ZERO));
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch1_br) {
+  EXPECT_VERIFIES_INLINE(&env_i_i, 
+                         WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+                         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                               WASM_BRV(0, WASM_ZERO)));
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch2_br) {
+  EXPECT_VERIFIES_INLINE(&env_i_i, 
+                         WASM_TABLESWITCH_OP(2, 2, WASM_CASE(0), WASM_CASE(1)),
+                         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                               WASM_BRV(0, WASM_I8(0)),
+                                               WASM_BRV(0, WASM_I8(1))));
+
+  EXPECT_FAILURE_INLINE(&env_f_ff, 
+                        WASM_TABLESWITCH_OP(2, 2, WASM_CASE(0), WASM_CASE(1)),
+                        WASM_TABLESWITCH_BODY(WASM_ZERO,
+                                              WASM_BRV(0, WASM_I8(3)),
+                                              WASM_BRV(0, WASM_I8(4))));
+}
+
+TEST_F(WasmDecoderTest, TableSwitch2x2) {
+  EXPECT_VERIFIES_INLINE(&env_i_i,
+                         WASM_TABLESWITCH_OP(2, 4,
+                                             WASM_CASE(0), WASM_CASE(1),
+                                             WASM_CASE(0), WASM_CASE(1)),
+                         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                               WASM_BRV(0, WASM_I8(3)),
+                                               WASM_BRV(0, WASM_I8(4))));
+  
+}
+
 TEST_F(WasmDecoderTest, ExprBreakNesting1) {
   EXPECT_VERIFIES_INLINE(&env_v_v,
                          WASM_BLOCK(1, WASM_BRV(0, WASM_ZERO)));
