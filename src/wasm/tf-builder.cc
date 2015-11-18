@@ -629,6 +629,27 @@ void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
   *false_node = graph->graph()->NewNode(graph->common()->IfFalse(), branch);
 }
 
+
+TFNode* TFBuilder::Switch(unsigned count, TFNode* key) {
+  if (!graph) return nullptr;
+  return graph->graph()->NewNode(graph->common()->Switch(count), key, *control);
+}
+
+
+TFNode* TFBuilder::IfValue(int32_t value, TFNode* sw) {
+  if (!graph) return nullptr;
+  DCHECK_EQ(compiler::IrOpcode::kSwitch, sw->opcode());
+  return graph->graph()->NewNode(graph->common()->IfValue(value), sw);
+}
+
+
+TFNode* TFBuilder::IfDefault(TFNode* sw) {
+  if (!graph) return nullptr;
+  DCHECK_EQ(compiler::IrOpcode::kSwitch, sw->opcode());
+  return graph->graph()->NewNode(graph->common()->IfDefault(), sw);
+}
+
+
 void TFBuilder::Return(unsigned count, TFNode** vals) {
   if (!graph) return;
   DCHECK_NOT_NULL(*control);

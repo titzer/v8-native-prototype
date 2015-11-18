@@ -1187,6 +1187,181 @@ TEST(Run_Wasm_BrIf_strict) {
 }
 
 
+TEST(Run_Wasm_TableSwitch1) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, 
+        WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
+        WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                              WASM_RETURN(WASM_I8(93))));
+  FOR_INT32_INPUTS(i) {
+    CHECK_EQ(93, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_TableSwitch2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, 
+        WASM_TABLESWITCH_OP(2, 2, WASM_CASE(0), WASM_CASE(1)),
+        WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                              WASM_RETURN(WASM_I8(91)),
+                              WASM_RETURN(WASM_I8(92))));
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i == 0 ? 91 : 92;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_TableSwitch2b) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r,
+        WASM_TABLESWITCH_OP(2, 2, WASM_CASE(1), WASM_CASE(0)),
+        WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                              WASM_RETURN(WASM_I8(81)),
+                              WASM_RETURN(WASM_I8(82))));
+  FOR_INT32_INPUTS(i) {
+    int32_t expected = *i == 0 ? 82 : 81;
+    CHECK_EQ(expected, r.Call(*i));
+  }
+}
+
+
+TEST(Run_Wasm_TableSwitch4) {
+  for (int i = 0; i < 4; i++) {
+    const uint16_t br = 0x8000u;
+    uint16_t c = 0;
+    uint16_t cases[] = {
+      i == 0 ? br : c++,
+      i == 1 ? br : c++,
+      i == 2 ? br : c++,
+      i == 3 ? br : c++
+    };
+    byte code[] = {
+      WASM_BLOCK(1, 
+                 WASM_TABLESWITCH_OP(3, 4,
+                                     WASM_CASE(cases[0]),
+                                     WASM_CASE(cases[1]),
+                                     WASM_CASE(cases[2]),
+                                     WASM_CASE(cases[3])),
+                 WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                       WASM_RETURN(WASM_I8(71)),
+                                       WASM_RETURN(WASM_I8(72)),
+                                       WASM_RETURN(WASM_I8(73)))),
+      WASM_RETURN(WASM_I8(74))
+    };
+
+    WasmRunner<int32_t> r(kMachInt32);
+    r.Build(code, code + arraysize(code));
+
+    FOR_INT32_INPUTS(i) {
+      int index = (*i < 0 || *i > 3) ? 3 : *i;
+      int32_t expected = 71 + cases[index];
+      if (expected >= 0x8000) expected = 74;
+      CHECK_EQ(expected, r.Call(*i));
+    }
+  }
+}
+
+
+TEST(Run_Wasm_TableSwitch4b) {
+  for (int a = 0; a < 2; a++) {
+    for (int b = 0; b < 2; b++) {
+      for (int c = 0; c < 2; c++) {
+        for (int d = 0; d < 2; d++) {
+          if (a + b + c + d == 0) continue;
+          if (a + b + c + d == 4) continue;
+
+          byte code[] = {
+            WASM_TABLESWITCH_OP(2, 4,
+                                WASM_CASE(a),
+                                WASM_CASE(b),
+                                WASM_CASE(c),
+                                WASM_CASE(d)),
+            WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                  WASM_RETURN(WASM_I8(61)),
+                                  WASM_RETURN(WASM_I8(62)))
+          };
+
+          WasmRunner<int32_t> r(kMachInt32);
+          r.Build(code, code + arraysize(code));
+
+          CHECK_EQ(61 + a, r.Call(0));
+          CHECK_EQ(61 + b, r.Call(1));
+          CHECK_EQ(61 + c, r.Call(2));
+          CHECK_EQ(61 + d, r.Call(3));
+          CHECK_EQ(61 + d, r.Call(4));
+        }
+      }
+    }
+  }
+}
+
+
+TEST(Run_Wasm_TableSwitch4_fallthru) {
+  byte code[] = {
+    WASM_TABLESWITCH_OP(4, 4,
+                        WASM_CASE(0),
+                        WASM_CASE(1),
+                        WASM_CASE(2),
+                        WASM_CASE(3)),
+    WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                          WASM_INC_LOCAL_BY(1, 1),
+                          WASM_INC_LOCAL_BY(1, 2),
+                          WASM_INC_LOCAL_BY(1, 4),
+                          WASM_INC_LOCAL_BY(1, 8)),
+    WASM_GET_LOCAL(1)
+  };
+
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  r.Build(code, code + arraysize(code));
+
+  CHECK_EQ(15, r.Call(0, 0));
+  CHECK_EQ(14, r.Call(1, 0));
+  CHECK_EQ(12, r.Call(2, 0));
+  CHECK_EQ(8, r.Call(3, 0));
+  CHECK_EQ(8, r.Call(4, 0));
+
+  CHECK_EQ(115, r.Call(0, 100));
+  CHECK_EQ(114, r.Call(1, 100));
+  CHECK_EQ(112, r.Call(2, 100));
+  CHECK_EQ(108, r.Call(3, 100));
+  CHECK_EQ(108, r.Call(4, 100));
+}
+
+
+TEST(Run_Wasm_TableSwitch4_fallthru_br) {
+  byte code[] = {
+    WASM_TABLESWITCH_OP(4, 4,
+                        WASM_CASE(0),
+                        WASM_CASE(1),
+                        WASM_CASE(2),
+                        WASM_CASE(3)),
+    WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                          WASM_INC_LOCAL_BY(1, 1),
+                          WASM_BRV(0, WASM_INC_LOCAL_BY(1, 2)),
+                          WASM_INC_LOCAL_BY(1, 4),
+                          WASM_BRV(0, WASM_INC_LOCAL_BY(1, 8))),
+    WASM_GET_LOCAL(1)
+  };
+
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  r.Build(code, code + arraysize(code));
+
+  CHECK_EQ(3, r.Call(0, 0));
+  CHECK_EQ(2, r.Call(1, 0));
+  CHECK_EQ(12, r.Call(2, 0));
+  CHECK_EQ(8, r.Call(3, 0));
+  CHECK_EQ(8, r.Call(4, 0));
+
+  CHECK_EQ(203, r.Call(0, 200));
+  CHECK_EQ(202, r.Call(1, 200));
+  CHECK_EQ(212, r.Call(2, 200));
+  CHECK_EQ(208, r.Call(3, 200));
+  CHECK_EQ(208, r.Call(4, 200));
+}
+
+
 TEST(Run_Wasm_F32ReinterpretI32) {
   WasmRunner<int32_t> r;
   TestingModule module;

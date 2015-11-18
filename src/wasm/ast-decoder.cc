@@ -79,6 +79,7 @@ struct Block {
 struct IfEnv {
   SsaEnv* true_env;
   SsaEnv* false_env;
+  SsaEnv** case_envs;
 };
 
 // A shift-reduce-parser strategy for decoding Wasm code that uses an explicit
@@ -376,7 +377,40 @@ class LR_WasmDecoder : public Decoder {
           break;
         }
         case kExprTableSwitch: {
-	  error("tableswitch unimplemented");
+          if (!checkAvailable(5)) {
+            error("expected #tableswitch <cases> <table>, fell off end");
+            break;
+          }
+          uint16_t case_count = *reinterpret_cast<const uint16_t*>(pc_ + 1);
+          uint16_t table_count = *reinterpret_cast<const uint16_t*>(pc_ + 3);
+          len = 5 + table_count * 2;
+
+          if (table_count == 0) {
+            error("tableswitch with 0 entries");
+            break;
+          }
+
+          if (!checkAvailable(len)) {
+            error("expected #tableswitch <cases> <table>, fell off end");
+            break;
+          }
+
+          Shift(kAstStmt, 1 + case_count);
+
+          // Verify table.
+          for (int i = 0; i < table_count; i++) {
+            uint16_t target = *reinterpret_cast<const uint16_t*>(pc_ + 5 + i * 2);
+            if (target >= 0x8000) {
+              size_t depth = target - 0x8000;
+              if (depth >= blocks_.size()) {
+                error(pc_ + 5 + i * 2, "improper branch in tableswitch");
+              }
+            } else {
+              if (target >= case_count) {
+                error(pc_ + 5 + i * 2, "invalid case target in tableswitch");
+              }
+            }
+          }
 	  break;
         }
         case kExprReturn: {
@@ -655,7 +689,7 @@ class LR_WasmDecoder : public Decoder {
         if (p->index == 1) {
           // Condition done. Split environment for true branch.
           TypeCheckLast(p, kAstI32);
-          ifs_.push_back({Split(ssa_env_), ssa_env_});
+          ifs_.push_back({Split(ssa_env_), ssa_env_, nullptr});
           IfEnv* env = &ifs_.back();
           builder_.Branch(p->last()->node, &env->true_env->control,
                           &env->false_env->control);
@@ -678,7 +712,7 @@ class LR_WasmDecoder : public Decoder {
         Tree* right = p->tree->children[2];
         if (p->index == 1) {
           TypeCheckLast(p, kAstI32);
-          ifs_.push_back({Split(ssa_env_), ssa_env_});
+          ifs_.push_back({Split(ssa_env_), ssa_env_, nullptr});
           IfEnv* env = &ifs_.back();
           builder_.Branch(p->last()->node, &env->true_env->control,
                           &env->false_env->control);
@@ -773,7 +807,8 @@ class LR_WasmDecoder : public Decoder {
 	  Block* block = &blocks_[blocks_.size() - depth - 1];
 	  SsaEnv* fenv = ssa_env_;
 	  SsaEnv* tenv = Split(fenv);
-          builder_.Branch(p->tree->children[0]->node, &tenv->control, &fenv->control);
+          builder_.Branch(p->tree->children[0]->node, &tenv->control,
+                          &fenv->control);
 	  ssa_env_ = tenv;
 	  ReduceBreakToExprBlock(p, block);
 	  ssa_env_ = fenv;
@@ -781,7 +816,81 @@ class LR_WasmDecoder : public Decoder {
         break;
       }
       case kExprTableSwitch: {
-	error("tableswitch unimplemented");
+        if (p->index == 1) {
+          // Switch key finished.
+          TypeCheckLast(p, kAstI32);
+
+          uint16_t case_count = *reinterpret_cast<const uint16_t*>(p->pc() + 1);
+          uint16_t table_count = *reinterpret_cast<const uint16_t*>(p->pc() + 3);
+
+          if (case_count == 0) {
+            // A degenerate switch returns the key value.
+            p->tree->type = p->last()->type;
+            p->tree->node = p->last()->node;
+            break;
+          }
+
+          TFNode* sw = builder_.Switch(table_count, p->last()->node);
+
+          // Allocate environments for each case.
+          SsaEnv** case_envs = zone_->NewArray<SsaEnv*>(case_count);
+          for (int i = 0; i < case_count; i++) {
+            case_envs[i] = UnreachableEnv();
+          }
+
+          ifs_.push_back({nullptr, nullptr, case_envs});
+          SsaEnv* break_env = ssa_env_;
+          PushBlock(break_env);
+          SsaEnv* copy = Steal(break_env);
+
+          // Build the environments for each case based on the table.
+          const uint16_t* table = reinterpret_cast<const uint16_t*>(p->pc() + 5);
+          for (int i = 0; i < table_count; i++) {
+            uint16_t target = table[i];
+            SsaEnv* env = Split(copy);
+            env->control = (i == table_count - 1) ? builder_.IfDefault(sw) :
+              builder_.IfValue(i, sw);
+            if (target >= 0x8000) {
+              // Targets an outer block.
+              int depth = target - 0x8000;
+              SsaEnv* tenv = blocks_[blocks_.size() - depth - 1].ssa_env;
+              Goto(env, tenv);
+            } else {
+              // Targets a case.
+              Goto(env, case_envs[target]);
+            }
+          }
+
+          if (p->tree->count == 2) {
+            // Switch with only 1 (default) case.
+            SetEnv(copy);
+          } else {
+            // Switch with > 1 cases. Use first environment.
+            SetEnv(case_envs[0]);
+          }
+        } else {
+          // Switch case finished.
+          SsaEnv* next;
+          if (p->done()) {
+            // Last case.
+            if (ssa_env_->go()) {
+              // fall through to the end.
+              Block* block = &blocks_.back();
+              ReduceBreakToExprBlock(p, block);
+            }
+            next = blocks_.back().ssa_env;
+            blocks_.pop_back();
+            ifs_.pop_back();
+          } else {
+            // Interior case.
+            next = ifs_.back().case_envs[p->index - 1];  
+            if (ssa_env_->go()) {
+              // fall through to the next case.
+              Goto(ssa_env_, next);
+            }
+          }
+          SetEnv(next);
+        }
 	break;
       }
       case kExprReturn: {
@@ -968,7 +1077,10 @@ class LR_WasmDecoder : public Decoder {
   }
 
   void SetEnv(SsaEnv* env) {
-    TRACE("  env = %p (%d)\n", static_cast<void*>(env), env->state);
+    TRACE("  env = %p (block depth = %d, state = %d)\n",
+          static_cast<void*>(env), 
+          static_cast<int>(blocks_.size()),
+          env->state);
     ssa_env_ = env;
     builder_.control = &env->control;
     builder_.effect = &env->effect;
@@ -1377,6 +1489,10 @@ int OpcodeLength(const byte* pc) {
       ReadUnsignedLEB128Operand(pc + 1, pc + 6, &length, &result);
       return 1 + length;
     }
+    case kExprTableSwitch: {
+      uint16_t table_count = *reinterpret_cast<const uint16_t*>(pc + 3);
+      return 5 + table_count * 2;
+    }
 
     default:
       return 1;
@@ -1431,9 +1547,10 @@ int OpcodeArity(FunctionEnv* env, const byte* pc) {
     }
     case kExprReturn: 
       return static_cast<int>(env->sig->return_count());
-    case kExprTableSwitch:
-      UNIMPLEMENTED();
-      return 0;
+    case kExprTableSwitch: {
+      uint16_t case_count = *reinterpret_cast<const uint16_t*>(pc + 1);
+      return 1 + case_count;
+    }
 
 #define DECLARE_OPCODE_CASE(name, opcode, sig) \
   case kExpr##name:                            \

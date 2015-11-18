@@ -31,6 +31,20 @@
 #define WASM_RETURN(...) kExprReturn, __VA_ARGS__
 #define WASM_UNREACHABLE kExprUnreachable
 
+#define WASM_TABLESWITCH_OP(case_count, table_count, ...) \
+  kExprTableSwitch,                                                       \
+    static_cast<byte>(case_count), static_cast<byte>(case_count >> 8),    \
+    static_cast<byte>(table_count), static_cast<byte>(table_count >> 8 ), \
+    __VA_ARGS__
+
+#define WASM_TABLESWITCH_BODY0(key) key
+
+#define WASM_TABLESWITCH_BODY(key, ...) \
+  key, __VA_ARGS__
+
+#define WASM_CASE(x) static_cast<byte>(x), static_cast<byte>(x >> 8)
+#define WASM_CASE_BR(x) static_cast<byte>(x), static_cast<byte>(0x80 | (x) >> 8)
+
 //------------------------------------------------------------------------------
 // Misc expressions.
 //------------------------------------------------------------------------------
@@ -86,7 +100,7 @@
 #define WASM_NOT(x) kExprBoolNot, x
 
 //------------------------------------------------------------------------------
-// Statements and expressions that are composed of multiple bytecodes.
+// Constructs that are composed of multiple bytecodes.
 //------------------------------------------------------------------------------
 #define WASM_WHILE(x, y) kExprLoop, 1, kExprIf, x, kExprBr, 0, y
 #define WASM_INC_LOCAL(index)                                          \
