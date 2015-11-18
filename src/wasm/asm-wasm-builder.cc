@@ -487,13 +487,15 @@ class AsmWasmBuilderImpl : public AstVisitor {
   int TypeIndexOf(Expression* expr) {
     DCHECK(expr->bounds().lower == expr->bounds().upper);
     TypeImpl<ZoneTypeConfig>* type = expr->bounds().lower;
-    if (type->Is(cache_.kInt32)) {
+    if (type->Is(cache_.kAsmSigned)) {
       return 0;
-    } else if (type->Is(cache_.kUint32)) {
+    } else if (type->Is(cache_.kAsmUnsigned)) {
       return 1;
-    } else if (type->Is(cache_.kFloat32)) {
+    } else if (type->Is(cache_.kAsmInt)) {
+      return 0;
+    } else if (type->Is(cache_.kAsmFloat)) {
       return 2;
-    } else if (type->Is(cache_.kFloat64)) {
+    } else if (type->Is(cache_.kAsmDouble)) {
       return 3;
     } else {
       UNREACHABLE();
@@ -570,11 +572,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   LocalType TypeFrom(TypeImpl<ZoneTypeConfig>* type) {
-    if (type->Is(cache_.kInt32)) {
+    if (type->Is(cache_.kAsmInt)) {
       return kAstI32;
-    } else if (type->Is(cache_.kFloat32)) {
+    } else if (type->Is(cache_.kAsmFloat)) {
       return kAstF32;
-    } else if (type->Is(cache_.kFloat64)) {
+    } else if (type->Is(cache_.kAsmDouble)) {
       return kAstF64;
     } else {
       return kAstStmt;
