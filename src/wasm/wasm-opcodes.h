@@ -47,14 +47,10 @@ struct MemoryAccess {
   // Alignment annotations for memory accesses.
   enum Alignment { kAligned = 0, kUnaligned = 1 };
 
-  // Memory width for integer accesses.
-  enum IntWidth { kI8 = 0, kI16 = 1, kI32 = 2, kI64 = 3 };
-
   // Bitfields for the various annotations for memory accesses.
-  typedef BitField<IntWidth, 0, 2> IntWidthField;
-  typedef BitField<bool, 2, 1> SignExtendField;
-  typedef BitField<Alignment, 3, 1> AlignmentField;
-  typedef BitField<Atomicity, 4, 2> AtomicityField;
+  typedef BitField<Alignment, 7, 1> AlignmentField;
+  typedef BitField<Atomicity, 5, 2> AtomicityField;
+  typedef BitField<bool, 4, 1> OffsetField;
 };
 
 typedef Signature<LocalType> FunctionSig;
@@ -90,25 +86,32 @@ typedef Signature<LocalType> FunctionSig;
 
 // Load memory expressions.
 #define FOREACH_LOAD_MEM_OPCODE(V) \
-  V(I32LoadMemL, 0x20, i_i)             \
-  V(I64LoadMemL, 0x21, l_i)             \
-  V(F32LoadMemL, 0x22, f_i)             \
-  V(F64LoadMemL, 0x23, d_i)             \
-  V(I32LoadMemH, 0x24, i_l)             \
-  V(I64LoadMemH, 0x25, l_l)             \
-  V(F32LoadMemH, 0x26, f_l)             \
-  V(F64LoadMemH, 0x27, d_l)
+  V(I32LoadMem8S,  0x20, i_i)          \
+  V(I32LoadMem8U,  0x21, i_i)          \
+  V(I32LoadMem16S, 0x22, i_i)          \
+  V(I32LoadMem16U, 0x23, i_i)          \
+  V(I64LoadMem8S,  0x24, l_i)          \
+  V(I64LoadMem8U,  0x25, l_i)          \
+  V(I64LoadMem16S, 0x26, l_i)          \
+  V(I64LoadMem16U, 0x27, l_i)          \
+  V(I64LoadMem32S, 0x28, l_i)          \
+  V(I64LoadMem32U, 0x29, l_i)          \
+  V(I32LoadMem,    0x2a, i_i)          \
+  V(I64LoadMem,    0x2b, l_i)          \
+  V(F32LoadMem,    0x2c, f_i)          \
+  V(F64LoadMem,    0x2d, d_i)
 
 // Store memory expressions.
 #define FOREACH_STORE_MEM_OPCODE(V) \
-  V(I32StoreMemL, 0x30, i_ii)            \
-  V(I64StoreMemL, 0x31, l_il)            \
-  V(F32StoreMemL, 0x32, f_if)            \
-  V(F64StoreMemL, 0x33, d_id)            \
-  V(I32StoreMemH, 0x34, i_li)            \
-  V(I64StoreMemH, 0x35, l_ll)            \
-  V(F32StoreMemH, 0x36, f_lf)            \
-  V(F64StoreMemH, 0x37, d_ld)
+  V(I32StoreMem8,  0x2e, i_ii)           \
+  V(I32StoreMem16, 0x2f, i_ii)           \
+  V(I64StoreMem8,  0x30, l_il)           \
+  V(I64StoreMem16, 0x31, l_il)           \
+  V(I64StoreMem32, 0x32, l_il)           \
+  V(I32StoreMem,   0x33, i_ii)           \
+  V(I64StoreMem,   0x34, l_il)           \
+  V(F32StoreMem,   0x35, f_if)           \
+  V(F64StoreMem,   0x36, d_id)             
 
 // Load memory expressions.
 #define FOREACH_MISC_MEM_OPCODE(V) \
@@ -256,7 +259,6 @@ typedef Signature<LocalType> FunctionSig;
   V(i_dd, kAstI32, kAstF64, kAstF64) \
   V(i_d, kAstI32, kAstF64)           \
   V(i_l, kAstI32, kAstI64)           \
-  V(i_li, kAstI32, kAstI64, kAstI32) \
   V(l_ll, kAstI64, kAstI64, kAstI64) \
   V(i_ll, kAstI32, kAstI64, kAstI64) \
   V(l_l, kAstI64, kAstI64)           \
@@ -275,9 +277,7 @@ typedef Signature<LocalType> FunctionSig;
   V(d_l, kAstF64, kAstI64)           \
   V(d_id, kAstF64, kAstI32, kAstF64) \
   V(f_if, kAstF32, kAstI32, kAstF32) \
-  V(l_il, kAstI64, kAstI32, kAstI64) \
-  V(d_ld, kAstF64, kAstI64, kAstF64) \
-  V(f_lf, kAstF32, kAstI64, kAstF32)
+  V(l_il, kAstI64, kAstI32, kAstI64) 
 
 enum WasmOpcode {
 // Declare expression opcodes.
@@ -336,62 +336,31 @@ class WasmOpcodes {
   static byte LoadStoreOpcodeOf(MemType type, bool store) {
     switch (type) {
       case kMemI8:
+        return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;
       case kMemU8:
+        return store ? kExprI32StoreMem8 : kExprI32LoadMem8U;
       case kMemI16:
+        return store ? kExprI32StoreMem16 : kExprI32LoadMem16S;
       case kMemU16:
+        return store ? kExprI32StoreMem16 : kExprI32LoadMem16U;
       case kMemI32:
       case kMemU32:
-        return store ? kExprI32StoreMemL : kExprI32LoadMemL;
+        return store ? kExprI32StoreMem : kExprI32LoadMem;
       case kMemI64:
       case kMemU64:
-        return store ? kExprI64StoreMemL : kExprI64LoadMemL;
+        return store ? kExprI64StoreMem : kExprI64LoadMem;
       case kMemF32:
-        return store ? kExprF32StoreMemL : kExprF32LoadMemL;
+        return store ? kExprF32StoreMem : kExprF32LoadMem;
       case kMemF64:
-        return store ? kExprF64StoreMemL : kExprF64LoadMemL;
+        return store ? kExprF64StoreMem : kExprF64LoadMem;
       default:
         UNREACHABLE();
         return kExprNop;
     }
   }
 
-  static byte LoadStoreAccessOf(MemType type) {
-    switch (type) {
-      case kMemI8:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI8) |
-            MemoryAccess::SignExtendField::encode(true));
-      case kMemU8:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI8) |
-            MemoryAccess::SignExtendField::encode(false));
-      case kMemI16:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI16) |
-            MemoryAccess::SignExtendField::encode(true));
-      case kMemU16:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI16) |
-            MemoryAccess::SignExtendField::encode(false));
-      case kMemI32:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI32) |
-            MemoryAccess::SignExtendField::encode(true));
-      case kMemU32:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI32) |
-            MemoryAccess::SignExtendField::encode(false));
-      case kMemI64:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI64) |
-            MemoryAccess::SignExtendField::encode(true));
-      case kMemU64:
-        return static_cast<byte>(
-            MemoryAccess::IntWidthField::encode(MemoryAccess::kI64) |
-            MemoryAccess::SignExtendField::encode(false));
-      default:
-        return 0;
-    }
+  static byte LoadStoreAccessOf(MemType type, bool with_offset = false) {
+    return MemoryAccess::OffsetField::encode(with_offset);
   }
 
   static char ShortNameOf(LocalType type) {

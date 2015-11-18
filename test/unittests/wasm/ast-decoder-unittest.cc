@@ -1049,6 +1049,64 @@ TEST_F(WasmDecoderTest, ResizeMemH) {
 }
 
 
+TEST_F(WasmDecoderTest, LoadMemOffset) {
+  for (int offset = 0; offset < 128; offset += 7) {
+    byte code[] = {kExprI32LoadMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), static_cast<byte>(offset), kExprI8Const, 0};
+    EXPECT_VERIFIES(&env_i_i, code);
+  }
+}
+
+
+TEST_F(WasmDecoderTest, StoreMemOffset) {
+  for (int offset = 0; offset < 128; offset += 7) {
+    byte code[] = {kExprI32StoreMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), static_cast<byte>(offset), kExprI8Const, 0, kExprI8Const, 0};
+    EXPECT_VERIFIES(&env_i_i, code);
+  }
+}
+
+
+TEST_F(WasmDecoderTest, LoadMemOffset_varint) {
+  byte code1[] = {
+    kExprI32LoadMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0, kExprI8Const, 0
+  };
+  byte code2[] = {
+    kExprI32LoadMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0x80, 1, kExprI8Const, 0
+  };
+  byte code3[] = {
+    kExprI32LoadMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0x81, 0x82, 5, kExprI8Const, 0
+  };
+  byte code4[] = {
+    kExprI32LoadMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0x83, 0x84, 0x85, 7, kExprI8Const, 0
+  };
+
+  EXPECT_VERIFIES(&env_i_i, code1);
+  EXPECT_VERIFIES(&env_i_i, code2);
+  EXPECT_VERIFIES(&env_i_i, code3);
+  EXPECT_VERIFIES(&env_i_i, code4);
+}
+
+
+TEST_F(WasmDecoderTest, StoreMemOffset_varint) {
+  byte code1[] = {
+    kExprI32StoreMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0, kExprI8Const, 0, kExprI8Const, 0
+  };
+  byte code2[] = {
+    kExprI32StoreMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0x80, 1, kExprI8Const, 0, kExprI8Const, 0
+  };
+  byte code3[] = {
+    kExprI32StoreMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0x81, 0x82, 5, kExprI8Const, 0, kExprI8Const, 0
+  };
+  byte code4[] = {
+    kExprI32StoreMem, WasmOpcodes::LoadStoreAccessOf(kMemI32, true), 0x83, 0x84, 0x85, 7, kExprI8Const, 0, kExprI8Const, 0
+  };
+
+  EXPECT_VERIFIES(&env_i_i, code1);
+  EXPECT_VERIFIES(&env_i_i, code2);
+  EXPECT_VERIFIES(&env_i_i, code3);
+  EXPECT_VERIFIES(&env_i_i, code4);
+}
+
+
 TEST_F(WasmDecoderTest, AllLoadMemCombinations) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType local_type = kLocalTypes[i];
@@ -1087,46 +1145,6 @@ TEST_F(WasmDecoderTest, AllStoreMemCombinations) {
         EXPECT_FAILURE(&env, code);
       }
     }
-  }
-}
-
-
-TEST_F(WasmDecoderTest, LoadMemHigh) {
-  WasmOpcode opcodes[] = {kExprI32LoadMemH, kExprI64LoadMemH,
-                          kExprF32LoadMemH, kExprF64LoadMemH};
-  LocalType local_types[] = {kAstI32, kAstI64, kAstF32, kAstF64};
-  MemType mem_types[] = {kMemI32, kMemI64, kMemF32, kMemF64};
-  // Check that all Expr<T>LoadMemH instructions take an int64 index.
-  for (size_t i = 0; i < arraysize(local_types); i++) {
-    LocalType type = local_types[i];
-    LocalType sig_types[] = {type, kAstI64};
-    FunctionSig sig(1, 1, sig_types);
-    FunctionEnv env;
-    init_env(&env, &sig);
-    byte code[] = {static_cast<byte>(opcodes[i]),
-                   WasmOpcodes::LoadStoreAccessOf(mem_types[i]), kExprGetLocal,
-                   0};
-    EXPECT_VERIFIES(&env, code);
-  }
-}
-
-
-TEST_F(WasmDecoderTest, StoreMemHigh) {
-  WasmOpcode opcodes[] = {kExprI32StoreMemH, kExprI64StoreMemH,
-                          kExprF32StoreMemH, kExprF64LoadMemH};
-  LocalType local_types[] = {kAstI32, kAstI64, kAstF32, kAstF64};
-  MemType mem_types[] = {kMemI32, kMemI64, kMemF32, kMemF64};
-  // Check that all Expr<T>StoreMemH instructions take an int64 index.
-  for (size_t i = 0; i < arraysize(local_types); i++) {
-    LocalType type = local_types[i];
-    LocalType sig_types[] = {type, kAstI64, type};
-    FunctionSig sig(1, 2, sig_types);
-    FunctionEnv env;
-    init_env(&env, &sig);
-    byte code[] = {static_cast<byte>(opcodes[i]),
-                   WasmOpcodes::LoadStoreAccessOf(mem_types[i]), kExprGetLocal,
-                   0, kExprGetLocal, 1};
-    EXPECT_VERIFIES(&env, code);
   }
 }
 
@@ -1839,25 +1857,30 @@ TEST_F(WasmOpcodeLengthTest, VariableLength) {
 
 
 TEST_F(WasmOpcodeLengthTest, LoadsAndStores) {
-  EXPECT_LENGTH(2, kExprI32LoadMemL);
-  EXPECT_LENGTH(2, kExprI64LoadMemL);
-  EXPECT_LENGTH(2, kExprF32LoadMemL);
-  EXPECT_LENGTH(2, kExprF64LoadMemL);
+  EXPECT_LENGTH(2, kExprI32LoadMem8S);
+  EXPECT_LENGTH(2, kExprI32LoadMem8U);
+  EXPECT_LENGTH(2, kExprI32LoadMem16S);
+  EXPECT_LENGTH(2, kExprI32LoadMem16U);
+  EXPECT_LENGTH(2, kExprI32LoadMem);
+  EXPECT_LENGTH(2, kExprI64LoadMem8S);
+  EXPECT_LENGTH(2, kExprI64LoadMem8U);
+  EXPECT_LENGTH(2, kExprI64LoadMem16S);
+  EXPECT_LENGTH(2, kExprI64LoadMem16U);
+  EXPECT_LENGTH(2, kExprI64LoadMem32S);
+  EXPECT_LENGTH(2, kExprI64LoadMem32U);
+  EXPECT_LENGTH(2, kExprI64LoadMem);
+  EXPECT_LENGTH(2, kExprF32LoadMem);
+  EXPECT_LENGTH(2, kExprF64LoadMem);
 
-  EXPECT_LENGTH(2, kExprI32StoreMemL);
-  EXPECT_LENGTH(2, kExprI64StoreMemL);
-  EXPECT_LENGTH(2, kExprF32StoreMemL);
-  EXPECT_LENGTH(2, kExprF64StoreMemL);
-
-  EXPECT_LENGTH(2, kExprI32LoadMemH);
-  EXPECT_LENGTH(2, kExprI64LoadMemH);
-  EXPECT_LENGTH(2, kExprF32LoadMemH);
-  EXPECT_LENGTH(2, kExprF64LoadMemH);
-
-  EXPECT_LENGTH(2, kExprI32StoreMemH);
-  EXPECT_LENGTH(2, kExprI64StoreMemH);
-  EXPECT_LENGTH(2, kExprF32StoreMemH);
-  EXPECT_LENGTH(2, kExprF64StoreMemH);
+  EXPECT_LENGTH(2, kExprI32StoreMem8);
+  EXPECT_LENGTH(2, kExprI32StoreMem16);
+  EXPECT_LENGTH(2, kExprI32StoreMem);
+  EXPECT_LENGTH(2, kExprI64StoreMem8);
+  EXPECT_LENGTH(2, kExprI64StoreMem16);
+  EXPECT_LENGTH(2, kExprI64StoreMem32);
+  EXPECT_LENGTH(2, kExprI64StoreMem);
+  EXPECT_LENGTH(2, kExprF32StoreMem);
+  EXPECT_LENGTH(2, kExprF64StoreMem);
 }
 
 
@@ -2085,25 +2108,32 @@ TEST_F(WasmOpcodeArityTest, Calls) {
 TEST_F(WasmOpcodeArityTest, LoadsAndStores) {
   FunctionEnv env;
 
-  EXPECT_ARITY(1, kExprI32LoadMemL);
-  EXPECT_ARITY(1, kExprI64LoadMemL);
-  EXPECT_ARITY(1, kExprF32LoadMemL);
-  EXPECT_ARITY(1, kExprF64LoadMemL);
+  EXPECT_ARITY(1, kExprI32LoadMem8S);
+  EXPECT_ARITY(1, kExprI32LoadMem8U);
+  EXPECT_ARITY(1, kExprI32LoadMem16S);
+  EXPECT_ARITY(1, kExprI32LoadMem16U);
+  EXPECT_ARITY(1, kExprI32LoadMem);
 
-  EXPECT_ARITY(2, kExprI32StoreMemL);
-  EXPECT_ARITY(2, kExprI64StoreMemL);
-  EXPECT_ARITY(2, kExprF32StoreMemL);
-  EXPECT_ARITY(2, kExprF64StoreMemL);
+  EXPECT_ARITY(1, kExprI64LoadMem8S);
+  EXPECT_ARITY(1, kExprI64LoadMem8U);
+  EXPECT_ARITY(1, kExprI64LoadMem16S);
+  EXPECT_ARITY(1, kExprI64LoadMem16U);
+  EXPECT_ARITY(1, kExprI64LoadMem32S);
+  EXPECT_ARITY(1, kExprI64LoadMem32U);
+  EXPECT_ARITY(1, kExprI64LoadMem);
+  EXPECT_ARITY(1, kExprF32LoadMem);
+  EXPECT_ARITY(1, kExprF64LoadMem);
 
-  EXPECT_ARITY(1, kExprI32LoadMemH);
-  EXPECT_ARITY(1, kExprI64LoadMemH);
-  EXPECT_ARITY(1, kExprF32LoadMemH);
-  EXPECT_ARITY(1, kExprF64LoadMemH);
+  EXPECT_ARITY(2, kExprI32StoreMem8);
+  EXPECT_ARITY(2, kExprI32StoreMem16);
+  EXPECT_ARITY(2, kExprI32StoreMem);
+  EXPECT_ARITY(2, kExprI64StoreMem8);
+  EXPECT_ARITY(2, kExprI64StoreMem16);
+  EXPECT_ARITY(2, kExprI64StoreMem32);
+  EXPECT_ARITY(2, kExprI64StoreMem);
+  EXPECT_ARITY(2, kExprF32StoreMem);
+  EXPECT_ARITY(2, kExprF64StoreMem);
 
-  EXPECT_ARITY(2, kExprI32StoreMemH);
-  EXPECT_ARITY(2, kExprI64StoreMemH);
-  EXPECT_ARITY(2, kExprF32StoreMemH);
-  EXPECT_ARITY(2, kExprF64StoreMemH);
 }
 
 

@@ -1447,6 +1447,59 @@ TEST(Run_Wasm_LoadMemI32) {
 }
 
 
+TEST(Run_Wasm_LoadMemI32_offset) {
+  WasmRunner<int32_t> r(kMachInt32);
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(4);
+  module.RandomizeMemory(1111);
+  r.env()->module = &module;
+
+  BUILD(r, WASM_LOAD_MEM_OFFSET(kMemI32, 4, WASM_GET_LOCAL(0)));
+
+  memory[0] = 66666666;
+  memory[1] = 77777777;
+  memory[2] = 88888888;
+  memory[3] = 99999999;
+  CHECK_EQ(77777777, r.Call(0));
+  CHECK_EQ(88888888, r.Call(4));
+  CHECK_EQ(99999999, r.Call(8));
+
+  memory[0] = 11111111;
+  memory[1] = 22222222;
+  memory[2] = 33333333;
+  memory[3] = 44444444;
+  CHECK_EQ(22222222, r.Call(0));
+  CHECK_EQ(33333333, r.Call(4));
+  CHECK_EQ(44444444, r.Call(8));
+
+}
+
+
+TEST(Run_Wasm_StoreMemI32_offset) {
+  WasmRunner<int32_t> r(kMachInt32);
+  const int32_t kWritten = 0xaabbccdd;
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(4);
+  r.env()->module = &module;
+
+  BUILD(r, WASM_STORE_MEM_OFFSET(kMemI32, 4, WASM_GET_LOCAL(0), WASM_I32(kWritten)));
+
+  for (int i = 0; i < 2; i++) {
+    module.RandomizeMemory(1111);
+    memory[0] = 66666666;
+    memory[1] = 77777777;
+    memory[2] = 88888888;
+    memory[3] = 99999999;
+    CHECK_EQ(kWritten, r.Call(i * 4));
+    CHECK_EQ(66666666, memory[0]);
+    CHECK_EQ(i == 0 ? kWritten : 77777777, memory[1]);
+    CHECK_EQ(i == 1 ? kWritten : 88888888, memory[2]);
+    CHECK_EQ(i == 2 ? kWritten : 99999999, memory[3]);
+  }
+
+}
+
+
 #if WASM_64
 TEST(Run_Wasm_F64ReinterpretI64) {
   WasmRunner<int64_t> r;
@@ -1570,7 +1623,7 @@ TEST(Run_Wasm_CheckMemIsZero) {
           kExprGetLocal,0,
           kExprBr, 0,
             kExprIfThen,
-              kExprI32LoadMemL,6,kExprGetLocal,0,
+              kExprI32LoadMem,0,kExprGetLocal,0,
               kExprBr,2, kExprI8Const, 255,
               kExprSetLocal,0,
                 kExprI32Sub,kExprGetLocal,0,kExprI8Const,4,
@@ -2188,6 +2241,7 @@ TEST(Run_WasmCall_Float64Sub) {
   double* memory = module.AddMemoryElems<double>(16);
   r.env()->module = &module;
 
+  // TODO(titzer): convert to a binop test.
   BUILD(r, WASM_BLOCK(2,
                       WASM_STORE_MEM(kMemF64,
                         WASM_ZERO,
@@ -2485,17 +2539,19 @@ TEST(Run_Wasm_ExprLoop_nested_ifs) {
 
 #if WASM_64
 TEST(Run_Wasm_LoadStoreI64_sx) {
-  MemType memtypes[] = {kMemI8, kMemI16, kMemI32, kMemI64 };
+  byte loads[] = {
+      kExprI64LoadMem8S, kExprI64LoadMem16S, kExprI64LoadMem32S, kExprI64LoadMem
+  };
 
-  for (size_t m = 0; m < arraysize(memtypes); m++) {
+  for (size_t m = 0; m < arraysize(loads); m++) {
     WasmRunner<int64_t> r;
     TestingModule module;
     byte* memory = module.AddMemoryElems<byte>(16);
     r.env()->module = &module;
 
-    byte code[] = {kExprI64StoreMemL, WasmOpcodes::LoadStoreAccessOf(kMemI64),
+    byte code[] = {kExprI64StoreMem, 0,
                    kExprI8Const, 8,
-                   kExprI64LoadMemL, WasmOpcodes::LoadStoreAccessOf(memtypes[m]),
+                   loads[m], 0,
                    kExprI8Const, 0};
 
     r.Build(code, code + arraysize(code));
