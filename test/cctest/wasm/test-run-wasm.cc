@@ -769,7 +769,7 @@ TEST(Run_WasmInt64Binops) {
 
 TEST(Run_WasmInt64Clz) {
   struct {
-    int32_t expected;
+    int64_t expected;
     uint64_t input;
   } values[] = {{0, 0x8000100000000000},
                 {1, 0x4000050000000000},
@@ -837,9 +837,9 @@ TEST(Run_WasmInt64Clz) {
                 {63, 0x0000000000000001},
                 {64, 0x0000000000000000}};
 
-  WasmRunner<int32_t> r(kMachUint64);
+  WasmRunner<int64_t> r(kMachUint64);
   BUILD(r, WASM_I64_CLZ(WASM_GET_LOCAL(0)));
-  for (int i = 0; i < arraysize(values); i++) {
+  for (size_t i = 0; i < arraysize(values); i++) {
     CHECK_EQ(values[i].expected, r.Call(values[i].input));
   }
 }
@@ -847,7 +847,7 @@ TEST(Run_WasmInt64Clz) {
 
 TEST(Run_WasmInt64Ctz) {
   struct {
-    int32_t expected;
+    int64_t expected;
     uint64_t input;
   } values[] = {{64, 0x0000000000000000},
                 {63, 0x8000000000000000},
@@ -915,9 +915,9 @@ TEST(Run_WasmInt64Ctz) {
                 {1, 0x000000009afdbc82},
                 {0, 0x000000009afdbc81}};
 
-  WasmRunner<int32_t> r(kMachUint64);
+  WasmRunner<int64_t> r(kMachUint64);
   BUILD(r, WASM_I64_CTZ(WASM_GET_LOCAL(0)));
-  for (int i = 0; i < arraysize(values); i++) {
+  for (size_t i = 0; i < arraysize(values); i++) {
     CHECK_EQ(values[i].expected, r.Call(values[i].input));
   }
 }
@@ -925,7 +925,7 @@ TEST(Run_WasmInt64Ctz) {
 
 TEST(Run_WasmInt64Popcnt) {
   struct {
-    int32_t expected;
+    int64_t expected;
     uint64_t input;
   } values[] = {{64, 0xffffffffffffffff},
                 {0, 0x0000000000000000},
@@ -933,9 +933,9 @@ TEST(Run_WasmInt64Popcnt) {
                 {26, 0x1123456782345678},
                 {38, 0xffedcba09edcba09}};
 
-  WasmRunner<int32_t> r(kMachUint64);
+  WasmRunner<int64_t> r(kMachUint64);
   BUILD(r, WASM_I64_POPCNT(WASM_GET_LOCAL(0)));
-  for (int i = 0; i < arraysize(values); i++) {
+  for (size_t i = 0; i < arraysize(values); i++) {
     CHECK_EQ(values[i].expected, r.Call(values[i].input));
   }
 }
