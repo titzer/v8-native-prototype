@@ -1052,9 +1052,10 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   *control = start;
   // JS context is the last parameter.
   TFNode* context = Constant(Handle<Context>(function->context(), isolate));
-  TFNode** args = Buffer(wasm_count + 6);
+  TFNode** args = Buffer(wasm_count + 7);
 
   bool arg_count_before_args = false;
+  bool add_new_target_undefined = false;
 
   int pos = 0;
   if (js_count == wasm_count) {
@@ -1062,6 +1063,7 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
     desc = compiler::Linkage::GetJSCallDescriptor(
         g->zone(), false, wasm_count + 1, compiler::CallDescriptor::kNoFlags);
     arg_count_before_args = false;
+    add_new_target_undefined = true;
   } else {
     // Use the Call builtin.
     Callable callable = CodeFactory::Call(isolate);
@@ -1082,6 +1084,10 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   for (int i = 0; i < wasm_count; i++) {
     TFNode* param = g->NewNode(graph->common()->Parameter(i), start);
     args[pos++] = ToJS(param, context, sig->GetParam(i));
+  }
+
+  if (add_new_target_undefined) {
+    args[pos++] = graph->UndefinedConstant();  // new target
   }
 
   if (!arg_count_before_args) {
