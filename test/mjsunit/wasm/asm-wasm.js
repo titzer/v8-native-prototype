@@ -335,7 +335,6 @@ function TestMixedAdd() {
 
 assertEquals(23, WASM.asmCompileRun(TestMixedAdd.toString()));
 
-
 function TestInt32HeapAccess(stdlib, foreign, buffer) {
   "use asm";
 
@@ -396,3 +395,53 @@ function TestFloatHeapAccess(stdlib, foreign, buffer) {
 }
 
 assertEquals(1, WASM.asmCompileRun(TestFloatHeapAccess.toString()));
+
+function TestConvertI32() {
+  "use asm";
+
+  function caller() {
+    var a = 1.5;
+    if ((~~(a + a)) == 3) {
+      return 24;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(24, WASM.asmCompileRun(TestConvertI32.toString()));
+
+function TestConvertF64() {
+  "use asm";
+
+  function caller() {
+    var a = 1;
+    if ((+(a + a)) > 1.5) {
+      return 25;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(25, WASM.asmCompileRun(TestConvertF64.toString()));
+
+function TestConvertF64FromUnsigned() {
+  "use asm";
+
+  function caller() {
+    var a = 0xffffffff;
+    if ((+(a>>>0)) > 0.0) {
+      if((+a) < 0.0) {
+        return 26;
+      }
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(26, WASM.asmCompileRun(TestConvertF64FromUnsigned.toString()));
