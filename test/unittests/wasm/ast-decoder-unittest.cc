@@ -657,7 +657,7 @@ TEST_F(WasmDecoderTest, ExprLoop1b) {
 TEST_F(WasmDecoderTest, ExprLoop2_unreachable) {
   static const byte code[] = {kExprLoop, 2, kExprBr, 0, kExprI8Const, 0,
                               kExprNop};
-  EXPECT_FAILURE(&env_i_i, code);
+  EXPECT_VERIFIES(&env_i_i, code);
 }
 
 
@@ -688,33 +688,13 @@ TEST_F(WasmDecoderTest, ReturnVoid3) {
 }
 
 
-TEST_F(WasmDecoderTest, Unreachable) {
+TEST_F(WasmDecoderTest, Unreachable1) {
   EXPECT_VERIFIES_INLINE(&env_v_v, kExprUnreachable);
-}
-
-
-TEST_F(WasmDecoderTest, UnreachableCode1) {
-  EXPECT_FAILURE_INLINE(&env_v_v, kExprBr, 0, kExprNop, kExprNop);
-}
-
-
-TEST_F(WasmDecoderTest, UnreachableCode2) {
-  EXPECT_FAILURE_INLINE(&env_i_i, kExprBr, 0, kExprNop, kExprI8Const, 0, kExprNop);
-}
-
-
-TEST_F(WasmDecoderTest, UnreachableCode3) {
-  EXPECT_FAILURE_INLINE(&env_i_i, kExprLoop, 0, kExprI8Const, 0, kExprNop);
-}
-
-
-TEST_F(WasmDecoderTest, Unreachable4) {
-  EXPECT_FAILURE_INLINE(
-      &env_i_i,
-      WASM_BLOCK(2, WASM_LOOP(2, WASM_IF(WASM_GET_LOCAL(0), WASM_BREAK(1)),
-                              WASM_SET_LOCAL(0, WASM_I8(99))),
-                 /*unreachable*/ WASM_BREAKV(0, WASM_GET_LOCAL(0))),
-      WASM_I8(43));
+  EXPECT_VERIFIES_INLINE(&env_v_v, kExprUnreachable, kExprUnreachable);
+  EXPECT_VERIFIES_INLINE(&env_v_v, WASM_BLOCK(2, WASM_UNREACHABLE, WASM_ZERO));
+  EXPECT_VERIFIES_INLINE(&env_v_v, WASM_BLOCK(2, WASM_BR(0), WASM_ZERO));
+  EXPECT_VERIFIES_INLINE(&env_v_v, WASM_LOOP(2, WASM_UNREACHABLE, WASM_ZERO));
+  EXPECT_VERIFIES_INLINE(&env_v_v, WASM_LOOP(2, WASM_BR(0), WASM_ZERO));
 }
 
 

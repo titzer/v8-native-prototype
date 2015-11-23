@@ -12,6 +12,7 @@ function bytes() {
 }
 
 var kAstStmt = 0;
+var kAstI32 = 1;
 
 var kExprNop =    0x00;
 var kExprBlock =  0x01;
@@ -53,12 +54,12 @@ try {
 var threw = false;
 try {
   var data = bytes(
-      0,       kAstStmt,  // signature
+      0,       kAstI32,   // signature
       2,       0,         // local int32 count
       3,       0,         // local int64 count
       4,       0,         // local float32 count
       5,       0,         // local float64 count
-      kExprBlock, 2, kExprBr, 0, kExprNop, kExprNop  // body
+      kExprBlock, 2, kExprNop, kExprNop  // body
   );
 
   WASM.verifyFunction(data);
