@@ -37,6 +37,8 @@ const char* WasmOpcodes::TypeName(LocalType type) {
       return "float32";
     case kAstF64:
       return "float64";
+    case kAstEnd:
+      return "<end>";
     default:
       return "Unknown";
   }

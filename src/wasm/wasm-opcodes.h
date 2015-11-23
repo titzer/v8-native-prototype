@@ -13,11 +13,12 @@ namespace wasm {
 
 // Types for syntax tree nodes.
 enum LocalType {
-  kAstStmt = 0,  // a statement node
-  kAstI32 = 1,   // expression that produces an int32 value
-  kAstI64 = 2,   // expression that produces an int64 value
-  kAstF32 = 3,   // expression that produces a float32 value
-  kAstF64 = 4    // expression that produces a float64 value
+  kAstStmt  = 0,  // expression that produces no value
+  kAstI32   = 1,  // expression that produces an int32 value
+  kAstI64   = 2,  // expression that produces an int64 value
+  kAstF32   = 3,  // expression that produces a float32 value
+  kAstF64   = 4,  // expression that produces a float64 value
+  kAstEnd   = 5   // expression that ends control flow
 };
 
 // Types for memory accesses and globals.
@@ -375,6 +376,8 @@ class WasmOpcodes {
         return 'd';
       case kAstStmt:
         return 'v';
+      case kAstEnd:
+        return 'x';
     }
   }
 };
