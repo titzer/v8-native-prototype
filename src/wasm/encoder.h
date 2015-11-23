@@ -59,6 +59,8 @@ class WasmFunctionBuilder : public ZoneObject {
                const uint32_t* local_indices,
                uint32_t indices_size);
   void AppendCode(const byte opcode, bool add_local_operand);
+  uint32_t AppendEditableImmediate(const byte immediate);
+  void EditImmediate(uint32_t index, const byte immediate);
   void Exported(uint8_t flag);
   void External(uint8_t flag);
   WasmFunctionEncoder* Build(Zone* zone, WasmModuleBuilder* mb) const;

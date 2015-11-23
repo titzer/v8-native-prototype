@@ -45,7 +45,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
         zone_(zone),
         cache_(TypeCache::Get()),
         block_depth_(0),
-        breakable_blocks_(zone) {
+        breakable_blocks_(zone),
+        block_size_index_(zone),
+        block_size_(zone) {
     InitializeAstVisitor(isolate);
   }
 
@@ -73,8 +75,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitStatements(ZoneList<Statement*>* stmts) {
     if (in_function_) {
       current_function_builder_->AppendCode(kExprBlock, false);
-      current_function_builder_->AppendCode(
-          static_cast<byte>(stmts->length()), false);
+      uint32_t index = current_function_builder_->AppendEditableImmediate(
+          static_cast<byte>(stmts->length()));
+      block_size_index_.push_back(index);
+      block_size_.push_back(static_cast<byte>(stmts->length()));
     }
 
     for (int i = 0; i < stmts->length(); ++i) {
@@ -82,6 +86,15 @@ class AsmWasmBuilderImpl : public AstVisitor {
       RECURSE(Visit(stmt));
       if (stmt->IsJump())
         break;
+    }
+
+    if (in_function_) {
+      uint32_t index = block_size_index_.back();
+      block_size_index_.pop_back();
+      byte size = block_size_.back();
+      block_size_.pop_back();
+      DCHECK(size >= 0);
+      current_function_builder_->EditImmediate(index, size);
     }
   }
 
@@ -369,6 +382,16 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitAssignment(Assignment* expr) {
     DCHECK(in_function_);
+    BinaryOperation* value_op = expr->value()->AsBinaryOperation();
+    if (value_op != NULL && MatchBinaryOperation(value_op) == kAsIs) {
+      VariableProxy* target_var = expr->target()->AsVariableProxy();
+      VariableProxy* effective_value_var = GetLeft(value_op)->AsVariableProxy();
+      if (target_var != NULL && effective_value_var != NULL &&
+          target_var->var() == effective_value_var->var()) {
+        block_size_.back()--;
+        return;
+      }
+    }
     is_set_op_ = true;
     RECURSE(Visit(expr->target()));
     DCHECK(!is_set_op_);
@@ -829,6 +852,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
   TypeCache const& cache_;
   int block_depth_;
   ZoneVector<std::pair<BreakableStatement*, bool>> breakable_blocks_;
+  ZoneVector<uint32_t> block_size_index_;
+  ZoneVector<byte> block_size_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
