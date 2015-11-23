@@ -41,6 +41,7 @@ struct TFBuilder {
   TFNode** cur_buffer;
   size_t cur_bufsize;
   TFNode* def_buffer[kDefaultBufferSize];
+  bool asm_js;
 
   TFBuilder(Zone* z, TFGraph* g);
 
@@ -110,12 +111,13 @@ struct TFBuilder {
   TFNode* MakeI64Popcnt(TFNode* input);
 
   //-----------------------------------------------------------------------
-  // Operations that access the linear memory.
+  // Operations that concern the linear memory.
   //-----------------------------------------------------------------------
   TFNode* MemBuffer(uint32_t offset);
   TFNode* MemSize(uint32_t offset);
   TFNode* LoadGlobal(uint32_t index);
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
+  void BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset);
   TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index, uint32_t offset);
   TFNode* StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val);
 

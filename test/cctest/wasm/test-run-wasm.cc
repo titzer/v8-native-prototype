@@ -55,6 +55,7 @@ class TestingModule : public ModuleEnv {
     module = nullptr;
     linker = nullptr;
     function_code = nullptr;
+    asm_js = false;
   }
 
   ~TestingModule() {
@@ -1622,6 +1623,78 @@ TEST(Run_Wasm_LoadMemI32) {
 }
 
 
+// TODO(titzer): check trapping behavior more robustly.
+#define CHECK_TRAP(x) CHECK_EQ(0xdeadbeef, x)
+
+TEST(Run_Wasm_LoadMemI32_oob) {
+  WasmRunner<int32_t> r(kMachUint32);
+  TestingModule module;
+  int32_t* memory = module.AddMemoryElems<int32_t>(8);
+  module.RandomizeMemory(1111);
+  r.env()->module = &module;
+
+  BUILD(r, WASM_LOAD_MEM(kMemI32, WASM_GET_LOCAL(0)));
+
+  memory[0] = 88888888;
+  CHECK_EQ(88888888, r.Call(0u));
+  for (uint32_t offset = 29; offset < 40; offset++) {
+    CHECK_TRAP(r.Call(offset));
+  }
+
+  for (uint32_t offset = 0x80000000; offset < 0x80000010; offset++) {
+    CHECK_TRAP(r.Call(offset));
+  }
+}
+
+
+TEST(Run_Wasm_LoadMemI32_oob_asm) {
+  WasmRunner<int32_t> r(kMachUint32);
+  TestingModule module;
+  module.asm_js = true;
+  int32_t* memory = module.AddMemoryElems<int32_t>(8);
+  module.RandomizeMemory(1112);
+  r.env()->module = &module;
+
+  BUILD(r, WASM_LOAD_MEM(kMemI32, WASM_GET_LOCAL(0)));
+
+  memory[0] = 999999;
+  CHECK_EQ(999999, r.Call(0u));
+  // TODO(titzer): offset 29-31 should also be OOB.
+  for (uint32_t offset = 32; offset < 40; offset++) {
+    CHECK_EQ(0, r.Call(offset));
+  }
+
+  for (uint32_t offset = 0x80000000; offset < 0x80000010; offset++) {
+    CHECK_EQ(0, r.Call(offset));
+  }
+}
+
+
+TEST(Run_Wasm_LoadMem_offset_oob) {
+  TestingModule module;
+  module.AddMemoryElems<int32_t>(8);
+
+  static const MemType kMemTypes[] = {
+    kMemI8,   kMemU8, kMemI16,  kMemU16,  kMemI32,
+    kMemU32, kMemI64, kMemU64, kMemF32, kMemF64};
+
+  for (size_t m = 0; m < arraysize(kMemTypes); m++) {
+    module.RandomizeMemory(1116 + static_cast<int>(m));
+    WasmRunner<int32_t> r(kMachUint32);
+    r.env()->module = &module;
+    uint32_t boundary = 24 - WasmOpcodes::MemSize(kMemTypes[m]);
+    
+    BUILD(r, WASM_LOAD_MEM_OFFSET(kMemTypes[m], 8, WASM_GET_LOCAL(0)), WASM_ZERO);
+
+    CHECK_EQ(0, r.Call(boundary));      // in bounds.
+
+    for (uint32_t offset = boundary + 1; offset < boundary + 19; offset++) {
+      CHECK_TRAP(r.Call(offset));  // out of bounds.
+    }
+  }
+}
+
+
 TEST(Run_Wasm_LoadMemI32_offset) {
   WasmRunner<int32_t> r(kMachInt32);
   TestingModule module;
@@ -1672,6 +1745,36 @@ TEST(Run_Wasm_StoreMemI32_offset) {
     CHECK_EQ(i == 2 ? kWritten : 99999999, memory[3]);
   }
 
+}
+
+
+TEST(Run_Wasm_StoreMem_offset_oob) {
+  TestingModule module;
+  byte* memory = module.AddMemoryElems<byte>(32);
+
+  static const MemType kMemTypes[] = {
+    kMemI8,   kMemU8, kMemI16,  kMemU16,  kMemI32,
+    kMemU32, kMemI64, kMemU64, kMemF32, kMemF64};
+
+  for (size_t m = 0; m < arraysize(kMemTypes); m++) {
+    module.RandomizeMemory(1119 + static_cast<int>(m));
+    WasmRunner<int32_t> r(kMachUint32);
+    r.env()->module = &module;
+
+    BUILD(r,
+          WASM_STORE_MEM_OFFSET(kMemTypes[m], 8, WASM_GET_LOCAL(0),
+                                WASM_LOAD_MEM(kMemTypes[m], WASM_ZERO)),
+          WASM_ZERO);
+
+    byte memsize = WasmOpcodes::MemSize(kMemTypes[m]);
+    uint32_t boundary = 24 - memsize;
+    CHECK_EQ(0, r.Call(boundary));      // in bounds.
+    CHECK_EQ(0, memcmp(&memory[0], &memory[8 + boundary], memsize));
+
+    for (uint32_t offset = boundary + 1; offset < boundary + 19; offset++) {
+      CHECK_TRAP(r.Call(offset));  // out of bounds.
+    }
+  }
 }
 
 
@@ -1805,7 +1908,7 @@ TEST(Run_Wasm_CheckMemIsZero) {
       kExprI8Const,0);
 
   module.ZeroMemory();
-  CHECK_EQ(0, r.Call(kNumElems * 4));
+  CHECK_EQ(0, r.Call((kNumElems - 1) * 4));
 }
 
 

@@ -479,13 +479,14 @@ compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
 
 int32_t CompileAndRunWasmModule(Isolate* isolate,
                                 const byte* module_start,
-                                const byte* module_end) {
+                                const byte* module_end,
+                                bool asm_js) {
   HandleScope scope(isolate);
   Zone zone;
   // Decode the module, but don't verify function bodies, since we'll
   // be compiling them anyway.
   ModuleResult result =
-      DecodeWasmModule(isolate, &zone, module_start, module_end, false);
+      DecodeWasmModule(isolate, &zone, module_start, module_end, false, false);
   if (result.failed()) {
     // Module verification failed. throw.
     std::ostringstream str;
@@ -499,6 +500,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate,
   delete result.val;
   return retval;
 }
+
 
 int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   ErrorThrower thrower(isolate, "CompileAndRunWasmModule");

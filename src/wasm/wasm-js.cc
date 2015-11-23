@@ -67,7 +67,7 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
-      isolate, &zone, buffer.start, buffer.end);
+      isolate, &zone, buffer.start, buffer.end, true, false);
 
   if (result.failed()) {
     thrower.Failed("", result);
@@ -116,7 +116,7 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   // Decode and pre-verify the functions before compiling and running.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
-      isolate, &zone, buffer.start, buffer.end, true);
+      isolate, &zone, buffer.start, buffer.end, true, false);
 
   if (result.failed()) {
     thrower.Failed("", result);
@@ -173,7 +173,7 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
       v8::internal::wasm::AsmWasmBuilder(info.isolate(), info.zone(),
                                          info.literal()).Run();
   int32_t result = v8::internal::wasm::CompileAndRunWasmModule(
-      isolate, module->Begin(), module->End());
+      isolate, module->Begin(), module->End(), true);
   args.GetReturnValue().Set(result);
 }
 
@@ -200,7 +200,7 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   // Verification will happen during compilation.
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
-      isolate, &zone, buffer.start, buffer.end, false);
+      isolate, &zone, buffer.start, buffer.end, false, false);
 
   if (result.failed()) {
     thrower.Failed("", result);

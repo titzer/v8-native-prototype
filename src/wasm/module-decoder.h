@@ -16,7 +16,8 @@ ModuleResult DecodeWasmModule(Isolate* isolate,
                               Zone* zone,
                               const byte* module_start,
                               const byte* module_end,
-                              bool verify_functions = true);
+                              bool verify_functions,
+                              bool asm_js);
 
 // Exposed for testing. Decodes a single function signature, allocating it
 // in the given zone. Returns {nullptr} upon failure.

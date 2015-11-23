@@ -54,8 +54,8 @@ var kExprStoreGlobal = 0x11;
 var kExprCallFunction = 0x12;
 var kExprCallIndirect = 0x13;
 
-var kExprI32LoadMemL = 0x20;
 var kExprI32LoadMem = 0x2a;
+var kExprI32StoreMem = 0x33;
 var kExprI32Add = 0x40;
 var kExprI32Sub = 0x41;
 
@@ -182,3 +182,69 @@ testOuterMemorySurvivalAcrossGc();
 testOuterMemorySurvivalAcrossGc();
 testOuterMemorySurvivalAcrossGc();
 testOuterMemorySurvivalAcrossGc();
+
+
+function testOOBThrows() {
+  var kBodySize = 8;
+  var kNameMainOffset = 29 + kBodySize + 1;
+
+  var data = bytes(
+    kDeclMemory,
+    12, 12, 1,                     // memory = 4KB
+    // -- signatures
+    kDeclSignatures, 1,
+    2, kAstI32, kAstI32, kAstI32,  // int->int
+    // -- main function
+    kDeclFunctions, 1,
+    kDeclFunctionLocals | kDeclFunctionName | kDeclFunctionExport,
+    0, 0,
+    kNameMainOffset, 0, 0, 0,      // name offset
+    1, 0,                          // local int32 count
+    0, 0,                          // local int64 count
+    0, 0,                          // local float32 count
+    0, 0,                          // local float64 count
+    kBodySize, 0,                  // code size
+    // geti: return mem[a] = mem[b]
+    kExprI32StoreMem, 0, kExprGetLocal, 0, kExprI32LoadMem, 0, kExprGetLocal, 1,
+    // names
+    kDeclEnd,
+    'g','e','t','i', 0             //  --
+  );
+
+  var memory = null;
+  var module = WASM.instantiateModule(data, null, memory);
+
+  var offset;
+
+  function read() { return module.geti(0, offset); }
+  function write() { return module.geti(offset, 0); }
+
+  for (offset = 0; offset < 4092; offset++) {
+    assertEquals(0, read());
+    assertEquals(0, write());
+  }
+
+
+  for (offset = 4093; offset < 4124; offset++) {
+    assertThrows(read);       // read out of bounds
+    assertThrows(write);      // write out of bounds
+
+    try {
+      print("oob read  " + offset);
+      read();
+      assertTrue(false);
+    } catch (e) {
+      assertEquals("out of bounds memory access", e);
+    }
+
+    try {
+      print("oob write " + offset);
+      write();
+      assertTrue(false);
+    } catch (e) {
+      assertEquals("out of bounds memory access", e);
+    }
+  }
+}
+
+testOOBThrows();
