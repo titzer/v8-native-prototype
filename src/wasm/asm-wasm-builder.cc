@@ -317,11 +317,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
         }
         LocalType var_type = TypeOf(expr);
         DCHECK(var_type != kAstStmt);
-        std::vector<uint8_t> index =
-            UnsignedLEB128From(LookupOrInsertLocal(var, var_type));
-        uint32_t pos_of_index[1] = {0};
-        current_function_builder_->AddBody(
-            index.data(), static_cast<uint32_t>(index.size()), pos_of_index, 1);
+        AccessTemp(LookupOrInsertLocal(var, var_type));
       }
     } else if (marking_exported) {
       Variable* var = expr->var();
@@ -680,7 +676,17 @@ class AsmWasmBuilderImpl : public AstVisitor {
         BINOP_CASE(Token::SAR, ShrS, NON_SIGNED_INT_BINOP, true);
         BINOP_CASE(Token::SHR, ShrU, NON_SIGNED_INT_BINOP, true);
         case Token::MOD: {
-          UNREACHABLE();
+          TypeIndex type = TypeIndexOf(expr->left(), expr->right(), false);
+          if (type == kInt32) {
+            current_function_builder_->AppendCode(kExprI32RemS, false);
+          } else if (type == kUint32) {
+            current_function_builder_->AppendCode(kExprI32RemU, false);
+          } else if (type == kFloat64) {
+            ModF64(expr);
+            return;
+          } else {
+            UNREACHABLE();
+          }
         }
         break;
         default:
@@ -689,6 +695,40 @@ class AsmWasmBuilderImpl : public AstVisitor {
       RECURSE(Visit(expr->left()));
       RECURSE(Visit(expr->right()));
     }
+  }
+
+  void ModF64(BinaryOperation* expr) {
+    current_function_builder_->AppendCode(kExprBlock, false);
+    current_function_builder_->AppendCode(3, false);
+    uint16_t index_0 = current_function_builder_->AddLocal(kAstF64);
+    uint16_t index_1 = current_function_builder_->AddLocal(kAstF64);
+    current_function_builder_->AppendCode(kExprSetLocal, false);
+    AccessTemp(index_0);
+    RECURSE(Visit(expr->left()));
+    current_function_builder_->AppendCode(kExprSetLocal, false);
+    AccessTemp(index_1);
+    RECURSE(Visit(expr->right()));
+    current_function_builder_->AppendCode(kExprF64Sub, false);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_0);
+    current_function_builder_->AppendCode(kExprF64Mul, false);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_1);
+    // Use trunc instead of two casts
+    current_function_builder_->AppendCode(kExprF64SConvertI32, false);
+    current_function_builder_->AppendCode(kExprI32SConvertF64, false);
+    current_function_builder_->AppendCode(kExprF64Div, false);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_0);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_1);
+  }
+
+  void AccessTemp(uint32_t index) {
+    std::vector<uint8_t> index_vec = UnsignedLEB128From(index);
+    uint32_t pos_of_index[1] = {0};
+    current_function_builder_->AddBody(index_vec.data(),
+        static_cast<uint32_t>(index_vec.size()), pos_of_index, 1);
   }
 
   void VisitCompareOperation(CompareOperation* expr) {
