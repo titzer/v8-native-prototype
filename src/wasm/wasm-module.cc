@@ -10,6 +10,7 @@
 
 // TODO(titzer): wasm-module shouldn't need anything from the compiler.
 #include "src/compiler/common-operator.h"
+#include "src/compiler/instruction-selector.h"
 #include "src/compiler/js-graph.h"
 #include "src/compiler/pipeline.h"
 #include "src/compiler/machine-operator.h"
@@ -191,7 +192,9 @@ Handle<Code> CompileFunction(ErrorThrower& thrower,
   Zone zone;
   compiler::Graph graph(&zone);
   compiler::CommonOperatorBuilder common(&zone);
-  compiler::MachineOperatorBuilder machine(&zone);
+  compiler::MachineOperatorBuilder machine(
+      &zone, compiler::kMachPtr,
+      compiler::InstructionSelector::SupportedMachineOperatorFlags());
   compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr,
                             &machine);
   TreeResult result = BuildTFGraph(
