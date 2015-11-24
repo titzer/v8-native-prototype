@@ -97,14 +97,12 @@ TFBuilder::TFBuilder(Zone* z, TFGraph* g)
 }
 
 TFNode* TFBuilder::Error() {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   return graph->Dead();
 }
 
 TFNode* TFBuilder::Start(unsigned params) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   compiler::Graph* g = graph->graph();
   TFNode* start = g->NewNode(graph->common()->Start(params));
   g->SetStart(start);
@@ -112,21 +110,19 @@ TFNode* TFBuilder::Start(unsigned params) {
 }
 
 TFNode* TFBuilder::Param(unsigned index, LocalType type) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   compiler::Graph* g = graph->graph();
   // TODO(titzer): use LocalType for parameters
   return g->NewNode(graph->common()->Parameter(index), g->start());
 }
 
 TFNode* TFBuilder::Loop(TFNode* entry) {
-  return graph ? graph->graph()->NewNode(graph->common()->Loop(1), entry)
-               : nullptr;
+  DCHECK_NOT_NULL(graph);
+  return graph->graph()->NewNode(graph->common()->Loop(1), entry);
 }
 
 TFNode* TFBuilder::Terminate(TFNode* effect, TFNode* control) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   TFNode* terminate =
       graph->graph()->NewNode(graph->common()->Terminate(), effect, control);
   MergeControlToEnd(graph, terminate);
@@ -143,28 +139,26 @@ bool TFBuilder::IsPhiWithMerge(TFNode* phi, TFNode* merge) {
 }
 
 void TFBuilder::AppendToMerge(TFNode* merge, TFNode* from) {
-  if (graph) {
-    DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
-    merge->AppendInput(graph->zone(), from);
-    int new_size = merge->InputCount();
-    compiler::NodeProperties::ChangeOp(
-        merge, graph->common()->ResizeMergeOrPhi(merge->op(), new_size));
-  }
+  DCHECK_NOT_NULL(graph);
+  DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
+  merge->AppendInput(graph->zone(), from);
+  int new_size = merge->InputCount();
+  compiler::NodeProperties::ChangeOp(
+      merge, graph->common()->ResizeMergeOrPhi(merge->op(), new_size));
 }
 
 void TFBuilder::AppendToPhi(TFNode* merge, TFNode* phi, TFNode* from) {
-  if (graph) {
-    DCHECK(compiler::IrOpcode::IsPhiOpcode(phi->opcode()));
-    DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
-    int new_size = phi->InputCount();
-    phi->InsertInput(graph->zone(), phi->InputCount() - 1, from);
-    compiler::NodeProperties::ChangeOp(
-        phi, graph->common()->ResizeMergeOrPhi(phi->op(), new_size));
-  }
+  DCHECK_NOT_NULL(graph);
+  DCHECK(compiler::IrOpcode::IsPhiOpcode(phi->opcode()));
+  DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
+  int new_size = phi->InputCount();
+  phi->InsertInput(graph->zone(), phi->InputCount() - 1, from);
+  compiler::NodeProperties::ChangeOp(
+      phi, graph->common()->ResizeMergeOrPhi(phi->op(), new_size));
 }
 
 TFNode* TFBuilder::Merge(unsigned count, TFNode** controls) {
-  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(graph);
   return graph->graph()->NewNode(graph->common()->Merge(count), count,
                                  controls);
 }
@@ -173,7 +167,6 @@ TFNode* TFBuilder::Phi(LocalType type,
                        unsigned count,
                        TFNode** vals,
                        TFNode* control) {
-  if (!graph) return nullptr;
   DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(vals, count + 1);
   buf[count] = control;
@@ -185,7 +178,7 @@ TFNode* TFBuilder::Phi(LocalType type,
 TFNode* TFBuilder::EffectPhi(unsigned count,
                              TFNode** effects,
                              TFNode* control) {
-  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(graph);
   DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(effects, count + 1);
   buf[count] = control;
@@ -194,11 +187,13 @@ TFNode* TFBuilder::EffectPhi(unsigned count,
 }
 
 TFNode* TFBuilder::Int32Constant(int32_t value) {
-  return graph ? graph->Int32Constant(value) : nullptr;
+  DCHECK_NOT_NULL(graph);
+  return graph->Int32Constant(value);
 }
 
 TFNode* TFBuilder::Int64Constant(int64_t value) {
-  return graph ? graph->Int64Constant(value) : nullptr;
+  DCHECK_NOT_NULL(graph);
+  return graph->Int64Constant(value);
 }
 
 static const compiler::Operator* UnsupportedOpcode(WasmOpcode opcode) {
@@ -214,8 +209,7 @@ static const compiler::Operator* UnsupportedOpcode(WasmOpcode opcode) {
 
 TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
   // TODO(titzer): insert manual divide-by-zero checks.
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
@@ -437,8 +431,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
 }
 
 TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   const compiler::Operator* op;
   compiler::MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
@@ -608,50 +601,54 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
 }
 
 TFNode* TFBuilder::Float32Constant(float value) {
-  return graph ? graph->Float32Constant(value) : nullptr;
+  DCHECK_NOT_NULL(graph);
+  return graph->Float32Constant(value);
 }
 
 TFNode* TFBuilder::Float64Constant(double value) {
-  return graph ? graph->Float64Constant(value) : nullptr;
+  DCHECK_NOT_NULL(graph);
+  return graph->Float64Constant(value);
 }
 
 TFNode* TFBuilder::Constant(Handle<Object> value) {
-  return graph ? graph->Constant(value) : nullptr;
+  DCHECK_NOT_NULL(graph);
+  return graph->Constant(value);
 }
 
-void TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
-  if (!graph) return;
+TFNode* TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
+  DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(cond);
   DCHECK_NOT_NULL(*control);
   TFNode* branch =
       graph->graph()->NewNode(graph->common()->Branch(), cond, *control);
   *true_node = graph->graph()->NewNode(graph->common()->IfTrue(), branch);
   *false_node = graph->graph()->NewNode(graph->common()->IfFalse(), branch);
+  return branch;
 }
 
 
 TFNode* TFBuilder::Switch(unsigned count, TFNode* key) {
-  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(graph);
   return graph->graph()->NewNode(graph->common()->Switch(count), key, *control);
 }
 
 
 TFNode* TFBuilder::IfValue(int32_t value, TFNode* sw) {
-  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(graph);
   DCHECK_EQ(compiler::IrOpcode::kSwitch, sw->opcode());
   return graph->graph()->NewNode(graph->common()->IfValue(value), sw);
 }
 
 
 TFNode* TFBuilder::IfDefault(TFNode* sw) {
-  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(graph);
   DCHECK_EQ(compiler::IrOpcode::kSwitch, sw->opcode());
   return graph->graph()->NewNode(graph->common()->IfDefault(), sw);
 }
 
 
-void TFBuilder::Return(unsigned count, TFNode** vals) {
-  if (!graph) return;
+TFNode* TFBuilder::Return(unsigned count, TFNode** vals) {
+  DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(*control);
   DCHECK_NOT_NULL(*effect);
 
@@ -668,21 +665,23 @@ void TFBuilder::Return(unsigned count, TFNode** vals) {
   TFNode* ret = g->NewNode(graph->common()->Return(), count + 2, vals);
 
   MergeControlToEnd(graph, ret);
+  return ret;
 }
 
 
-void TFBuilder::ReturnVoid() {
-  TFNode** vals = Buffer(0);
-  Return(0, vals);
+TFNode* TFBuilder::ReturnVoid() {
+  return Return(0, Buffer(0));
 }
 
-void TFBuilder::Unreachable() {
-  if (!graph) return;
+TFNode* TFBuilder::Unreachable() {
+  DCHECK_NOT_NULL(graph);
   AddThrow(String("unreachable"));
+  return nullptr;
 }
 
 
 TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
+  DCHECK_NOT_NULL(graph);
   //// Implement the following code as TF graph.
   // value = value | (value << 1);
   // value = value | (value << 2);
@@ -690,9 +689,6 @@ TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   // value = value | (value << 8);
   // value = value | (value << 16);
   // return CountPopulation32(0xffffffff XOR value);
-
-  if (!graph)
-    return nullptr;
 
   TFNode* result = Binop(kExprI32Ior, input,
                          Binop(kExprI32Shl, input, graph->Int32Constant(1)));
@@ -726,9 +722,6 @@ TFNode* TFBuilder::MakeI64Ctz(TFNode* input) {
   // value = value | (value << 32);
   // return CountPopulation64(0xffffffffffffffff XOR value);
 
-  if (!graph)
-    return nullptr;
-
   TFNode* result = Binop(kExprI64Ior, input,
                          Binop(kExprI64Shl, input, graph->Int64Constant(1)));
 
@@ -754,15 +747,13 @@ TFNode* TFBuilder::MakeI64Ctz(TFNode* input) {
 }
 
 TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
+  DCHECK_NOT_NULL(graph);
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
   // value = ((value >> 2) & 0x33333333) + (value & 0x33333333);
   // value = ((value >> 4) & 0x0f0f0f0f) + (value & 0x0f0f0f0f);
   // value = ((value >> 8) & 0x00ff00ff) + (value & 0x00ff00ff);
   // value = ((value >> 16) & 0x0000ffff) + (value & 0x0000ffff);
-
-  if (!graph)
-    return nullptr;
 
   TFNode* result = Binop(
       kExprI32Add,
@@ -796,6 +787,7 @@ TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
 
 
 TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
+  DCHECK_NOT_NULL(graph);
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x5555555555555555) + (value & 0x5555555555555555);
   // value = ((value >> 2) & 0x3333333333333333) + (value & 0x3333333333333333);
@@ -803,9 +795,6 @@ TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
   // value = ((value >> 8) & 0x00ff00ff00ff00ff) + (value & 0x00ff00ff00ff00ff);
   // value = ((value >> 16) & 0x0000ffff0000ffff) + (value & 0x0000ffff0000ffff);
   // value = ((value >> 32) & 0x00000000ffffffff) + (value & 0x00000000ffffffff);
-
-  if (!graph)
-    return nullptr;
 
   TFNode* result = Binop(
       kExprI64Add,
@@ -865,9 +854,8 @@ TFNode* TFBuilder::MakeWasmCall(FunctionSig* sig, TFNode** args) {
 }
 
 TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
+  DCHECK_NOT_NULL(graph);
   DCHECK_NULL(args[0]);
-  if (!graph)
-    return nullptr;
 
   // Add code object as constant.
   args[0] = Constant(module->GetFunctionCode(index));
@@ -877,9 +865,9 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
 }
 
 TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(args[0]);
+
   compiler::Graph* g = graph->graph();
   compiler::MachineOperatorBuilder* machine = graph->machine();
 
@@ -930,8 +918,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
 }
 
 TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   compiler::Graph* g = graph->graph();
   compiler::SimplifiedOperatorBuilder simplified(graph->zone());
   switch (type) {
@@ -949,12 +936,14 @@ TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
     case kAstStmt:
       return graph->UndefinedConstant();
+    case kAstEnd:
+      UNREACHABLE();
+      return nullptr;
   }
 }
 
 TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   compiler::Graph* g = graph->graph();
   // Do a JavaScript ToNumber.
   TFNode* num = g->NewNode(graph->javascript()->ToNumber(), node, context,
@@ -988,18 +977,20 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
     case kAstStmt:
       num = graph->Int32Constant(0);
       break;
+    case kAstEnd:
+      UNREACHABLE();
+      return nullptr;
   }
   return num;
 }
 
 TFNode* TFBuilder::Invert(TFNode* node) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   return Unop(kExprBoolNot, node);
 }
 
 void TFBuilder::BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig* sig) {
-  CHECK_NOT_NULL(graph);
+  DCHECK_NOT_NULL(graph);
 
   int params = static_cast<int>(sig->parameter_count());
   compiler::Graph* g = graph->graph();
@@ -1039,6 +1030,7 @@ void TFBuilder::BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig* sig) {
 
 void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
                                      FunctionSig* sig) {
+  DCHECK_NOT_NULL(graph);
   CHECK_NOT_NULL(graph);
   int js_count = function->shared()->internal_formal_parameter_count();
   int wasm_count = static_cast<int>(sig->parameter_count());
@@ -1141,8 +1133,7 @@ TFNode* TFBuilder::FunctionTable() {
 
 
 TFNode* TFBuilder::LoadGlobal(uint32_t index) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   MemType mem_type = module->GetGlobalType(index);
   TFNode* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
@@ -1156,8 +1147,7 @@ TFNode* TFBuilder::LoadGlobal(uint32_t index) {
 
 
 TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
-  if (!graph)
-    return nullptr;
+  DCHECK_NOT_NULL(graph);
   MemType mem_type = module->GetGlobalType(index);
   TFNode* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
@@ -1275,11 +1265,12 @@ void TFBuilder::PrintDebugName(TFNode* node) {
 
 
 TFNode* TFBuilder::String(const char* string) {
-  if (!graph) return nullptr;
+  DCHECK_NOT_NULL(graph);
   return graph->Constant(graph->isolate()->factory()->NewStringFromAsciiChecked(string));
 }
 
 void TFBuilder::AddTrapUnless(TFNode* cond, TFNode* exception) {
+  DCHECK_NOT_NULL(graph);
   compiler::Graph* g = graph->graph();
   TFNode* branch = g->NewNode(
       graph->common()->Branch(compiler::BranchHint::kTrue), cond, *control);
@@ -1294,10 +1285,11 @@ void TFBuilder::AddTrapUnless(TFNode* cond, TFNode* exception) {
 
 
 void TFBuilder::AddThrow(TFNode* exception) {
+  DCHECK_NOT_NULL(graph);
   compiler::Graph* g = graph->graph();
   TFNode* end;
 
-  if (!module->context.is_null()) {
+  if (module && !module->context.is_null()) {
     // Use the module context to call the runtime to throw an exception.
     Runtime::FunctionId f = Runtime::kThrow;
     const Runtime::Function* fun = Runtime::FunctionForId(f);

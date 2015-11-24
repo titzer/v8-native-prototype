@@ -88,13 +88,13 @@ struct TFBuilder {
   //-----------------------------------------------------------------------
   // Operations that read and/or write {control} and {effect}.
   //-----------------------------------------------------------------------
-  void Branch(TFNode* cond, TFNode** true_node, TFNode** false_node);
+  TFNode* Branch(TFNode* cond, TFNode** true_node, TFNode** false_node);
   TFNode* Switch(unsigned count, TFNode* key);
   TFNode* IfValue(int32_t value, TFNode* sw);
   TFNode* IfDefault(TFNode* sw);
-  void Return(unsigned count, TFNode** vals);
-  void ReturnVoid();
-  void Unreachable();
+  TFNode* Return(unsigned count, TFNode** vals);
+  TFNode* ReturnVoid();
+  TFNode* Unreachable();
 
   TFNode* CallDirect(uint32_t index, TFNode** args);
   TFNode* CallIndirect(uint32_t index, TFNode** args);

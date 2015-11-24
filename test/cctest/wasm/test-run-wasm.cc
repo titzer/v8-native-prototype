@@ -2035,6 +2035,54 @@ TEST(Build_Wasm_Infinite_Loop_effect) {
 }
 
 
+TEST(Run_Wasm_Unreachable0a) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_BRV(0, WASM_I8(9)), WASM_RETURN(WASM_GET_LOCAL(0))));
+  CHECK_EQ(9, r.Call(0));
+  CHECK_EQ(9, r.Call(1));
+}
+
+
+TEST(Run_Wasm_Unreachable0b) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2, WASM_BRV(0, WASM_I8(7)), WASM_UNREACHABLE));
+  CHECK_EQ(7, r.Call(0));
+  CHECK_EQ(7, r.Call(1));
+}
+
+
+TEST(Build_Wasm_Unreachable1) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_UNREACHABLE);
+}
+
+
+TEST(Build_Wasm_Unreachable2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_UNREACHABLE, WASM_UNREACHABLE);
+}
+
+
+TEST(Build_Wasm_Unreachable3) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_UNREACHABLE, WASM_UNREACHABLE, WASM_UNREACHABLE);
+}
+
+
+TEST(Build_Wasm_UnreachableIf1) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_UNREACHABLE, WASM_IF(WASM_GET_LOCAL(0), WASM_GET_LOCAL(0)));
+}
+
+
+TEST(Build_Wasm_UnreachableIf2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_UNREACHABLE, WASM_IF_THEN(WASM_GET_LOCAL(0),
+                                          WASM_GET_LOCAL(0),
+                                          WASM_UNREACHABLE));
+}
+
+
 TEST(Run_Wasm_Infinite_Loop_not_taken1) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_BLOCK(2,

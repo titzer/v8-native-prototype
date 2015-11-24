@@ -37,6 +37,8 @@ const char* WasmOpcodes::TypeName(LocalType type) {
       return "float32";
     case kAstF64:
       return "float64";
+    case kAstEnd:
+      return "<end>";
     default:
       return "Unknown";
   }
@@ -116,17 +118,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
   switch (opcode) {
 #if !WASM_64
     // Opcodes not supported on 32-bit platforms.
-    case kExprI64LoadMemL:
-    case kExprI32LoadMemH:
-    case kExprI64LoadMemH:
-    case kExprF32LoadMemH:
-    case kExprF64LoadMemH:
-    case kExprI64StoreMemL:
-    case kExprI32StoreMemH:
-    case kExprI64StoreMemH:
-    case kExprF32StoreMemH:
-    case kExprF64StoreMemH:
-
     case kExprI64Add:
     case kExprI64Sub:
     case kExprI64Mul:
