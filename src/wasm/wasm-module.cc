@@ -216,6 +216,7 @@ Handle<Code> CompileFunction(ErrorThrower& thrower,
   compiler::CallDescriptor* descriptor = const_cast<compiler::CallDescriptor*>(
       module_env->GetWasmCallDescriptor(&zone, function.sig));
   CompilationInfo info("wasm", isolate, &zone);
+  info.set_output_code_kind(Code::WASM_FUNCTION);
   Handle<Code> code =
       compiler::Pipeline::GenerateCodeForTesting(&info, descriptor, &graph);
 
