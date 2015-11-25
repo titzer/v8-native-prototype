@@ -120,8 +120,11 @@ class ModuleDecoder : public Decoder {
             DecodeFunctionInModule(module, function, verify_functions);
 
             if (ok() && verify_functions) {
-              if (!function->external)
+              if (!function->external) {
                 VerifyFunctionBody(i, &menv, function);
+                if (result_.failed())
+                  error(result_.error_pc, result_.error_msg.get());
+              }
             }
           }
           break;
