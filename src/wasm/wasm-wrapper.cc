@@ -33,7 +33,7 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
   // Create the JSFunction object.
   //----------------------------------------------------------------------------
   Handle<SharedFunctionInfo> shared =
-      isolate->factory()->NewSharedFunctionInfo(name, wasm_code);
+      isolate->factory()->NewSharedFunctionInfo(name, wasm_code, false);
   int params = static_cast<int>(func->sig->parameter_count());
   shared->set_length(params);
   shared->set_internal_formal_parameter_count(1 + params);
@@ -90,7 +90,8 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
     compiler::CallDescriptor* incoming = compiler::Linkage::GetJSCallDescriptor(
         &zone, false, params + 1, compiler::CallDescriptor::kNoFlags);
     CompilationInfo info("js-to-wasm", isolate, &zone);
-    info.set_output_code_kind(Code::OPTIMIZED_FUNCTION);
+    // TODO(titzer): this is technically a WASM wrapper, not a wasm function.
+    info.set_output_code_kind(Code::WASM_FUNCTION);
     Handle<Code> code = compiler::Pipeline::GenerateCodeForTesting(
         &info, incoming, &graph, nullptr);
 
@@ -168,6 +169,8 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate,
     compiler::CallDescriptor* incoming =
         module->GetWasmCallDescriptor(&zone, func->sig);
     CompilationInfo info("wasm-to-js", isolate, &zone);
+    // TODO(titzer): this is technically a WASM wrapper, not a wasm function.
+    info.set_output_code_kind(Code::WASM_FUNCTION);
     code = compiler::Pipeline::GenerateCodeForTesting(&info, incoming, &graph,
                                                       nullptr);
 
