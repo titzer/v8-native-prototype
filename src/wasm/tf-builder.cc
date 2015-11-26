@@ -6,6 +6,9 @@
 #include "src/compiler/js-graph.h"
 #include "src/compiler/machine-operator.h"
 #include "src/compiler/simplified-operator.h"
+#include "src/compiler/simplified-lowering.h"
+#include "src/compiler/node-matchers.h"
+#include "src/compiler/diamond.h"
 
 #include "src/compiler/access-builder.h"
 
@@ -29,7 +32,40 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-static compiler::MachineType MachineTypeFor(LocalType type) {
+namespace {
+void MergeControlToEnd(TFGraph* graph, TFNode* node) {
+  compiler::Graph* g = graph->graph();
+  if (g->end()) {
+    compiler::NodeProperties::MergeControlToEnd(g, graph->common(), node);
+  } else {
+    g->SetEnd(g->NewNode(graph->common()->End(1), node));
+  }
+}
+
+enum TrapReason {
+  kTrapUnreachable,
+  kTrapMemOutOfBounds,
+  kTrapDivByZero,
+  kTrapDivUnrepresentable,
+  kTrapRemByZero,
+  kTrapFloatUnrepresentable,
+  kTrapFuncInvalid,
+  kTrapFuncSigMismatch,
+  kTrapCount
+};
+
+static const char* kTrapMessages[] = {
+  "unreachable",
+  "memory access out of bounds",
+  "divide by zero",
+  "divide result unrepresentable", 
+  "remainder by zero",
+  "integer result unrepresentable",
+  "invalid function",
+  "function signature mismatch"
+};
+
+compiler::MachineType MachineTypeFor(LocalType type) {
   switch (type) {
     case kAstI32:
       return compiler::kMachInt32;
@@ -45,7 +81,7 @@ static compiler::MachineType MachineTypeFor(LocalType type) {
   }
 }
 
-static compiler::MachineType MachineTypeFor(MemType type) {
+compiler::MachineType MachineTypeFor(MemType type) {
   switch (type) {
     case kMemI8:
       return compiler::kMachInt8;
@@ -72,15 +108,144 @@ static compiler::MachineType MachineTypeFor(MemType type) {
       return compiler::kMachAnyTagged;
   }
 }
+}  // namespace
 
-static void MergeControlToEnd(TFGraph* graph, TFNode* node) {
-  compiler::Graph* g = graph->graph();
-  if (g->end()) {
-    compiler::NodeProperties::MergeControlToEnd(g, graph->common(), node);
-  } else {
-    g->SetEnd(g->NewNode(graph->common()->End(1), node));
+
+// A helper that handles building graph fragments for trapping.
+// To avoid generating a ton of redundant code that just calls the runtime
+// to trap, we generate a per-trap-reason block of code that all trap sites
+// in this function will branch to.
+class TFTrapHelper : public ZoneObject{
+ public:
+  explicit TFTrapHelper(TFBuilder* b) :
+    builder(b),
+    graph(b->graph),
+    g(b->graph ? b->graph->graph() : nullptr) {
+
+    for (int i = 0; i < kTrapCount; i++) traps[i] = nullptr;
   }
-}
+
+  // Make the current control path trap to unreachable.
+  void Unreachable() {
+    ConnectTrap(kTrapUnreachable);
+  }
+  // Add a check that traps if {node} is equal to {val}.
+  TFNode* TrapIfEq32(TrapReason reason, TFNode* node, int32_t val) {
+    compiler::Int32Matcher m(node);
+    if (m.HasValue() && !m.Is(val)) return g->start();
+    if (val == 0) {
+      AddTrapIfFalse(reason, node);
+    } else {
+      AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word32Equal(),
+                                       node, graph->Int32Constant(val)));
+    }
+    return *(builder->control);
+  }
+  // Add a check that traps if {node} is zero.
+  TFNode* ZeroCheck32(TrapReason reason, TFNode* node) {
+    return TrapIfEq32(reason, node, 0);
+  }
+  // Add a check that traps if {node} is equal to {val}.
+  TFNode* TrapIfEq64(TrapReason reason, TFNode* node, int64_t val) {
+    compiler::Int64Matcher m(node);
+    if (m.HasValue() && !m.Is(val)) return g->start();
+    AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word64Equal(),
+                                     node, graph->Int64Constant(val)));
+    return *(builder->control);
+  }
+  // Add a check that traps if {node} is zero.
+  TFNode* ZeroCheck64(TrapReason reason, TFNode* node) {
+    return TrapIfEq64(reason, node, 0);
+  }
+  // Add a trap if {cond} is true.
+  void AddTrapIfTrue(TrapReason reason, TFNode* cond) {
+    AddTrapIf(reason, cond, true);
+  }
+  // Add a trap if {cond} is false.
+  void AddTrapIfFalse(TrapReason reason, TFNode* cond) {
+    AddTrapIf(reason, cond, false);
+  }
+  // Add a trap if {cond} is true or false according to {iftrue}.
+  void AddTrapIf(TrapReason reason, TFNode* cond, bool iftrue) {
+    DCHECK_NOT_NULL(graph);
+    TFNode** effect = builder->effect;
+    TFNode** control = builder->control;
+    TFNode* before = *effect;
+    compiler::BranchHint hint = iftrue ? compiler::BranchHint::kFalse :
+      compiler::BranchHint::kTrue;
+    TFNode* branch = g->NewNode(graph->common()->Branch(hint), cond,
+                                *(builder->control));
+    TFNode* if_true = g->NewNode(graph->common()->IfTrue(), branch);
+    TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
+    
+    *control = iftrue ? if_true : if_false;
+    ConnectTrap(reason);
+    *control = iftrue ? if_false : if_true;
+    *effect = before;
+  }
+
+ private:
+  TFBuilder* builder;
+  TFGraph* graph;
+  compiler::Graph* g;
+  TFNode* traps[kTrapCount];
+
+  void ConnectTrap(TrapReason reason) {
+    if (traps[reason] == nullptr) return BuildTrapCode(reason);
+    builder->AppendToMerge(traps[reason], *(builder->control));
+  }
+
+  void BuildTrapCode(TrapReason reason) {
+    TFNode* exception = builder->String(kTrapMessages[reason]);
+    TFNode* end;
+    TFNode** control = builder->control;
+    TFNode** effect = builder->effect;
+    ModuleEnv* module = builder->module;
+    *control = traps[reason] = g->NewNode(graph->common()->Merge(1), *control);
+
+    if (module && !module->context.is_null()) {
+      // Use the module context to call the runtime to throw an exception.
+      Runtime::FunctionId f = Runtime::kThrow;
+      const Runtime::Function* fun = Runtime::FunctionForId(f);
+      compiler::CallDescriptor* desc =
+        compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs,
+                                                    compiler::Operator::kNoProperties);
+      TFNode* inputs[] = {
+        graph->CEntryStubConstant(fun->result_size),                     // C entry
+        exception,                                                       // exception
+        graph->ExternalConstant(ExternalReference(f, graph->isolate())), // ref
+        graph->Int32Constant(fun->nargs),                                // arity
+        graph->Constant(module->context),                                // context
+        graph->EmptyFrameState(),
+        *effect,
+        *control
+      };
+      
+      TFNode* node = g->NewNode(graph->common()->Call(desc),
+                                static_cast<int>(arraysize(inputs)), inputs);
+      *control = node;
+      *effect = node;
+      
+    }
+    if (false) {
+      // End the control flow with a throw
+      TFNode* thrw = g->NewNode(graph->common()->Throw(),
+                                graph->ZeroConstant(), *effect, *control);
+      end = thrw;
+    } else {
+      // End the control flow with returning 0xdeadbeef
+      TFNode* ret_dead =
+        g->NewNode(graph->common()->Return(), graph->Int32Constant(0xdeadbeef),
+                   *effect, *control);
+      end = ret_dead;
+    }
+    
+    MergeControlToEnd(graph, end);
+  }
+};
+
+
+
 
 TFBuilder::TFBuilder(Zone* z, TFGraph* g)
     : zone(z),
@@ -89,11 +254,11 @@ TFBuilder::TFBuilder(Zone* z, TFGraph* g)
       mem_buffer(nullptr),
       mem_size(nullptr),
       function_table(nullptr),
-      trap(nullptr),
       control(nullptr),
       effect(nullptr),
       cur_buffer(def_buffer),
-      cur_bufsize(kDefaultBufferSize) {
+      cur_bufsize(kDefaultBufferSize),
+      trap(new (z) TFTrapHelper(this)) {
 }
 
 TFNode* TFBuilder::Error() {
@@ -222,18 +387,43 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprI32Mul:
       op = m->Int32Mul();
       break;
-    case kExprI32DivS:
-      op = m->Int32Div();
-      return graph->graph()->NewNode(op, left, right, *control);
+    case kExprI32DivS: {
+      trap->ZeroCheck32(kTrapDivByZero, right);
+      TFNode* before = *control;
+      TFNode* denom_is_m1;
+      TFNode* denom_is_not_m1;
+      Branch(graph->graph()->NewNode(graph->machine()->Word32Equal(),
+                                     right, graph->Int32Constant(-1)),
+             &denom_is_m1, &denom_is_not_m1);
+      *control = denom_is_m1;
+      trap->TrapIfEq32(kTrapDivUnrepresentable, left, kMinInt);
+      if (*control != denom_is_m1) {
+        *control = graph->graph()->NewNode(graph->common()->Merge(2),
+                                           denom_is_not_m1, *control);
+      } else {
+        *control = before;
+      }
+      return graph->graph()->NewNode(m->Int32Div(), left, right, *control);
+    }
     case kExprI32DivU:
       op = m->Uint32Div();
-      return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI32RemS:
-      op = m->Int32Mod();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(op, left, right,
+                                     trap->ZeroCheck32(kTrapDivByZero, right));
+    case kExprI32RemS: {
+      trap->ZeroCheck32(kTrapRemByZero, right);
+      compiler::Diamond d(graph->graph(), graph->common(),
+                          graph->graph()->NewNode(graph->machine()->Word32Equal(),
+                                                  right, graph->Int32Constant(-1)));
+
+      TFNode* rem = graph->graph()->NewNode(m->Int32Mod(), left, right,
+                                            d.if_false);
+
+      return d.Phi(compiler::kMachInt32, graph->Int32Constant(0), rem);
+    }
     case kExprI32RemU:
       op = m->Uint32Mod();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(op, left, right,
+                                     trap->ZeroCheck32(kTrapRemByZero, right));
     case kExprI32And:
       op = m->Word32And();
       break;
@@ -297,18 +487,44 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
     case kExprI64Mul:
       op = m->Int64Mul();
       break;
-    case kExprI64DivS:
-      op = m->Int64Div();
-      return graph->graph()->NewNode(op, left, right, *control);
+    case kExprI64DivS: {
+      trap->ZeroCheck64(kTrapDivByZero, right);
+      TFNode* before = *control;
+      TFNode* denom_is_m1;
+      TFNode* denom_is_not_m1;
+      Branch(graph->graph()->NewNode(graph->machine()->Word64Equal(),
+                                     right, graph->Int64Constant(-1)),
+             &denom_is_m1, &denom_is_not_m1);
+      *control = denom_is_m1;
+      trap->TrapIfEq64(kTrapDivUnrepresentable, left,
+                       std::numeric_limits<int64_t>::min());
+      if (*control != denom_is_m1) {
+        *control = graph->graph()->NewNode(graph->common()->Merge(2),
+                                           denom_is_not_m1, *control);
+      } else {
+        *control = before;
+      }
+      return graph->graph()->NewNode(m->Int64Div(), left, right, *control);
+    }
     case kExprI64DivU:
       op = m->Uint64Div();
-      return graph->graph()->NewNode(op, left, right, *control);
-    case kExprI64RemS:
-      op = m->Int64Mod();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(op, left, right,
+                                     trap->ZeroCheck64(kTrapDivByZero, right));
+    case kExprI64RemS: {
+      trap->ZeroCheck64(kTrapRemByZero, right);
+      compiler::Diamond d(graph->graph(), graph->common(),
+                          graph->graph()->NewNode(graph->machine()->Word64Equal(),
+                                                  right, graph->Int64Constant(-1)));
+
+      TFNode* rem = graph->graph()->NewNode(m->Int64Mod(), left, right,
+                                            d.if_false);
+
+      return d.Phi(compiler::kMachInt64, graph->Int64Constant(0), rem);
+    }
     case kExprI64RemU:
       op = m->Uint64Mod();
-      return graph->graph()->NewNode(op, left, right, *control);
+      return graph->graph()->NewNode(op, left, right, 
+                                     trap->ZeroCheck64(kTrapRemByZero, right));
     case kExprI64And:
       op = m->Word64And();
       break;
@@ -675,7 +891,7 @@ TFNode* TFBuilder::ReturnVoid() {
 
 TFNode* TFBuilder::Unreachable() {
   DCHECK_NOT_NULL(graph);
-  AddThrow(String("unreachable"));
+  trap->Unreachable();
   return nullptr;
 }
 
@@ -880,7 +1096,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   {
     TFNode* size = Int32Constant(static_cast<int>(table_size));
     TFNode* in_bounds = g->NewNode(machine->Uint32LessThan(), key, size);
-    AddTrapUnless(in_bounds, String("function pointer out of bounds"));
+    trap->AddTrapIfFalse(kTrapFuncInvalid, in_bounds);
   }
 
   // Load signature from the table and check.
@@ -899,7 +1115,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
                    *effect, *control);
     TFNode* sig_match =
         g->NewNode(machine->WordEqual(), load_sig, graph->SmiConstant(index));
-    AddTrapUnless(sig_match, String("function signature mismatch"));
+    trap->AddTrapIfFalse(kTrapFuncSigMismatch, sig_match);
   }
 
   // Load code object from the table.
@@ -1157,7 +1373,7 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   return node;
 }
 
-  TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
+TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
 			     uint32_t offset) {
   if (!graph)
     return nullptr;
@@ -1208,67 +1424,6 @@ TFNode* TFBuilder::String(const char* string) {
   return graph->Constant(graph->isolate()->factory()->NewStringFromAsciiChecked(string));
 }
 
-void TFBuilder::AddTrapUnless(TFNode* cond, TFNode* exception) {
-  DCHECK_NOT_NULL(graph);
-  compiler::Graph* g = graph->graph();
-  TFNode* branch = g->NewNode(
-      graph->common()->Branch(compiler::BranchHint::kTrue), cond, *control);
-
-  TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
-  *control = if_false;
-  TFNode* before = *effect;
-  AddThrow(exception);
-  *control = g->NewNode(graph->common()->IfTrue(), branch);
-  *effect = before;
-}
-
-
-void TFBuilder::AddThrow(TFNode* exception) {
-  DCHECK_NOT_NULL(graph);
-  compiler::Graph* g = graph->graph();
-  TFNode* end;
-
-  if (module && !module->context.is_null()) {
-    // Use the module context to call the runtime to throw an exception.
-    Runtime::FunctionId f = Runtime::kThrow;
-    const Runtime::Function* fun = Runtime::FunctionForId(f);
-    compiler::CallDescriptor* desc =
-      compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs,
-						  compiler::Operator::kNoProperties);
-    TFNode* inputs[] = {
-      graph->CEntryStubConstant(fun->result_size),                     // C entry
-      exception,                                                       // exception
-      graph->ExternalConstant(ExternalReference(f, graph->isolate())), // ref
-      graph->Int32Constant(fun->nargs),                                // arity
-      graph->Constant(module->context),                                // context
-      graph->EmptyFrameState(),
-      *effect,
-      *control
-    };
-
-    TFNode* node = g->NewNode(graph->common()->Call(desc),
-			      static_cast<int>(arraysize(inputs)), inputs);
-    *control = node;
-    *effect = node;
-
-  }
-  if (false) {
-    // End the control flow with a throw
-    TFNode* thrw = g->NewNode(graph->common()->Throw(),
-			      graph->ZeroConstant(), *effect, *control);
-    end = thrw;
-  } else {
-    // End the control flow with returning 0xdeadbeef
-    TFNode* ret_dead =
-      g->NewNode(graph->common()->Return(), graph->Int32Constant(0xdeadbeef),
-	       *effect, *control);
-    end = ret_dead;
-  }
-
-  // TODO(turbofan): merge all the runtime calls into a single throwing place
-  // and introduce a phi for the exception being thrown.
-  MergeControlToEnd(graph, end);
-}
 }
 }
 }
