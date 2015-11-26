@@ -147,8 +147,9 @@ class WasmLinker {
       }
     }
     if (modified) {
-      CpuFeatures::FlushICache(code->instruction_start(),
-                               code->instruction_size());
+      Assembler::FlushICache(isolate_,
+                             code->instruction_start(),
+                             code->instruction_size());
     }
   }
 };
