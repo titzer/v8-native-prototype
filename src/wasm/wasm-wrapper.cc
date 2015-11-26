@@ -33,7 +33,7 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
   // Create the JSFunction object.
   //----------------------------------------------------------------------------
   Handle<SharedFunctionInfo> shared =
-    isolate->factory()->NewSharedFunctionInfo(name, wasm_code, false);
+      isolate->factory()->NewSharedFunctionInfo(name, wasm_code, false);
   int params = static_cast<int>(func->sig->parameter_count());
   shared->set_length(params);
   shared->set_internal_formal_parameter_count(1 + params);

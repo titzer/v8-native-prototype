@@ -1506,39 +1506,31 @@ TEST_F(WasmDecoderTest, BreakNesting3) {
 }
 
 
-TEST_F(WasmDecoderTest, BreakNesting_6_levels) {
-  /** TODO XXX
-  for (int mask = 0; mask < 64; mask++) {
-    for (int i = 0; i < 12; i++) {
-      byte code[] = {
-          kExprBlock, 1,                           // --
-          kExprBlock, 1,                           // --
-          kExprBlock, 1,                           // --
-          kExprBlock, 1,                           // --
-          kExprBlock, 1,                           // --
-          kExprBlock, 1,                           // --
-          kExprBr, static_cast<byte>(i), kExprNop  // --
-      };
-
-      for (int l = 0; l < 6; l++) {
-        if (mask & (1 << l)) code[l * 2] = kExprLoop;
-      }
-
-      if (i < 6) {
-        EXPECT_VERIFIES(&env_v_v, code);
-      } else {
-        EXPECT_FAILURE(&env_v_v, code);
-      }
-    }
-  }
-  ***/
+TEST_F(WasmDecoderTest, BreaksWithMultipleTypes) {
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_BLOCK(2, 
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_I8(7)),
+                                   WASM_F32(7.7)));
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_BLOCK(2, 
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_I8(7)),
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_F32(7.7))));
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_BLOCK(3,
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_I8(8)),
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_I8(0)),
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_F32(7.7))));
+  EXPECT_FAILURE_INLINE(&env_i_i, 
+                        WASM_BLOCK(3,
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_I8(9)),
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_F32(7.7)),
+                                   WASM_BRV_IF(0, WASM_ZERO, WASM_I8(11))));
 }
 
 
-TEST_F(WasmDecoderTest, ContinueNesting_6_levels) {
-  /** TODO XXX
+TEST_F(WasmDecoderTest, BreakNesting_6_levels) {
   for (int mask = 0; mask < 64; mask++) {
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 14; i++) {
       byte code[] = {
           kExprBlock, 1,                           // --
           kExprBlock, 1,                           // --
@@ -1549,18 +1541,21 @@ TEST_F(WasmDecoderTest, ContinueNesting_6_levels) {
           kExprBr, static_cast<byte>(i), kExprNop  // --
       };
 
+      int depth = 6;
       for (int l = 0; l < 6; l++) {
-        if (mask & (1 << l)) code[10 - l * 2] = kExprLoop;
+        if (mask & (1 << l)) {
+          code[l * 2] = kExprLoop;
+          depth++;
+        }
       }
 
-      if (i < 6 && (mask & (1 << i))) {
+      if (i < depth) {
         EXPECT_VERIFIES(&env_v_v, code);
       } else {
         EXPECT_FAILURE(&env_v_v, code);
       }
     }
   }
-  **/
 }
 
 
