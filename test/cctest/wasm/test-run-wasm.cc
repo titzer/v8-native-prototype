@@ -3229,3 +3229,27 @@ TEST(Run_Wasm_F64UConvertI64) {
 
 
 #endif
+
+
+TEST(Run_Wasm_F64CopySign) {
+  WasmRunner<double> r(kMachFloat64, kMachFloat64);
+  BUILD(r, WASM_F64_COPYSIGN(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+
+  FOR_FLOAT64_INPUTS(i) {
+    FOR_FLOAT64_INPUTS(j) {
+      CheckDoubleEq(copysign(*i, *j), r.Call(*i, *j));
+    }
+  }
+}
+
+
+TEST(Run_Wasm_F32CopySign) {
+  WasmRunner<float> r(kMachFloat32, kMachFloat32);
+  BUILD(r, WASM_F32_COPYSIGN(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+
+  FOR_FLOAT32_INPUTS(i) {
+    FOR_FLOAT32_INPUTS(j) {
+      CheckFloatEq(copysign(*i, *j), r.Call(*i, *j));
+    }
+  }
+}
