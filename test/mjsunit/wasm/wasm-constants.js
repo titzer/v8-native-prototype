@@ -203,3 +203,41 @@ var kExprF64ConvertF32 = 0xb2;
 var kExprF64ReinterpretI64 = 0xb3;
 var kExprI32ReinterpretF32 = 0xb4;
 var kExprI64ReinterpretF64 = 0xb5;
+
+var kTrapUnreachable          = 0;
+var kTrapMemOutOfBounds       = 1;
+var kTrapDivByZero            = 2;
+var kTrapDivUnrepresentable   = 3;
+var kTrapRemByZero            = 4;
+var kTrapFloatUnrepresentable = 5;
+var kTrapFuncInvalid          = 6;
+var kTrapFuncSigMismatch      = 7;
+
+var kTrapMsgs = [
+  "unreachable",
+  "memory access out of bounds",
+  "divide by zero",
+  "divide result unrepresentable", 
+  "remainder by zero",
+  "integer result unrepresentable",
+  "invalid function",
+  "function signature mismatch"
+];
+
+function assertTraps(trap, code) {
+    var threwException = true;
+    try {
+      if (typeof code === 'function') {
+        code();
+      } else {
+        eval(code);
+      }
+      threwException = false;
+    } catch (e) {
+      assertEquals("string", typeof e);
+      assertEquals(kTrapMsgs[trap], e);
+      // Success.
+      return;
+    }
+    throw new MjsUnitAssertionError("Did not trap, expected: " + kTrapMsgs[trap]);
+}

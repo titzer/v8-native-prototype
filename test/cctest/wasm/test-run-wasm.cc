@@ -27,6 +27,12 @@
 #define WASM_64 0
 #endif
 
+// TODO(titzer): check traps more robustly in tests.
+// Currently, in tests, we just return 0xdeadbeef from the function in which
+// the trap occurs if the runtime context is not available to throw a JavaScript
+// exception.
+#define CHECK_TRAP(x) CHECK_EQ(0xdeadbeef, (x) & 0xFFFFFFFF)
+
 using namespace v8::base;
 using namespace v8::internal;
 using namespace v8::internal::compiler;
@@ -944,6 +950,158 @@ TEST(Run_WasmInt64Popcnt) {
 
 #endif
 
+TEST(Run_WASM_Int32DivS_trap) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  BUILD(r, WASM_I32_DIVS(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(0, r.Call(0, 100));
+  CHECK_TRAP(r.Call(100, 0));
+  CHECK_TRAP(r.Call(-1001, 0));
+  CHECK_TRAP(r.Call(std::numeric_limits<int32_t>::min(), -1));
+  CHECK_TRAP(r.Call(std::numeric_limits<int32_t>::min(), 0));
+}
+
+
+TEST(Run_WASM_Int32RemS_trap) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  BUILD(r, WASM_I32_REMS(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(33, r.Call(133, 100));
+  CHECK_EQ(0, r.Call(std::numeric_limits<int32_t>::min(), -1));
+  CHECK_TRAP(r.Call(100, 0));
+  CHECK_TRAP(r.Call(-1001, 0));
+  CHECK_TRAP(r.Call(std::numeric_limits<int32_t>::min(), 0));
+}
+
+
+TEST(Run_WASM_Int32DivU_trap) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  BUILD(r, WASM_I32_DIVU(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(0, r.Call(0, 100));
+  CHECK_EQ(0, r.Call(std::numeric_limits<int32_t>::min(), -1));
+  CHECK_TRAP(r.Call(100, 0));
+  CHECK_TRAP(r.Call(-1001, 0));
+  CHECK_TRAP(r.Call(std::numeric_limits<int32_t>::min(), 0));
+}
+
+
+TEST(Run_WASM_Int32RemU_trap) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  BUILD(r, WASM_I32_REMU(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(17, r.Call(217, 100));
+  CHECK_TRAP(r.Call(100, 0));
+  CHECK_TRAP(r.Call(-1001, 0));
+  CHECK_TRAP(r.Call(std::numeric_limits<int32_t>::min(), 0));
+  CHECK_EQ(std::numeric_limits<int32_t>::min(), r.Call(std::numeric_limits<int32_t>::min(), -1));
+}
+
+
+TEST(Run_WASM_Int32DivS_byzero_const) {
+  for (int8_t denom = -2; denom < 8; denom++) {
+    WasmRunner<int32_t> r(kMachInt32);
+    BUILD(r, WASM_I32_DIVS(WASM_GET_LOCAL(0), WASM_I8(denom)));
+    for (int32_t val = -7; val < 8; val++) {
+      if (denom == 0) {
+        CHECK_TRAP(r.Call(val));
+      } else {
+        CHECK_EQ(val / denom, r.Call(val));
+      }
+    }
+  }
+}
+
+
+TEST(Run_WASM_Int32DivU_byzero_const) {
+  for (uint32_t denom = 0xfffffffe; denom < 8; denom++) {
+    WasmRunner<uint32_t> r(kMachUint32);
+    BUILD(r, WASM_I32_DIVU(WASM_GET_LOCAL(0), WASM_I32(denom)));
+    
+    for (uint32_t val = 0xfffffff0; val < 8; val++) {
+      if (denom == 0) {
+        CHECK_TRAP(r.Call(val));
+      } else {
+        CHECK_EQ(val / denom, r.Call(val));
+      }
+    }
+  }
+}
+
+#if WASM_64
+#define as64(x) static_cast<int64_t>(x)
+TEST(Run_WASM_Int64DivS_trap) {
+  WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+  BUILD(r, WASM_I64_DIVS(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(0, r.Call(as64(0), as64(100)));
+  CHECK_TRAP(r.Call(as64(100), as64(0)));
+  CHECK_TRAP(r.Call(as64(-1001), as64(0)));
+  CHECK_TRAP(r.Call(std::numeric_limits<int64_t>::min(), as64(-1)));
+  CHECK_TRAP(r.Call(std::numeric_limits<int64_t>::min(), as64(0)));
+}
+
+
+TEST(Run_WASM_Int64RemS_trap) {
+  WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+  BUILD(r, WASM_I64_REMS(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(33, r.Call(as64(133), as64(100)));
+  CHECK_EQ(0, r.Call(std::numeric_limits<int64_t>::min(), as64(-1)));
+  CHECK_TRAP(r.Call(as64(100), as64(0)));
+  CHECK_TRAP(r.Call(as64(-1001), as64(0)));
+  CHECK_TRAP(r.Call(std::numeric_limits<int64_t>::min(), as64(0)));
+}
+
+
+TEST(Run_WASM_Int64DivU_trap) {
+  WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+  BUILD(r, WASM_I64_DIVU(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(0, r.Call(as64(0), as64(100)));
+  CHECK_EQ(0, r.Call(std::numeric_limits<int64_t>::min(), as64(-1)));
+  CHECK_TRAP(r.Call(as64(100), as64(0)));
+  CHECK_TRAP(r.Call(as64(-1001), as64(0)));
+  CHECK_TRAP(r.Call(std::numeric_limits<int64_t>::min(), as64(0)));
+}
+
+
+TEST(Run_WASM_Int64RemU_trap) {
+  WasmRunner<int64_t> r(kMachInt64, kMachInt64);
+  BUILD(r, WASM_I64_REMU(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  CHECK_EQ(17, r.Call(as64(217), as64(100)));
+  CHECK_TRAP(r.Call(as64(100), as64(0)));
+  CHECK_TRAP(r.Call(as64(-1001), as64(0)));
+  CHECK_TRAP(r.Call(std::numeric_limits<int64_t>::min(), as64(0)));
+  CHECK_EQ(std::numeric_limits<int64_t>::min(),
+           r.Call(std::numeric_limits<int64_t>::min(), as64(-1)));
+}
+
+
+TEST(Run_WASM_Int64DivS_byzero_const) {
+  for (int8_t denom = -2; denom < 8; denom++) {
+    WasmRunner<int64_t> r(kMachInt64);
+    BUILD(r, WASM_I64_DIVS(WASM_GET_LOCAL(0), WASM_I64(denom)));
+    for (int64_t val = -7; val < 8; val++) {
+      if (denom == 0) {
+        CHECK_TRAP(r.Call(val));
+      } else {
+        CHECK_EQ(val / denom, r.Call(val));
+      }
+    }
+  }
+}
+
+
+TEST(Run_WASM_Int64DivU_byzero_const) {
+  for (uint64_t denom = 0xfffffffffffffffe; denom < 8; denom++) {
+    WasmRunner<uint64_t> r(kMachUint64);
+    BUILD(r, WASM_I64_DIVU(WASM_GET_LOCAL(0), WASM_I64(denom)));
+    
+    for (uint64_t val = 0xfffffffffffffff0; val < 8; val++) {
+      if (denom == 0) {
+        CHECK_TRAP(r.Call(val));
+      } else {
+        CHECK_EQ(val / denom, r.Call(val));
+      }
+    }
+  }
+}
+#endif
+
 
 void TestFloat32Binop(WasmOpcode opcode, int32_t expected, float a, float b) {
   WasmRunner<int32_t> r;
@@ -1622,9 +1780,6 @@ TEST(Run_Wasm_LoadMemI32) {
   CHECK_EQ(77777777, r.Call(0));
 }
 
-
-// TODO(titzer): check trapping behavior more robustly.
-#define CHECK_TRAP(x) CHECK_EQ(0xdeadbeef, x)
 
 TEST(Run_Wasm_LoadMemI32_oob) {
   WasmRunner<int32_t> r(kMachUint32);
@@ -2944,6 +3099,63 @@ TEST(Run_Wasm_SimpleCallIndirect) {
   CHECK_EQ(88, r.Call(0));
   CHECK_EQ(44, r.Call(1));
   CHECK_EQ(0xdeadbeef, r.Call(2));  // TODO: that should be a trap.
+}
+
+
+TEST(Run_Wasm_MultipleCallIndirect) {
+  Isolate* isolate = CcTest::InitIsolateOnce();
+
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32, kMachInt32);
+  TestSignatures sigs;
+  TestingModule module;
+  r.env()->module = &module;
+  WasmFunctionCompiler t1(sigs.i_ii());
+  BUILD(t1, WASM_I32_ADD(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  t1.CompileAndAdd(&module);
+
+  WasmFunctionCompiler t2(sigs.i_ii());
+  BUILD(t2, WASM_I32_SUB(WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
+  t2.CompileAndAdd(&module);
+
+  // Signature table.
+  module.AddSignature(sigs.f_ff());
+  module.AddSignature(sigs.i_ii());
+  module.AddSignature(sigs.d_dd());
+
+  // Function table.
+  int table_size = 2;
+  std::vector<uint16_t> function_table;
+  module.module->function_table = &function_table;
+  module.module->function_table->push_back(0);
+  module.module->function_table->push_back(1);
+
+  // Function table.
+  Handle<FixedArray> fixed = isolate->factory()->NewFixedArray(2 * table_size);
+  fixed->set(0, Smi::FromInt(1));
+  fixed->set(1, Smi::FromInt(1));
+  fixed->set(2, *module.function_code->at(0));
+  fixed->set(3, *module.function_code->at(1));
+  module.function_table = fixed;
+
+  // Builder the caller function.
+  BUILD(r, WASM_I32_ADD(WASM_CALL_INDIRECT(1, 
+                                           WASM_GET_LOCAL(0),
+                                           WASM_GET_LOCAL(1),
+                                           WASM_GET_LOCAL(2)),
+                        WASM_CALL_INDIRECT(1, 
+                                           WASM_GET_LOCAL(1),
+                                           WASM_GET_LOCAL(2),
+                                           WASM_GET_LOCAL(0))));
+
+  CHECK_EQ(5,  r.Call(0, 1, 2));
+  CHECK_EQ(19, r.Call(0, 1, 9));
+  CHECK_EQ(1,  r.Call(1, 0, 2));
+  CHECK_EQ(1,  r.Call(1, 0, 9));
+
+  CHECK_TRAP(r.Call(0, 2, 1));
+  CHECK_TRAP(r.Call(1, 2, 0));
+  CHECK_TRAP(r.Call(2, 0, 1));
+  CHECK_TRAP(r.Call(2, 1, 0));
 }
 
 

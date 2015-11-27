@@ -24,6 +24,8 @@ typedef compiler::JSGraph TFGraph;
 
 struct ModuleEnv;
 
+class TFTrapHelper;
+
 // Abstracts details of building TurboFan graph nodes, making the decoder
 // independent of the exact IR details.
 struct TFBuilder {
@@ -35,13 +37,14 @@ struct TFBuilder {
   TFNode* mem_buffer;
   TFNode* mem_size;
   TFNode* function_table;
-  TFNode* trap;
   TFNode** control;
   TFNode** effect;
   TFNode** cur_buffer;
   size_t cur_bufsize;
   TFNode* def_buffer[kDefaultBufferSize];
   bool asm_js;
+
+  TFTrapHelper* trap;
 
   TFBuilder(Zone* z, TFGraph* g);
 
@@ -120,10 +123,6 @@ struct TFBuilder {
   void BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset);
   TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index, uint32_t offset);
   TFNode* StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val);
-
-  // Adds a branch that traps unless {cond} is true.
-  void AddTrapUnless(TFNode* cond, TFNode* exception);
-  void AddThrow(TFNode* exception);
 
   static void PrintDebugName(TFNode* node);
   TFNode* String(const char* string);
