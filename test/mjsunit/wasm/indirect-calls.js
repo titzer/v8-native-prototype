@@ -67,20 +67,5 @@ assertEquals("function", typeof module.main);
 assertEquals(5, module.main(0, 12, 7));
 assertEquals(19, module.main(1, 12, 7));
 
-var exception = "";
-try {
-    assertEquals(999, module.main(2, 12, 33));
-} catch(e) {
-    print("correctly caught: " + e);
-    exception = e;
-}
-assertEquals("function signature mismatch", exception);
-
-var exception = "";
-try {
-    assertEquals(999, module.main(3, 12, 33));
-} catch(e) {
-    print("correctly caught: " + e);
-    exception = e;
-}
-assertEquals("function pointer out of bounds", exception);
+assertTraps(kTrapFuncSigMismatch, "module.main(2, 12, 33)");
+assertTraps(kTrapFuncInvalid, "module.main(3, 12, 33)");
