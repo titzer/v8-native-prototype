@@ -8,9 +8,9 @@
 #include "src/wasm/wasm-macro-gen.h"
 #include "src/wasm/wasm-opcodes.h"
 
-#include "src/ast.h"
+#include "src/ast/ast.h"
+#include "src/ast/scopes.h"
 #include "src/codegen.h"
-#include "src/scopes.h"
 #include "src/type-cache.h"
 
 namespace v8 {

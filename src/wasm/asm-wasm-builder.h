@@ -6,16 +6,14 @@
 #define V8_WASM_ASM_WASM_BUILDER_H_
 
 #include "src/allocation.h"
-#include "src/ast.h"
-#include "src/effects.h"
-#include "src/scopes.h"
-#include "src/type-info.h"
-#include "src/types.h"
 #include "src/zone.h"
-#include "third_party/wasm/src/wasm/encoder.h"
+#include "src/wasm/encoder.h"
 
 namespace v8 {
 namespace internal {
+
+class FunctionLiteral;
+
 namespace wasm {
 
 class AsmWasmBuilder {
