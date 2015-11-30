@@ -173,24 +173,8 @@ function testOOBThrows() {
 
 
   for (offset = 4093; offset < 4124; offset++) {
-    assertThrows(read);       // read out of bounds
-    assertThrows(write);      // write out of bounds
-
-    try {
-      print("oob read  " + offset);
-      read();
-      assertTrue(false);
-    } catch (e) {
-      assertEquals("out of bounds memory access", e);
-    }
-
-    try {
-      print("oob write " + offset);
-      write();
-      assertTrue(false);
-    } catch (e) {
-      assertEquals("out of bounds memory access", e);
-    }
+    assertTraps(kTrapMemOutOfBounds, read);
+    assertTraps(kTrapMemOutOfBounds, write);
   }
 }
 
