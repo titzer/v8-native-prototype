@@ -6,6 +6,7 @@
   'targets': [
     {
       'target_name': 'wasm',
+      'toolsets': ['target', 'host'],
       'type': 'none',
       # A list of additional sources and options to be injected into:
       # tools/gyp/v8.gyp:v8_base

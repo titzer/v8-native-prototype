@@ -150,40 +150,22 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI64ReinterpretF64:
 
     case kExprResizeMemH:  // high memory not supported on 32-bit
-#endif
-
-    case kExprI32Clz:
-    case kExprI32Ctz:
-    case kExprI32Popcnt:
 
     case kExprI64Clz:
     case kExprI64Ctz:
     case kExprI64Popcnt:
 
-    case kExprF32Min:
-    case kExprF32Max:
-    case kExprF32CopySign:
-    case kExprF32Ceil:
-    case kExprF32Floor:
-    case kExprF32Trunc:
-    case kExprF32NearestInt:
+    case kExprF32SConvertI64:
+    case kExprF32UConvertI64:
+    case kExprF64SConvertI64:
+    case kExprF64UConvertI64:
 
-    case kExprF64Min:
-    case kExprF64Max:
-    case kExprF64CopySign:
-    case kExprF64Ceil:
-    case kExprF64Floor:
-    case kExprF64Trunc:
-    case kExprF64NearestInt:
+#endif
 
     case kExprI64SConvertF32:
     case kExprI64SConvertF64:
     case kExprI64UConvertF32:
     case kExprI64UConvertF64:
-    case kExprF32SConvertI64:
-    case kExprF32UConvertI64:
-    case kExprF64SConvertI64:
-    case kExprF64UConvertI64:
       return false;
     default:
       return true;

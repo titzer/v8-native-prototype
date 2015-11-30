@@ -578,6 +578,10 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       break;
 #endif
 
+    case kExprF32CopySign:
+      return MakeF32CopySign(left, right);
+    case kExprF64CopySign:
+      return MakeF64CopySign(left, right);
     case kExprF32Add:
       op = m->Float32Add();
       break;
@@ -640,6 +644,42 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       op = m->Float64LessThanOrEqual();
       std::swap(left, right);
       break;
+    case kExprF32Min: {
+      if (m->Float32Min().IsSupported()) {
+        op = m->Float32Min().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Min: {
+      if (m->Float64Min().IsSupported()) {
+        op = m->Float64Min().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32Max: {
+      if (m->Float32Max().IsSupported()) {
+        op = m->Float32Max().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Max: {
+      if (m->Float64Max().IsSupported()) {
+        op = m->Float64Max().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
     default:
       op = UnsupportedOpcode(opcode);
   }
@@ -735,6 +775,42 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         return MakeI32Popcnt(input);
       }
     }
+    case kExprF32Floor: {
+      if (m->Float32RoundDown().IsSupported()) {
+        op = m->Float32RoundDown().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32Ceil: {
+      if (m->Float32RoundUp().IsSupported()) {
+        op = m->Float32RoundUp().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32Trunc: {
+      if (m->Float32RoundTruncate().IsSupported()) {
+        op = m->Float32RoundTruncate().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32NearestInt: {
+      if (m->Float32RoundTiesEven().IsSupported()) {
+        op = m->Float32RoundTiesEven().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
     case kExprF64Floor: {
       if (m->Float64RoundDown().IsSupported()) {
         op = m->Float64RoundDown().op();
@@ -783,6 +859,18 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     case kExprI64UConvertI32:
       op = m->ChangeUint32ToUint64();
+      break;
+    case kExprF32SConvertI64:
+      op = m->RoundInt64ToFloat32();
+      break;
+    case kExprF32UConvertI64:
+      op = m->RoundUint64ToFloat32();
+      break;
+    case kExprF64SConvertI64:
+      op = m->RoundInt64ToFloat64();
+      break;
+    case kExprF64UConvertI64:
+      op = m->RoundUint64ToFloat64();
       break;
     case kExprF64ReinterpretI64:
       op = m->BitcastInt64ToFloat64();
@@ -893,6 +981,52 @@ TFNode* TFBuilder::Unreachable() {
   DCHECK_NOT_NULL(graph);
   trap->Unreachable();
   return nullptr;
+}
+
+
+TFNode* TFBuilder::MakeF32CopySign(TFNode* left, TFNode* right) {
+  TFNode* result = Unop(kExprF32ReinterpretI32,
+                     Binop(kExprI32Ior,
+                           Binop(kExprI32And,
+                                 Unop(kExprI32ReinterpretF32, left),
+                                 graph->Int32Constant(0x7fffffff)),
+                           Binop(kExprI32And,
+                                 Unop(kExprI32ReinterpretF32, right),
+                                 graph->Int32Constant(0x80000000))));
+
+  return result;
+}
+
+
+TFNode* TFBuilder::MakeF64CopySign(TFNode* left, TFNode* right) {
+
+#if WASM_64
+  TFNode* result = Unop(kExprF64ReinterpretI64,
+                     Binop(kExprI64Ior,
+                           Binop(kExprI64And,
+                                 Unop(kExprI64ReinterpretF64, left),
+                                 graph->Int64Constant(0x7fffffffffffffff)),
+                           Binop(kExprI64And,
+                                 Unop(kExprI64ReinterpretF64, right),
+                                 graph->Int64Constant(0x8000000000000000))));
+
+  return result;
+#else
+  compiler::MachineOperatorBuilder* m = graph->machine();
+
+  TFNode* high_word_left = graph->graph()->NewNode(m->Float64ExtractHighWord32(), left);
+  TFNode* high_word_right = graph->graph()->NewNode(m->Float64ExtractHighWord32(), right);
+
+  TFNode* new_high_word = Binop(kExprI32Ior,
+                                Binop(kExprI32And,
+                                      high_word_left,
+                                      graph->Int32Constant(0x7fffffff)),
+                                Binop(kExprI32And,
+                                      high_word_right,
+                                      graph->Int32Constant(0x80000000)));
+  
+  return graph->graph()->NewNode(m->Float64InsertHighWord32(), left, new_high_word);
+#endif
 }
 
 

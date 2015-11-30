@@ -108,6 +108,8 @@ struct TFBuilder {
   TFNode* Invert(TFNode* node);
   TFNode* FunctionTable();
   TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
+  TFNode* MakeF32CopySign(TFNode* left, TFNode* right);
+  TFNode* MakeF64CopySign(TFNode* left, TFNode* right);
   TFNode* MakeI32Ctz(TFNode* input);
   TFNode* MakeI32Popcnt(TFNode* input);
   TFNode* MakeI64Ctz(TFNode* input);

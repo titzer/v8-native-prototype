@@ -190,7 +190,7 @@
 #define WASM_F32_MAX(x, y) kExprF32Max, x, y
 #define WASM_F32_ABS(x) kExprF32Abs, x
 #define WASM_F32_NEG(x) kExprF32Neg, x
-#define WASM_F32_COPYSIGN(x) kExprF32CopySign, x
+#define WASM_F32_COPYSIGN(x, y) kExprF32CopySign, x, y
 #define WASM_F32_CEIL(x) kExprF32Ceil, x
 #define WASM_F32_FLOOR(x) kExprF32Floor, x
 #define WASM_F32_TRUNC(x) kExprF32Trunc, x
@@ -214,7 +214,7 @@
 #define WASM_F64_MAX(x, y) kExprF64Max, x, y
 #define WASM_F64_ABS(x) kExprF64Abs, x
 #define WASM_F64_NEG(x) kExprF64Neg, x
-#define WASM_F64_COPYSIGN(x) kExprF64CopySign, x
+#define WASM_F64_COPYSIGN(x, y) kExprF64CopySign, x, y
 #define WASM_F64_CEIL(x) kExprF64Ceil, x
 #define WASM_F64_FLOOR(x) kExprF64Floor, x
 #define WASM_F64_TRUNC(x) kExprF64Trunc, x

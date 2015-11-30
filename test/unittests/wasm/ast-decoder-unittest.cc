@@ -2316,7 +2316,7 @@ TEST_F(WasmOpcodeArityTest, SimpleExpressions) {
   EXPECT_ARITY(2, kExprF32Max);
   EXPECT_ARITY(1, kExprF32Abs);
   EXPECT_ARITY(1, kExprF32Neg);
-  EXPECT_ARITY(1, kExprF32CopySign);
+  EXPECT_ARITY(2, kExprF32CopySign);
   EXPECT_ARITY(1, kExprF32Ceil);
   EXPECT_ARITY(1, kExprF32Floor);
   EXPECT_ARITY(1, kExprF32Trunc);
@@ -2336,7 +2336,7 @@ TEST_F(WasmOpcodeArityTest, SimpleExpressions) {
   EXPECT_ARITY(2, kExprF64Max);
   EXPECT_ARITY(1, kExprF64Abs);
   EXPECT_ARITY(1, kExprF64Neg);
-  EXPECT_ARITY(1, kExprF64CopySign);
+  EXPECT_ARITY(2, kExprF64CopySign);
   EXPECT_ARITY(1, kExprF64Ceil);
   EXPECT_ARITY(1, kExprF64Floor);
   EXPECT_ARITY(1, kExprF64Trunc);

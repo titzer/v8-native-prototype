@@ -183,7 +183,7 @@ typedef Signature<LocalType> FunctionSig;
   V(F32Max, 0x7a, f_ff)               \
   V(F32Abs, 0x7b, f_f)                \
   V(F32Neg, 0x7c, f_f)                \
-  V(F32CopySign, 0x7d, f_f)           \
+  V(F32CopySign, 0x7d, f_ff)          \
   V(F32Ceil, 0x7e, f_f)               \
   V(F32Floor, 0x7f, f_f)              \
   V(F32Trunc, 0x80, f_f)              \
@@ -203,7 +203,7 @@ typedef Signature<LocalType> FunctionSig;
   V(F64Max, 0x8e, d_dd)               \
   V(F64Abs, 0x8f, d_d)                \
   V(F64Neg, 0x90, d_d)                \
-  V(F64CopySign, 0x91, d_d)           \
+  V(F64CopySign, 0x91, d_dd)          \
   V(F64Ceil, 0x92, d_d)               \
   V(F64Floor, 0x93, d_d)              \
   V(F64Trunc, 0x94, d_d)              \
