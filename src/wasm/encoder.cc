@@ -297,6 +297,7 @@ WasmModuleBuilder::WasmModuleBuilder(Zone* zone)
       functions_(zone),
       data_segments_(zone),
       indirect_functions_(zone),
+      globals_(zone),
       signature_map_(zone) {
 }
 
@@ -333,7 +334,7 @@ int WasmModuleBuilder::CompareFunctionSigs::operator()(FunctionSig* a,
     if (a->GetReturn(r) > b->GetReturn(r))
       return 1;
   }
-  for (size_t p = 0; p < a->return_count(); p++) {
+  for (size_t p = 0; p < a->parameter_count(); p++) {
     if (a->GetParam(p) < b->GetParam(p))
       return -1;
     if (a->GetParam(p) > b->GetParam(p))
@@ -372,14 +373,23 @@ WasmModuleWriter* WasmModuleBuilder::Build(Zone* zone) {
   for (auto index : indirect_functions_) {
     writer->indirect_functions_.push_back(index);
   }
+  for (auto global : globals_) {
+    writer->globals_.push_back(global);
+  }
   return writer;
+}
+
+uint32_t WasmModuleBuilder::AddGlobal(uint8_t type, uint8_t exported) {
+  globals_.push_back(std::make_pair(type, exported));
+  return static_cast<uint32_t>(globals_.size() - 1);
 }
 
 WasmModuleWriter::WasmModuleWriter(Zone* zone)
     : functions_(zone),
       data_segments_(zone),
       signatures_(zone),
-      indirect_functions_(zone) {
+      indirect_functions_(zone),
+      globals_(zone) {
 }
 
 struct Sizes {
@@ -415,12 +425,10 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
     sizes.Add(2 + sig->parameter_count(), 0);
   }
 
-  /* TODO(titzer): add globals.
   sizes.AddSection(globals_.size());
-  for (auto global : globals_) {
-    sizes.Add(kDeclGlobalSize);
+  if (globals_.size() > 0) {
+    sizes.Add(kDeclGlobalSize * globals_.size(), 0);
   }
-  */
 
   sizes.AddSection(functions_.size());
   for (auto function : functions_) {
@@ -450,7 +458,16 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
   EmitUint8(&header, 0);   // memory export
 
   // -- emit globals -----------------------------------------------------------
-  // TODO(titzer): emit globals
+  if (globals_.size() > 0) {
+    EmitUint8(&header, kDeclGlobals);
+    EmitVarInt(&header, globals_.size());
+
+    for (auto global : globals_) {
+      EmitUint32(&header, 0);
+      EmitUint8(&header, global.first);
+      EmitUint8(&header, global.second);
+    }
+  }
 
   // -- emit signatures --------------------------------------------------------
   if (signatures_.size() > 0) {

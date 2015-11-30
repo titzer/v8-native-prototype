@@ -118,12 +118,14 @@ class WasmModuleWriter : public ZoneObject {
   ZoneVector<WasmDataSegmentEncoder*> data_segments_;
   ZoneVector<FunctionSig*> signatures_;
   ZoneVector<uint16_t> indirect_functions_;
+  ZoneVector<std::pair<uint8_t, uint8_t>> globals_;
 };
 
 class WasmModuleBuilder : public ZoneObject {
  public:
   WasmModuleBuilder(Zone* zone);
   uint16_t AddFunction();
+  uint32_t AddGlobal(uint8_t type, uint8_t exported);
   WasmFunctionBuilder* FunctionAt(size_t index);
   void AddDataSegment(WasmDataSegmentEncoder* data);
   uint16_t AddSignature(FunctionSig* sig);
@@ -141,6 +143,7 @@ class WasmModuleBuilder : public ZoneObject {
   ZoneVector<WasmFunctionBuilder*> functions_;
   ZoneVector<WasmDataSegmentEncoder*> data_segments_;
   ZoneVector<uint16_t> indirect_functions_;
+  ZoneVector<std::pair<uint8_t, uint8_t>> globals_;
   SignatureMap signature_map_;
 };
 
