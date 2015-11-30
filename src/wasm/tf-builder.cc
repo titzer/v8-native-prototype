@@ -640,6 +640,42 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       op = m->Float64LessThanOrEqual();
       std::swap(left, right);
       break;
+    case kExprF32Min: {
+      if (m->Float32Min().IsSupported()) {
+        op = m->Float32Min().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Min: {
+      if (m->Float64Min().IsSupported()) {
+        op = m->Float64Min().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32Max: {
+      if (m->Float32Max().IsSupported()) {
+        op = m->Float32Max().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF64Max: {
+      if (m->Float64Max().IsSupported()) {
+        op = m->Float64Max().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
     default:
       op = UnsupportedOpcode(opcode);
   }
@@ -735,6 +771,42 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         return MakeI32Popcnt(input);
       }
     }
+    case kExprF32Floor: {
+      if (m->Float32RoundDown().IsSupported()) {
+        op = m->Float32RoundDown().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32Ceil: {
+      if (m->Float32RoundUp().IsSupported()) {
+        op = m->Float32RoundUp().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32Trunc: {
+      if (m->Float32RoundTruncate().IsSupported()) {
+        op = m->Float32RoundTruncate().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
+    case kExprF32NearestInt: {
+      if (m->Float32RoundTiesEven().IsSupported()) {
+        op = m->Float32RoundTiesEven().op();
+        break;
+      } else {
+        op = UnsupportedOpcode(opcode);
+        break;
+      }
+    }
     case kExprF64Floor: {
       if (m->Float64RoundDown().IsSupported()) {
         op = m->Float64RoundDown().op();
@@ -783,6 +855,18 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
       break;
     case kExprI64UConvertI32:
       op = m->ChangeUint32ToUint64();
+      break;
+    case kExprF32SConvertI64:
+      op = m->RoundInt64ToFloat32();
+      break;
+    case kExprF32UConvertI64:
+      op = m->RoundUint64ToFloat32();
+      break;
+    case kExprF64SConvertI64:
+      op = m->RoundInt64ToFloat64();
+      break;
+    case kExprF64UConvertI64:
+      op = m->RoundUint64ToFloat64();
       break;
     case kExprF64ReinterpretI64:
       op = m->BitcastInt64ToFloat64();
