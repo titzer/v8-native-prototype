@@ -155,16 +155,20 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprI64Ctz:
     case kExprI64Popcnt:
 
+    case kExprF32SConvertI64:
+    case kExprF32UConvertI64:
+    case kExprF64SConvertI64:
+    case kExprF64UConvertI64:
 #endif
 
     case kExprF32CopySign:
 
     case kExprF64CopySign:
 
-    case kExprF32SConvertI64:
-    case kExprF32UConvertI64:
-    case kExprF64SConvertI64:
-    case kExprF64UConvertI64:
+    case kExprI64SConvertF32:
+    case kExprI64SConvertF64:
+    case kExprI64UConvertF32:
+    case kExprI64UConvertF64:
       return false;
     default:
       return true;
