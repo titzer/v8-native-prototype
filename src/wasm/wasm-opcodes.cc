@@ -161,10 +161,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprF64UConvertI64:
 #endif
 
-    case kExprF32CopySign:
-
-    case kExprF64CopySign:
-
     case kExprI64SConvertF32:
     case kExprI64SConvertF64:
     case kExprI64UConvertF32:
