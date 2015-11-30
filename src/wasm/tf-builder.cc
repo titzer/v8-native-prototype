@@ -576,12 +576,12 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       op = m->Uint64LessThanOrEqual();
       std::swap(left, right);
       break;
+#endif
+
     case kExprF32CopySign:
       return MakeF32CopySign(left, right);
     case kExprF64CopySign:
       return MakeF64CopySign(left, right);
-#endif
-
     case kExprF32Add:
       op = m->Float32Add();
       break;
@@ -999,6 +999,8 @@ TFNode* TFBuilder::MakeF32CopySign(TFNode* left, TFNode* right) {
 
 
 TFNode* TFBuilder::MakeF64CopySign(TFNode* left, TFNode* right) {
+
+#if WASM_64
   TFNode* result = Unop(kExprF64ReinterpretI64,
                      Binop(kExprI64Ior,
                            Binop(kExprI64And,
@@ -1009,6 +1011,22 @@ TFNode* TFBuilder::MakeF64CopySign(TFNode* left, TFNode* right) {
                                  graph->Int64Constant(0x8000000000000000))));
 
   return result;
+#else
+  compiler::MachineOperatorBuilder* m = graph->machine();
+
+  TFNode* high_word_left = graph->graph()->NewNode(m->Float64ExtractHighWord32(), left);
+  TFNode* high_word_right = graph->graph()->NewNode(m->Float64ExtractHighWord32(), right);
+
+  TFNode* new_high_word = Binop(kExprI32Ior,
+                                Binop(kExprI32And,
+                                      high_word_left,
+                                      graph->Int32Constant(0x7fffffff)),
+                                Binop(kExprI32And,
+                                      high_word_right,
+                                      graph->Int32Constant(0x80000000)));
+  
+  return graph->graph()->NewNode(m->Float64InsertHighWord32(), left, new_high_word);
+#endif
 }
 
 
