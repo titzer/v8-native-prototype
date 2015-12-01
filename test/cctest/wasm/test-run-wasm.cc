@@ -1023,6 +1023,27 @@ TEST(Run_WASM_Int32DivU_byzero_const) {
   }
 }
 
+
+TEST(Run_WASM_Int32DivS_trap_effect) {
+  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  TestingModule module;
+  module.AddMemoryElems<int32_t>(8);
+  r.env()->module = &module;
+  
+  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),
+                        WASM_I32_DIVS(WASM_STORE_MEM(kMemI8, WASM_ZERO,
+                                                     WASM_GET_LOCAL(0)),
+                                      WASM_GET_LOCAL(1)),
+                        WASM_I32_DIVS(WASM_STORE_MEM(kMemI8, WASM_ZERO,
+                                                     WASM_GET_LOCAL(0)),
+                                      WASM_GET_LOCAL(1))));
+  CHECK_EQ(0, r.Call(0, 100));
+  CHECK_TRAP(r.Call(8, 0));
+  CHECK_TRAP(r.Call(4, 0));
+  CHECK_TRAP(r.Call(0, 0));
+}
+
+
 #if WASM_64
 #define as64(x) static_cast<int64_t>(x)
 TEST(Run_WASM_Int64DivS_trap) {

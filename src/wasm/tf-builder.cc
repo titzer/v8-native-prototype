@@ -189,10 +189,16 @@ class TFTrapHelper : public ZoneObject{
   TFGraph* graph;
   compiler::Graph* g;
   TFNode* traps[kTrapCount];
+  TFNode* effects[kTrapCount];
 
   void ConnectTrap(TrapReason reason) {
-    if (traps[reason] == nullptr) return BuildTrapCode(reason);
+    if (traps[reason] == nullptr) {
+      // Create trap code for the first time this trap is used.
+      return BuildTrapCode(reason);
+    }
+    // Connect the current control and effect to the existing trap code.
     builder->AppendToMerge(traps[reason], *(builder->control));
+    builder->AppendToPhi(traps[reason], effects[reason], *(builder->effect));
   }
 
   void BuildTrapCode(TrapReason reason) {
@@ -202,6 +208,8 @@ class TFTrapHelper : public ZoneObject{
     TFNode** effect = builder->effect;
     ModuleEnv* module = builder->module;
     *control = traps[reason] = g->NewNode(graph->common()->Merge(1), *control);
+    *effect = effects[reason] = g->NewNode(graph->common()->EffectPhi(1),
+                                           *effect, *control);
 
     if (module && !module->context.is_null()) {
       // Use the module context to call the runtime to throw an exception.
