@@ -86,7 +86,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitBlock(Block* stmt) {
-    DCHECK(in_function_);
+    if (!in_function_)
+      return;
     block_depth_++;
     breakable_blocks_.push_back(
         std::make_pair(stmt->AsBreakableStatement(), false));
@@ -289,12 +290,16 @@ class AsmWasmBuilderImpl : public AstVisitor {
     if (in_function_) {
       Variable* var = expr->var();
       if (var->is_function()) {
+        DCHECK(!is_set_op_);
         std::vector<uint8_t> index =
             UnsignedLEB128From(LookupOrInsertFunction(var));
         current_function_builder_->AddBody(index.data(),
                                            static_cast<uint32_t>(index.size()));
       } else {
-        if (!is_set_op_) {
+        if (is_set_op_) {
+          current_function_builder_->AppendCode(kExprSetLocal, false);
+          is_set_op_ = false;
+        } else {
           current_function_builder_->AppendCode(kExprGetLocal, false);
         }
         LocalType var_type = TypeOf(expr);
@@ -363,22 +368,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitAssignment(Assignment* expr) {
-    Property* property = expr->target()->AsProperty();
-    LhsKind assign_type = Property::GetAssignType(property);
-
-    // Evaluate LHS expression.
-    switch (assign_type) {
-      case VARIABLE:
-        DCHECK(in_function_);
-        current_function_builder_->AppendCode(kExprSetLocal, false);
-        is_set_op_ = true;
-        RECURSE(Visit(expr->target()));
-        is_set_op_ = false;
-        RECURSE(Visit(expr->value()));
-        break;
-      default:
-        UNREACHABLE();
-    }
+    DCHECK(in_function_);
+    is_set_op_ = true;
+    RECURSE(Visit(expr->target()));
+    DCHECK(!is_set_op_);
+    RECURSE(Visit(expr->value()));
   }
 
   void VisitYield(Yield* expr) {
@@ -389,8 +383,71 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitThrow(Throw* expr) { RECURSE(Visit(expr->exception())); }
 
   void VisitProperty(Property* expr) {
-    RECURSE(Visit(expr->obj()));
-    RECURSE(Visit(expr->key()));
+    Expression* obj = expr->obj();
+    DCHECK(obj->bounds().lower == obj->bounds().upper);
+    TypeImpl<ZoneTypeConfig>* type = obj->bounds().lower;
+    MemType mtype;
+    int size;
+    if (type->Is(cache_.kUint8Array)) {
+      mtype = kMemU8;
+      size = 1;
+    } else if (type->Is(cache_.kInt8Array)) {
+      mtype = kMemI8;
+      size = 1;
+    } else if (type->Is(cache_.kUint16Array)) {
+      mtype = kMemU16;
+      size = 2;
+    } else if (type->Is(cache_.kInt16Array)) {
+      mtype = kMemI16;
+      size = 2;
+    } else if (type->Is(cache_.kUint32Array)) {
+      mtype = kMemU32;
+      size = 4;
+    } else if (type->Is(cache_.kInt32Array)) {
+      mtype = kMemI32;
+      size = 4;
+    } else if (type->Is(cache_.kUint32Array)) {
+      mtype = kMemU32;
+      size = 4;
+    } else if (type->Is(cache_.kFloat32Array)) {
+      mtype = kMemF32;
+      size = 4;
+    } else if (type->Is(cache_.kFloat64Array)) {
+      mtype = kMemF64;
+      size = 8;
+    } else {
+      UNREACHABLE();
+    }
+    current_function_builder_->AppendCode(
+        WasmOpcodes::LoadStoreOpcodeOf(mtype, is_set_op_), false);
+    is_set_op_ = false;
+    current_function_builder_->AppendCode(
+        WasmOpcodes::LoadStoreAccessOf(mtype), false);
+    Literal* value = expr->key()->AsLiteral();
+    if (value) {
+      DCHECK(value->raw_value()->IsNumber());
+      DCHECK(kAstI32 == TypeOf(value));
+      int val = static_cast<int>(value->raw_value()->AsNumber());
+      byte code[] = {WASM_I32(val * size)};
+      current_function_builder_->AddBody(code, sizeof(code));
+      return;
+    }
+    BinaryOperation* binop = expr->key()->AsBinaryOperation();
+    if (binop) {
+      DCHECK(Token::SAR == binop->op());
+      Literal* shift = binop->right()->AsLiteral();
+      DCHECK(shift->raw_value()->IsNumber());
+      DCHECK(kAstI32 == TypeOf(shift));
+      int val = static_cast<int>(shift->raw_value()->AsNumber());
+      DCHECK(size == 1 << val);
+      // Mask bottom bits to match asm.js behavior.
+      current_function_builder_->AppendCode(kExprI32And, false);
+      byte code[] = {WASM_I8(~(size - 1))};
+      current_function_builder_->AddBody(code, sizeof(code));
+      RECURSE(Visit(binop->left()));
+      return;
+    }
+    UNREACHABLE();
   }
 
   void VisitCall(Call* expr) {
@@ -419,7 +476,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitUnaryOperation(UnaryOperation* expr) {
     switch (expr->op()) {
       case Token::NOT: {
-        int type = TypeIndexOf(expr->expression());
+        int type = TypeIndexOf(expr->expression(), false);
         DCHECK(type == 0);
         current_function_builder_->AppendCode(kExprBoolNot, false);
       }
@@ -495,19 +552,35 @@ class AsmWasmBuilderImpl : public AstVisitor {
 #undef NON_SIGNED_BINOP
 
   int TypeIndexOf(Expression* left, Expression* right, bool ignore_sign) {
-    int left_index = TypeIndexOf(left);
-    int right_index = TypeIndexOf(right);
+    int left_index = TypeIndexOf(left, true);
+    int right_index = TypeIndexOf(right, true);
+    if (left_index < 0)
+      left_index = right_index;
+    if (right_index < 0)
+      right_index = left_index;
+    if (left_index < 0) {
+      left_index = 0;
+      right_index = 0;
+    }
     DCHECK((left_index == right_index) ||
         (ignore_sign && (left_index <= 1) && (right_index <= 1)));
     return left_index;
   }
 
-  int TypeIndexOf(Expression* expr) {
+  int TypeIndexOf(Expression* expr, bool allow_fixnum) {
     DCHECK(expr->bounds().lower == expr->bounds().upper);
     TypeImpl<ZoneTypeConfig>* type = expr->bounds().lower;
-    if (type->Is(cache_.kAsmSigned)) {
+    if (allow_fixnum && type->Is(cache_.kAsmFixnum)) {
+      return -1;
+    } else if (type->Is(cache_.kAsmSigned) ||
+        type->Is(cache_.kInt8) ||
+        type->Is(cache_.kInt16) ||
+        type->Is(cache_.kInt32)) {
       return 0;
-    } else if (type->Is(cache_.kAsmUnsigned)) {
+    } else if (type->Is(cache_.kAsmUnsigned) ||
+               type->Is(cache_.kUint8) ||
+               type->Is(cache_.kUint16) ||
+               type->Is(cache_.kUint32)) {
       return 1;
     } else if (type->Is(cache_.kAsmInt)) {
       return 0;
