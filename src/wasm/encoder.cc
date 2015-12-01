@@ -112,6 +112,16 @@ void WasmFunctionBuilder::AppendCode(const byte opcode,
   }
 }
 
+uint32_t WasmFunctionBuilder::AppendEditableImmediate(const byte immediate) {
+  body_.push_back(immediate);
+  return static_cast<uint32_t>(body_.size()) - 1;
+}
+
+void WasmFunctionBuilder::EditImmediate(uint32_t index, const byte immediate) {
+  DCHECK(index < body_.size());
+  body_[index] = immediate;
+}
+
 void WasmFunctionBuilder::Exported(uint8_t flag) {
   exported_ = flag;
 }

@@ -335,7 +335,6 @@ function TestMixedAdd() {
 
 assertEquals(23, WASM.asmCompileRun(TestMixedAdd.toString()));
 
-
 function TestInt32HeapAccess(stdlib, foreign, buffer) {
   "use asm";
 
@@ -396,3 +395,119 @@ function TestFloatHeapAccess(stdlib, foreign, buffer) {
 }
 
 assertEquals(1, WASM.asmCompileRun(TestFloatHeapAccess.toString()));
+
+function TestConvertI32() {
+  "use asm";
+
+  function caller() {
+    var a = 1.5;
+    if ((~~(a + a)) == 3) {
+      return 24;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(24, WASM.asmCompileRun(TestConvertI32.toString()));
+
+function TestConvertF64FromInt() {
+  "use asm";
+
+  function caller() {
+    var a = 1;
+    if ((+(a + a)) > 1.5) {
+      return 25;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(25, WASM.asmCompileRun(TestConvertF64FromInt.toString()));
+
+function TestConvertF64FromUnsigned() {
+  "use asm";
+
+  function caller() {
+    var a = 0xffffffff;
+    if ((+(a>>>0)) > 0.0) {
+      if((+a) < 0.0) {
+        return 26;
+      }
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(26, WASM.asmCompileRun(TestConvertF64FromUnsigned.toString()));
+
+function TestModInt() {
+  "use asm";
+
+  function caller() {
+    var a = -83;
+    var b = 28;
+    return ((a|0)%(b|0))|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(-27, WASM.asmCompileRun(TestModInt.toString()));
+
+function TestModUnsignedInt() {
+  "use asm";
+
+  function caller() {
+    var a = 0x80000000;  //2147483648
+    var b = 10;
+    return ((a>>>0)%(b>>>0))|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(8, WASM.asmCompileRun(TestModUnsignedInt.toString()));
+
+function TestModDouble() {
+  "use asm";
+
+  function caller() {
+    var a = 5.25;
+    var b = 2.5;
+    if (a%b == 0.25) {
+      return 28;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(28, WASM.asmCompileRun(TestModDouble.toString()));
+
+/*
+TODO: Fix parsing of negative doubles
+      Fix code to use trunc instead of casts
+function TestModDoubleNegative() {
+  "use asm";
+
+  function caller() {
+    var a = -34359738368.25;
+    var b = 2.5;
+    if (a%b == -0.75) {
+      return 28;
+    }
+    return 0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(28, WASM.asmCompileRun(TestModDoubleNegative.toString()));
+*/

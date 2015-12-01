@@ -45,7 +45,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
         zone_(zone),
         cache_(TypeCache::Get()),
         block_depth_(0),
-        breakable_blocks_(zone) {
+        breakable_blocks_(zone),
+        block_size_index_(zone),
+        block_size_(zone) {
     InitializeAstVisitor(isolate);
   }
 
@@ -73,8 +75,10 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitStatements(ZoneList<Statement*>* stmts) {
     if (in_function_) {
       current_function_builder_->AppendCode(kExprBlock, false);
-      current_function_builder_->AppendCode(
-          static_cast<byte>(stmts->length()), false);
+      uint32_t index = current_function_builder_->AppendEditableImmediate(
+          static_cast<byte>(stmts->length()));
+      block_size_index_.push_back(index);
+      block_size_.push_back(static_cast<byte>(stmts->length()));
     }
 
     for (int i = 0; i < stmts->length(); ++i) {
@@ -82,6 +86,15 @@ class AsmWasmBuilderImpl : public AstVisitor {
       RECURSE(Visit(stmt));
       if (stmt->IsJump())
         break;
+    }
+
+    if (in_function_) {
+      uint32_t index = block_size_index_.back();
+      block_size_index_.pop_back();
+      byte size = block_size_.back();
+      block_size_.pop_back();
+      DCHECK(size >= 0);
+      current_function_builder_->EditImmediate(index, size);
     }
   }
 
@@ -304,11 +317,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
         }
         LocalType var_type = TypeOf(expr);
         DCHECK(var_type != kAstStmt);
-        std::vector<uint8_t> index =
-            UnsignedLEB128From(LookupOrInsertLocal(var, var_type));
-        uint32_t pos_of_index[1] = {0};
-        current_function_builder_->AddBody(
-            index.data(), static_cast<uint32_t>(index.size()), pos_of_index, 1);
+        AccessTemp(LookupOrInsertLocal(var, var_type));
       }
     } else if (marking_exported) {
       Variable* var = expr->var();
@@ -369,6 +378,16 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitAssignment(Assignment* expr) {
     DCHECK(in_function_);
+    BinaryOperation* value_op = expr->value()->AsBinaryOperation();
+    if (value_op != NULL && MatchBinaryOperation(value_op) == kAsIs) {
+      VariableProxy* target_var = expr->target()->AsVariableProxy();
+      VariableProxy* effective_value_var = GetLeft(value_op)->AsVariableProxy();
+      if (target_var != NULL && effective_value_var != NULL &&
+          target_var->var() == effective_value_var->var()) {
+        block_size_.back()--;
+        return;
+      }
+    }
     is_set_op_ = true;
     RECURSE(Visit(expr->target()));
     DCHECK(!is_set_op_);
@@ -476,8 +495,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitUnaryOperation(UnaryOperation* expr) {
     switch (expr->op()) {
       case Token::NOT: {
-        int type = TypeIndexOf(expr->expression(), false);
-        DCHECK(type == 0);
+        DCHECK(TypeOf(expr->expression()) == kAstI32);
         current_function_builder_->AppendCode(kExprBoolNot, false);
       }
       break;
@@ -489,6 +507,108 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitCountOperation(CountOperation* expr) {
     RECURSE(Visit(expr->expression()));
+  }
+
+  bool MatchIntBinaryOperation(BinaryOperation* expr, 
+                               Token::Value op, int32_t val) {
+    DCHECK(expr->right() != NULL);
+    if (expr->op() == op && expr->right()->IsLiteral() &&
+        TypeOf(expr) == kAstI32) {
+      Literal* right = expr->right()->AsLiteral();
+      DCHECK(right->raw_value()->IsNumber());
+      if (static_cast<int32_t>(right->raw_value()->AsNumber()) == val) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool MatchDoubleBinaryOperation(BinaryOperation* expr,
+                                  Token::Value op, double val) {
+    DCHECK(expr->right() != NULL);
+    if (expr->op() == op && expr->right()->IsLiteral() &&
+        TypeOf(expr) == kAstF64) {
+      Literal* right = expr->right()->AsLiteral();
+      DCHECK(right->raw_value()->IsNumber());
+      if (right->raw_value()->AsNumber() == val) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  enum ConvertOperation {
+    kNone,
+    kAsIs,
+    kToInt,
+    kToDouble
+  };
+
+  ConvertOperation MatchOr(BinaryOperation* expr) {
+    if (MatchIntBinaryOperation(expr, Token::BIT_OR, 0)) {
+      DCHECK(TypeOf(expr->left()) == kAstI32);
+      DCHECK(TypeOf(expr->right()) == kAstI32);
+      return kAsIs;
+    } else {
+      return kNone;
+    }
+  }
+
+  ConvertOperation MatchShr(BinaryOperation* expr) {
+    if (MatchIntBinaryOperation(expr, Token::SHR, 0)) {
+      DCHECK(TypeOf(expr->left()) == kAstI32);
+      DCHECK(TypeOf(expr->right()) == kAstI32);
+      return kAsIs;
+    } else {
+      return kNone;
+    }
+  }
+
+  ConvertOperation MatchXor(BinaryOperation* expr) {
+    if (MatchIntBinaryOperation(expr, Token::BIT_XOR, 0xffffffff)) {
+      DCHECK(TypeOf(expr->left()) == kAstI32);
+      DCHECK(TypeOf(expr->right()) == kAstI32);
+      BinaryOperation* op = expr->left()->AsBinaryOperation();
+      if (op != NULL) {
+        if (MatchIntBinaryOperation(op, Token::BIT_XOR, 0xffffffff)) {
+          DCHECK(TypeOf(op->right()) == kAstI32);
+          if (TypeOf(op->left()) != kAstI32) {
+            return kToInt;
+          } else {
+            return kAsIs;
+          }
+        }
+      }
+    }
+    return kNone;
+  }
+
+  ConvertOperation MatchMul(BinaryOperation* expr) {
+    if (MatchDoubleBinaryOperation(expr, Token::MUL, 1.0)) {
+      DCHECK(TypeOf(expr->right()) == kAstF64);
+      if (TypeOf(expr->left()) != kAstF64) {
+        return kToDouble;
+      } else {
+        return kAsIs;
+      }
+    } else {
+      return kNone;
+    }
+  }
+
+  ConvertOperation MatchBinaryOperation(BinaryOperation* expr) {
+    switch (expr->op()) {
+      case Token::BIT_OR:
+        return MatchOr(expr);
+      case Token::SHR:
+        return MatchShr(expr);
+      case Token::BIT_XOR:
+        return MatchXor(expr);
+      case Token::MUL:
+        return MatchMul(expr);
+      default:
+        return kNone;
+    }
   }
 
 #define NON_SIGNED_BINOP(op)                                          \
@@ -510,26 +630,105 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }                                                                   \
   break
 
+  Expression* GetLeft(BinaryOperation* expr) {
+    if (expr->op() == Token::BIT_XOR) {
+      return expr->left()->AsBinaryOperation()->left();
+    } else {
+      return expr->left();
+    }
+  }
+
   void VisitBinaryOperation(BinaryOperation* expr) {
-    switch (expr->op()) {
-      BINOP_CASE(Token::ADD, Add, NON_SIGNED_BINOP, true);
-      BINOP_CASE(Token::SUB, Sub, NON_SIGNED_BINOP, true);
-      BINOP_CASE(Token::MUL, Mul, NON_SIGNED_BINOP, true);
-      BINOP_CASE(Token::DIV, Div, SIGNED_BINOP, false);
-      BINOP_CASE(Token::BIT_OR, Ior, NON_SIGNED_INT_BINOP, true);
-      BINOP_CASE(Token::BIT_XOR, Xor, NON_SIGNED_INT_BINOP, true);
-      BINOP_CASE(Token::SHL, Shl, NON_SIGNED_INT_BINOP, true);
-      BINOP_CASE(Token::SAR, ShrS, NON_SIGNED_INT_BINOP, true);
-      BINOP_CASE(Token::SHR, ShrU, NON_SIGNED_INT_BINOP, true);
-      case Token::MOD: {
+    ConvertOperation convertOperation = MatchBinaryOperation(expr);
+    if (convertOperation == kToDouble) {
+      TypeIndex type = TypeIndexOf(expr->left());
+      if (type == kInt32 || type == kFixnum) {
+        current_function_builder_->AppendCode(kExprF64SConvertI32, false);
+      } else if (type == kUint32) {
+        current_function_builder_->AppendCode(kExprF64UConvertI32, false);
+      } else if (type == kFloat32) {
+        current_function_builder_->AppendCode(kExprF64ConvertF32, false);
+      } else {
         UNREACHABLE();
       }
-      break;
-      default:
+      RECURSE(Visit(expr->left()));
+    } else if (convertOperation == kToInt) {
+      TypeIndex type = TypeIndexOf(GetLeft(expr));
+      if (type == kFloat32) {
+        current_function_builder_->AppendCode(kExprI32SConvertF32, false);
+      } else if (type == kFloat64) {
+        current_function_builder_->AppendCode(kExprI32SConvertF64, false);
+      } else {
         UNREACHABLE();
+      }
+      RECURSE(Visit(GetLeft(expr)));
+    } else if (convertOperation == kAsIs) {
+      RECURSE(Visit(GetLeft(expr)));
+    } else {
+      switch (expr->op()) {
+        BINOP_CASE(Token::ADD, Add, NON_SIGNED_BINOP, true);
+        BINOP_CASE(Token::SUB, Sub, NON_SIGNED_BINOP, true);
+        BINOP_CASE(Token::MUL, Mul, NON_SIGNED_BINOP, true);
+        BINOP_CASE(Token::DIV, Div, SIGNED_BINOP, false);
+        BINOP_CASE(Token::BIT_OR, Ior, NON_SIGNED_INT_BINOP, true);
+        BINOP_CASE(Token::BIT_XOR, Xor, NON_SIGNED_INT_BINOP, true);
+        BINOP_CASE(Token::SHL, Shl, NON_SIGNED_INT_BINOP, true);
+        BINOP_CASE(Token::SAR, ShrS, NON_SIGNED_INT_BINOP, true);
+        BINOP_CASE(Token::SHR, ShrU, NON_SIGNED_INT_BINOP, true);
+        case Token::MOD: {
+          TypeIndex type = TypeIndexOf(expr->left(), expr->right(), false);
+          if (type == kInt32) {
+            current_function_builder_->AppendCode(kExprI32RemS, false);
+          } else if (type == kUint32) {
+            current_function_builder_->AppendCode(kExprI32RemU, false);
+          } else if (type == kFloat64) {
+            ModF64(expr);
+            return;
+          } else {
+            UNREACHABLE();
+          }
+        }
+        break;
+        default:
+          UNREACHABLE();
+      }
+      RECURSE(Visit(expr->left()));
+      RECURSE(Visit(expr->right()));
     }
+  }
+
+  void ModF64(BinaryOperation* expr) {
+    current_function_builder_->AppendCode(kExprBlock, false);
+    current_function_builder_->AppendCode(3, false);
+    uint16_t index_0 = current_function_builder_->AddLocal(kAstF64);
+    uint16_t index_1 = current_function_builder_->AddLocal(kAstF64);
+    current_function_builder_->AppendCode(kExprSetLocal, false);
+    AccessTemp(index_0);
     RECURSE(Visit(expr->left()));
+    current_function_builder_->AppendCode(kExprSetLocal, false);
+    AccessTemp(index_1);
     RECURSE(Visit(expr->right()));
+    current_function_builder_->AppendCode(kExprF64Sub, false);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_0);
+    current_function_builder_->AppendCode(kExprF64Mul, false);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_1);
+    // Use trunc instead of two casts
+    current_function_builder_->AppendCode(kExprF64SConvertI32, false);
+    current_function_builder_->AppendCode(kExprI32SConvertF64, false);
+    current_function_builder_->AppendCode(kExprF64Div, false);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_0);
+    current_function_builder_->AppendCode(kExprGetLocal, false);
+    AccessTemp(index_1);
+  }
+
+  void AccessTemp(uint32_t index) {
+    std::vector<uint8_t> index_vec = UnsignedLEB128From(index);
+    uint32_t pos_of_index[1] = {0};
+    current_function_builder_->AddBody(index_vec.data(),
+        static_cast<uint32_t>(index_vec.size()), pos_of_index, 1);
   }
 
   void VisitCompareOperation(CompareOperation* expr) {
@@ -551,37 +750,47 @@ class AsmWasmBuilderImpl : public AstVisitor {
 #undef SIGNED_BINOP
 #undef NON_SIGNED_BINOP
 
-  int TypeIndexOf(Expression* left, Expression* right, bool ignore_sign) {
-    int left_index = TypeIndexOf(left, true);
-    int right_index = TypeIndexOf(right, true);
-    if (left_index < 0)
+  enum TypeIndex {
+    kInt32 = 0,
+    kUint32 = 1,
+    kFloat32 = 2,
+    kFloat64 = 3,
+    kFixnum = 4
+  };
+
+  TypeIndex TypeIndexOf(Expression* left, Expression* right, bool ignore_sign) {
+    TypeIndex left_index = TypeIndexOf(left);
+    TypeIndex right_index = TypeIndexOf(right);
+    if (left_index == kFixnum) {
       left_index = right_index;
-    if (right_index < 0)
+    }
+    if (right_index == kFixnum) {
       right_index = left_index;
-    if (left_index < 0) {
-      left_index = 0;
-      right_index = 0;
+    }
+    if (left_index == kFixnum && right_index == kFixnum) {
+      left_index = kInt32;
+      right_index = kInt32;
     }
     DCHECK((left_index == right_index) ||
         (ignore_sign && (left_index <= 1) && (right_index <= 1)));
     return left_index;
   }
 
-  int TypeIndexOf(Expression* expr, bool allow_fixnum) {
+  TypeIndex TypeIndexOf(Expression* expr) {
     DCHECK(expr->bounds().lower == expr->bounds().upper);
     TypeImpl<ZoneTypeConfig>* type = expr->bounds().lower;
-    if (allow_fixnum && type->Is(cache_.kAsmFixnum)) {
-      return -1;
+    if (type->Is(cache_.kAsmFixnum)) {
+      return kFixnum;
     } else if (type->Is(cache_.kAsmSigned)) {
-      return 0;
+      return kInt32;
     } else if (type->Is(cache_.kAsmUnsigned)) {
-      return 1;
+      return kUint32;
     } else if (type->Is(cache_.kAsmInt)) {
-      return 0;
+      return kInt32;
     } else if (type->Is(cache_.kAsmFloat)) {
-      return 2;
+      return kFloat32;
     } else if (type->Is(cache_.kAsmDouble)) {
-      return 3;
+      return kFloat64;
     } else {
       UNREACHABLE();
     }
@@ -683,6 +892,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
   TypeCache const& cache_;
   int block_depth_;
   ZoneVector<std::pair<BreakableStatement*, bool>> breakable_blocks_;
+  ZoneVector<uint32_t> block_size_index_;
+  ZoneVector<byte> block_size_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
