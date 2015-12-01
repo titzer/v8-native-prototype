@@ -572,15 +572,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
     TypeImpl<ZoneTypeConfig>* type = expr->bounds().lower;
     if (allow_fixnum && type->Is(cache_.kAsmFixnum)) {
       return -1;
-    } else if (type->Is(cache_.kAsmSigned) ||
-        type->Is(cache_.kInt8) ||
-        type->Is(cache_.kInt16) ||
-        type->Is(cache_.kInt32)) {
+    } else if (type->Is(cache_.kAsmSigned)) {
       return 0;
-    } else if (type->Is(cache_.kAsmUnsigned) ||
-               type->Is(cache_.kUint8) ||
-               type->Is(cache_.kUint16) ||
-               type->Is(cache_.kUint32)) {
+    } else if (type->Is(cache_.kAsmUnsigned)) {
       return 1;
     } else if (type->Is(cache_.kAsmInt)) {
       return 0;
