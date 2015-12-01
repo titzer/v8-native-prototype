@@ -298,10 +298,6 @@ function TestNotEquals() {
 
 assertEquals(21, WASM.asmCompileRun(TestNotEquals.toString()));
 
-/*
-TODO: fix typer to not simplify literals under SHR to allow them to be marked
-      unsigned.
-
 function TestUnsignedComparison() {
   "use asm";
 
@@ -338,4 +334,65 @@ function TestMixedAdd() {
 }
 
 assertEquals(23, WASM.asmCompileRun(TestMixedAdd.toString()));
-*/
+
+
+function TestInt32HeapAccess(stdlib, foreign, buffer) {
+  "use asm";
+
+  var m = new stdlib.Int32Array(buffer);
+  function caller() {
+    var i = 4;
+
+    m[0] = (i + 1) | 0;
+    m[i >> 2] = ((m[0]|0) + 1) | 0;
+    m[2] = ((m[i >> 2]|0) + 1) | 0;
+    return m[2] | 0;
+  }
+
+  return {caller: caller};
+}
+
+assertEquals(7, WASM.asmCompileRun(TestInt32HeapAccess.toString()));
+
+function TestHeapAccessIntTypes() {
+  var types = [
+    ['Int8Array', '>> 0'],
+    ['Uint8Array', '>> 0'],
+    ['Int16Array', '>> 1'],
+    ['Uint16Array', '>> 1'],
+    ['Int32Array', '>> 2'],
+    ['Uint32Array', '>> 2'],
+  ];
+  for (var i = 0; i < types.length; i++) {
+    var code = TestInt32HeapAccess.toString();
+    code = code.replace('Int32Array', types[i][0]);
+    code = code.replace(/>> 2/g, types[i][1]);
+    assertEquals(7, WASM.asmCompileRun(code));
+  }
+}
+
+TestHeapAccessIntTypes();
+
+function TestFloatHeapAccess(stdlib, foreign, buffer) {
+  "use asm";
+
+  var f32 = new stdlib.Float32Array(buffer);
+  var f64 = new stdlib.Float64Array(buffer);
+  var fround = stdlib.Math.fround;
+  function caller() {
+    var i = 8;
+    var j = 8;
+    var v = 6.0;
+
+    // TODO(bradnelson): Add float32 when asm-wasm supports it.
+    f64[2] = v + 1.0;
+    f64[i >> 3] = +f64[2] + 1.0;
+    f64[j >> 3] = +f64[j >> 3] + 1.0;
+    i = +f64[i >> 3] == 9.0;
+    return i|0;
+  }
+
+  return {caller: caller};
+}
+
+assertEquals(1, WASM.asmCompileRun(TestFloatHeapAccess.toString()));
