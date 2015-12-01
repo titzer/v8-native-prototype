@@ -1084,10 +1084,12 @@ class LR_WasmDecoder : public Decoder {
   void ReduceLoadMem(Production* p, LocalType type, MemType mem_type) {
     DCHECK_EQ(1, p->index);
     TypeCheckLast(p, kAstI32);  // index
-    int length = 0;
-    uint32_t offset = 0;
-    MemoryAccessOperand(p->pc(), &length, &offset);
-    p->tree->node = builder_.LoadMem(type, mem_type, p->last()->node, offset);
+    if (build()) {
+      int length = 0;
+      uint32_t offset = 0;
+      MemoryAccessOperand(p->pc(), &length, &offset);
+      p->tree->node = builder_.LoadMem(type, mem_type, p->last()->node, offset);
+    }
   }
 
   void ReduceStoreMem(Production* p, LocalType type, MemType mem_type) {
@@ -1096,12 +1098,14 @@ class LR_WasmDecoder : public Decoder {
     } else {
       DCHECK_EQ(2, p->index);
       TypeCheckLast(p, type);
-      int length = 0;
-      uint32_t offset = 0;
-      MemoryAccessOperand(p->pc(), &length, &offset);
-      TFNode* val = p->tree->children[1]->node;
-      builder_.StoreMem(mem_type, p->tree->children[0]->node, offset, val);
-      p->tree->node = val;
+      if (build()) {
+        int length = 0;
+        uint32_t offset = 0;
+        MemoryAccessOperand(p->pc(), &length, &offset);
+        TFNode* val = p->tree->children[1]->node;
+        builder_.StoreMem(mem_type, p->tree->children[0]->node, offset, val);
+        p->tree->node = val;
+      }
     }
   }
 

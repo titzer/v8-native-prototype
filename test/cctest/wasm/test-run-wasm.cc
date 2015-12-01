@@ -2138,6 +2138,16 @@ TEST(Build_Wasm_UnreachableIf2) {
 }
 
 
+TEST(Run_Wasm_Unreachable_Load) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, WASM_BLOCK(2,
+                      WASM_BRV(0, WASM_GET_LOCAL(0)),
+                      WASM_LOAD_MEM(kMemI8, WASM_GET_LOCAL(0))));
+  CHECK_EQ(11, r.Call(11));
+  CHECK_EQ(21, r.Call(21));
+}
+
+
 TEST(Run_Wasm_Infinite_Loop_not_taken1) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, WASM_BLOCK(2,
