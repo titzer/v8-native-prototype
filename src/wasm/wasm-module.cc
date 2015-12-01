@@ -396,6 +396,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   module_env.function_table = BuildFunctionTable(isolate, this);
   module_env.memory = memory;
   module_env.context = isolate->native_context();
+  module_env.asm_js = false;
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
@@ -481,13 +482,14 @@ compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
 
 int32_t CompileAndRunWasmModule(Isolate* isolate,
                                 const byte* module_start,
-                                const byte* module_end) {
+                                const byte* module_end,
+                                bool asm_js) {
   HandleScope scope(isolate);
   Zone zone;
   // Decode the module, but don't verify function bodies, since we'll
   // be compiling them anyway.
   ModuleResult result =
-      DecodeWasmModule(isolate, &zone, module_start, module_end, false);
+      DecodeWasmModule(isolate, &zone, module_start, module_end, false, false);
   if (result.failed()) {
     // Module verification failed. throw.
     std::ostringstream str;
@@ -501,6 +503,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate,
   delete result.val;
   return retval;
 }
+
 
 int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   ErrorThrower thrower(isolate, "CompileAndRunWasmModule");
@@ -525,6 +528,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   module_env.linker = &linker;
   module_env.function_code = nullptr;
   module_env.function_table = BuildFunctionTable(isolate, module);
+  module_env.asm_js = false;
 
   // Load data segments.
   // TODO(titzer): throw instead of crashing if segments don't fit in memory?

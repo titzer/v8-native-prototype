@@ -134,6 +134,7 @@ struct ModuleEnv {
   Handle<FixedArray> function_table;
   Handle<JSArrayBuffer> memory;
   Handle<Context> context;
+  bool asm_js;                // true if the module originated from asm.js.
 
   bool IsValidGlobal(uint32_t index) {
     return module && index < module->globals->size();
@@ -177,7 +178,8 @@ typedef Result<WasmFunction*> FunctionResult;
 // given encoded module.
 int32_t CompileAndRunWasmModule(Isolate* isolate,
                                 const byte* module_start,
-                                const byte* module_end);
+                                const byte* module_end,
+                                bool asm_js = false);
 
 // For testing. Decode, verify, and run the last exported function in the
 // given decoded module.
