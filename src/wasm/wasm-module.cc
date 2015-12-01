@@ -396,6 +396,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
   module_env.function_table = BuildFunctionTable(isolate, this);
   module_env.memory = memory;
   module_env.context = isolate->native_context();
+  module_env.asm_js = false;
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
@@ -527,6 +528,7 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   module_env.linker = &linker;
   module_env.function_code = nullptr;
   module_env.function_table = BuildFunctionTable(isolate, module);
+  module_env.asm_js = false;
 
   // Load data segments.
   // TODO(titzer): throw instead of crashing if segments don't fit in memory?
