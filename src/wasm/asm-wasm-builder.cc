@@ -44,10 +44,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
         isolate_(isolate),
         zone_(zone),
         cache_(TypeCache::Get()),
-        block_depth_(0),
         breakable_blocks_(zone),
-        block_size_index_(zone),
-        block_size_(zone) {
+        block_size_(0) {
     InitializeAstVisitor(isolate);
   }
 
@@ -58,7 +56,6 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitFunctionDeclaration(FunctionDeclaration* decl) {
     DCHECK(!in_function_);
     DCHECK(current_function_builder_ == NULL);
-    DCHECK(block_depth_ == 0);
     uint16_t index = LookupOrInsertFunction(decl->proxy()->var());
     current_function_builder_ = builder_->FunctionAt(index);
     in_function_ = true;
@@ -73,39 +70,27 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitExportDeclaration(ExportDeclaration* decl) {}
 
   void VisitStatements(ZoneList<Statement*>* stmts) {
-    if (in_function_) {
-      current_function_builder_->AppendCode(kExprBlock, false);
-      uint32_t index = current_function_builder_->AppendEditableImmediate(
-          static_cast<byte>(stmts->length()));
-      block_size_index_.push_back(index);
-      block_size_.push_back(static_cast<byte>(stmts->length()));
-    }
-
     for (int i = 0; i < stmts->length(); ++i) {
       Statement* stmt = stmts->at(i);
       RECURSE(Visit(stmt));
       if (stmt->IsJump())
         break;
     }
-
-    if (in_function_) {
-      uint32_t index = block_size_index_.back();
-      block_size_index_.pop_back();
-      byte size = block_size_.back();
-      block_size_.pop_back();
-      DCHECK(size >= 0);
-      current_function_builder_->EditImmediate(index, size);
-    }
   }
 
   void VisitBlock(Block* stmt) {
     if (!in_function_)
       return;
-    block_depth_++;
     breakable_blocks_.push_back(
         std::make_pair(stmt->AsBreakableStatement(), false));
+    current_function_builder_->AppendCode(kExprBlock, false);
+    uint32_t index = current_function_builder_->AppendEditableImmediate(0);
+    int prev_block_size = block_size_;
+    block_size_ = static_cast<byte>(stmt->statements()->length());
     RECURSE(VisitStatements(stmt->statements()));
-    block_depth_--;
+    DCHECK(block_size_ >= 0);
+    current_function_builder_->EditImmediate(index, block_size_);
+    block_size_ = prev_block_size;
     breakable_blocks_.pop_back();
   }
 
@@ -181,8 +166,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitReturnStatement(ReturnStatement* stmt) {
     if (in_function_) {
-      current_function_builder_->AppendCode(kExprBr, false);
-      current_function_builder_->AppendCode(block_depth_, false);
+      current_function_builder_->AppendCode(kExprReturn, false);
     } else {
       marking_exported = true;
     }
@@ -224,7 +208,6 @@ class AsmWasmBuilderImpl : public AstVisitor {
     DCHECK(in_function_);
     current_function_builder_->AppendCode(kExprLoop, false);
     current_function_builder_->AppendCode(1, false);
-    block_depth_ += 2;
     breakable_blocks_.push_back(
         std::make_pair(stmt->AsBreakableStatement(), true));
     current_function_builder_->AppendCode(kExprIf, false);
@@ -232,7 +215,6 @@ class AsmWasmBuilderImpl : public AstVisitor {
     current_function_builder_->AppendCode(kExprBr, false);
     current_function_builder_->AppendCode(0, false);
     RECURSE(Visit(stmt->body()));
-    block_depth_ -= 2;
     breakable_blocks_.pop_back();
   }
 
@@ -384,7 +366,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
       VariableProxy* effective_value_var = GetLeft(value_op)->AsVariableProxy();
       if (target_var != NULL && effective_value_var != NULL &&
           target_var->var() == effective_value_var->var()) {
-        block_size_.back()--;
+        block_size_--;
         return;
       }
     }
@@ -890,10 +872,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
   Isolate* isolate_;
   Zone* zone_;
   TypeCache const& cache_;
-  int block_depth_;
   ZoneVector<std::pair<BreakableStatement*, bool>> breakable_blocks_;
-  ZoneVector<uint32_t> block_size_index_;
-  ZoneVector<byte> block_size_;
+  int block_size_;
 
   DEFINE_AST_VISITOR_SUBCLASS_MEMBERS();
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
