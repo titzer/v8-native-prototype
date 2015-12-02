@@ -2671,6 +2671,7 @@ TEST(Run_TestI64WasmRunner) {
 
 TEST(Run_WasmCallEmpty) {
   const int32_t kExpected = -414444;
+  printf("expected: %x\n", kExpected);
   // Build the target function.
   TestSignatures sigs;
   TestingModule module;
