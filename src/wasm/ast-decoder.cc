@@ -541,11 +541,8 @@ class LR_WasmDecoder : public Decoder {
         case kExprMemorySize:
           Leaf(kAstI32, builder_.MemSize(0));
           break;
-        case kExprResizeMemL:
+        case kExprGrowMemory:
           Shift(kAstI32, 1);
-          break;
-        case kExprResizeMemH:
-          Shift(kAstI64, 1);
           break;
         case kExprCallFunction: {
           uint32_t unused;
@@ -1006,15 +1003,10 @@ class LR_WasmDecoder : public Decoder {
       case kExprF64StoreMem:
         return ReduceStoreMem(p, kAstF64, kMemF64);
 
-      case kExprResizeMemL:
+      case kExprGrowMemory:
         TypeCheckLast(p, kAstI32);
-        // TODO: build node for ResizeMemL
+        // TODO: build node for GrowMemory
         p->tree->node = BUILD(Int32Constant, 0);
-        return;
-      case kExprResizeMemH:
-        TypeCheckLast(p, kAstI64);
-        // TODO: build node for ResizeMemH
-        p->tree->node = BUILD(Int64Constant, 0);
         return;
 
       case kExprCallFunction: {

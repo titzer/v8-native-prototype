@@ -116,9 +116,8 @@ typedef Signature<LocalType> FunctionSig;
 
 // Load memory expressions.
 #define FOREACH_MISC_MEM_OPCODE(V) \
-  V(MemorySize, 0x3b, i_v)              \
-  V(ResizeMemL, 0x39, i_i)              \
-  V(ResizeMemH, 0x3a, l_l)
+  V(MemorySize, 0x3b, i_v)               \
+  V(GrowMemory, 0x39, i_i)              
 
 // Expressions with signatures.
 #define FOREACH_SIMPLE_OPCODE(V) \

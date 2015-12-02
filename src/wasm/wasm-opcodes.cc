@@ -149,8 +149,6 @@ bool WasmOpcodes::IsSupported(WasmOpcode opcode) {
     case kExprF64ReinterpretI64:
     case kExprI64ReinterpretF64:
 
-    case kExprResizeMemH:  // high memory not supported on 32-bit
-
     case kExprI64Clz:
     case kExprI64Ctz:
     case kExprI64Popcnt:

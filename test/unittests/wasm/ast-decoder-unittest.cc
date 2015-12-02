@@ -1008,24 +1008,10 @@ TEST_F(WasmDecoderTest, MemorySize) {
 }
 
 
-TEST_F(WasmDecoderTest, ResizeMemL) {
-  byte code[] = {kExprResizeMemL, kExprGetLocal, 0};
+TEST_F(WasmDecoderTest, GrowMemory) {
+  byte code[] = {kExprGrowMemory, kExprGetLocal, 0};
   EXPECT_VERIFIES(&env_i_i, code);
   EXPECT_FAILURE(&env_i_d, code);
-}
-
-
-TEST_F(WasmDecoderTest, ResizeMemH) {
-  byte code[] = {kExprResizeMemH, kExprGetLocal, 0};
-  EXPECT_VERIFIES(&env_l_l, code);
-  {
-    LocalType types[] = {kAstI32, kAstI64};
-    FunctionSig sig(1, 1, types);
-    FunctionEnv env;
-    init_env(&env, &sig);
-    EXPECT_FAILURE(&env, code);
-  }
-  EXPECT_FAILURE(&env_d_dd, code);
 }
 
 
@@ -2009,8 +1995,7 @@ TEST_F(WasmOpcodeLengthTest, LoadsAndStores) {
 
 TEST_F(WasmOpcodeLengthTest, MiscMemExpressions) {
   EXPECT_LENGTH(1, kExprMemorySize);
-  EXPECT_LENGTH(1, kExprResizeMemL);
-  EXPECT_LENGTH(1, kExprResizeMemH);
+  EXPECT_LENGTH(1, kExprGrowMemory);
 }
 
 
@@ -2264,8 +2249,7 @@ TEST_F(WasmOpcodeArityTest, MiscMemExpressions) {
   FunctionEnv env;
 
   EXPECT_ARITY(0, kExprMemorySize);
-  EXPECT_ARITY(1, kExprResizeMemL);
-  EXPECT_ARITY(1, kExprResizeMemH);
+  EXPECT_ARITY(1, kExprGrowMemory);
 }
 
 

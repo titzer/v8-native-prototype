@@ -13,6 +13,7 @@ function bytes() {
   return buffer;
 }
 
+// Section declaration constants
 var kDeclMemory = 0x00;
 var kDeclSignatures = 0x01;
 var kDeclFunctions = 0x02;
@@ -21,17 +22,20 @@ var kDeclDataSegments = 0x04;
 var kDeclFunctionTable = 0x05;
 var kDeclEnd = 0x06;
 
+// Function declaration flags
 var kDeclFunctionName   = 0x01;
 var kDeclFunctionImport = 0x02;
 var kDeclFunctionLocals = 0x04;
 var kDeclFunctionExport = 0x08;
 
+// Local types
 var kAstStmt = 0;
 var kAstI32 = 1;
 var kAstI64 = 2;
 var kAstF32 = 3;
 var kAstF64 = 4;
 
+// Opcodes
 var kExprNop = 0x00;
 var kExprBlock = 0x01;
 var kExprLoop = 0x02;
@@ -40,9 +44,9 @@ var kExprIfThen = 0x04;
 var kExprSelect = 0x05;
 var kExprBr = 0x06;
 var kExprBrIf = 0x07;
-var kExprTableSwitch =0x08;
+var kExprTableSwitch = 0x08;
 var kExprReturn = 0x14;
-var kExprUnreachable =0x15;
+var kExprUnreachable = 0x15;
 
 var kExprI8Const = 0x09;
 var kExprI32Const = 0x0a;
@@ -82,8 +86,7 @@ var kExprF32StoreMem = 0x35;
 var kExprF64StoreMem = 0x36;
 
 var kExprMemorySize = 0x3b;
-var kExprResizeMemL = 0x39;
-var kExprResizeMemH = 0x3a;
+var kExprGrowMemory = 0x39;
 
 var kExprI32Add = 0x40;
 var kExprI32Sub = 0x41;
