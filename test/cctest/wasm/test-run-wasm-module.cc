@@ -166,3 +166,28 @@ TEST(Run_WasmModule_CallMain_recursive) {
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), 55);
 }
+
+
+TEST(Run_WasmModule_Global) {
+  Zone zone;
+  WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
+  uint32_t global1 = builder->AddGlobal(kAstI32, 0);
+  uint32_t global2 = builder->AddGlobal(kAstI32, 0);
+  uint16_t f1_index = builder->AddFunction();
+  WasmFunctionBuilder* f = builder->FunctionAt(f1_index);
+  f->ReturnType(kAstI32);
+  byte code1[] = {
+      WASM_I32_ADD(WASM_LOAD_GLOBAL(global1), WASM_LOAD_GLOBAL(global2))};
+  f->AddBody(code1, sizeof(code1));
+  uint16_t f2_index = builder->AddFunction();
+  f = builder->FunctionAt(f2_index);
+  f->ReturnType(kAstI32);
+  f->Exported(1);
+  byte code2[] = {
+      WASM_STORE_GLOBAL(global1, WASM_I32(56)),
+      WASM_STORE_GLOBAL(global2, WASM_I32(41)),
+      WASM_RETURN(WASM_CALL_FUNCTION(f1_index))};
+  f->AddBody(code2, sizeof(code2));
+  WasmModuleWriter* writer = builder->Build(&zone);
+  TestModule(writer->WriteTo(&zone), 97);
+}
