@@ -1379,6 +1379,44 @@ TEST(Run_Wasm_TableSwitch1) {
 }
 
 
+TEST(Run_Wasm_TableSwitch_br) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, 
+        WASM_TABLESWITCH_OP(1, 2, WASM_CASE_BR(0), WASM_CASE(0)),
+        WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                              WASM_RETURN(WASM_I8(91))),
+        WASM_I8(99));
+  CHECK_EQ(99, r.Call(0));
+  CHECK_EQ(91, r.Call(1));
+  CHECK_EQ(91, r.Call(2));
+  CHECK_EQ(91, r.Call(3));
+}
+
+
+TEST(Run_Wasm_TableSwitch_br2) {
+  WasmRunner<int32_t> r(kMachInt32);
+  BUILD(r, 
+        WASM_BLOCK(2,
+                   WASM_BLOCK(2,
+                              WASM_TABLESWITCH_OP(1, 4,
+                                                  WASM_CASE_BR(0),
+                                                  WASM_CASE_BR(1),
+                                                  WASM_CASE_BR(2),
+                                                  WASM_CASE(0)),
+                              WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
+                                                    WASM_RETURN(WASM_I8(85))),
+                              WASM_RETURN(WASM_I8(86))),
+                   WASM_RETURN(WASM_I8(87))),
+        WASM_I8(88));
+  CHECK_EQ(86, r.Call(0));
+  CHECK_EQ(87, r.Call(1));
+  CHECK_EQ(88, r.Call(2));
+  CHECK_EQ(85, r.Call(3));
+  CHECK_EQ(85, r.Call(4));
+  CHECK_EQ(85, r.Call(5));
+}
+
+
 TEST(Run_Wasm_TableSwitch2) {
   WasmRunner<int32_t> r(kMachInt32);
   BUILD(r, 

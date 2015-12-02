@@ -415,7 +415,7 @@ class LR_WasmDecoder : public Decoder {
             uint16_t target = *reinterpret_cast<const uint16_t*>(pc_ + 5 + i * 2);
             if (target >= 0x8000) {
               size_t depth = target - 0x8000;
-              if (depth >= blocks_.size()) {
+              if (depth > blocks_.size()) {
                 error(pc_ + 5 + i * 2, "improper branch in tableswitch");
               }
             } else {
@@ -829,23 +829,32 @@ class LR_WasmDecoder : public Decoder {
         break;
       }
       case kExprTableSwitch: {
+        uint16_t table_count = *reinterpret_cast<const uint16_t*>(p->pc() + 3);
+        if (table_count == 1) {
+          // Degenerate switch with only a default target.
+          if (p->index == 1) {
+            SsaEnv* break_env = ssa_env_;
+            PushBlock(break_env);
+            SetEnv(Steal(break_env));
+          }
+          if (p->done()) {
+            Block* block = &blocks_.back();
+            // fall through to the end.
+            if (ssa_env_->go()) ReduceBreakToExprBlock(p, block);
+            SetEnv(block->ssa_env);
+            blocks_.pop_back();
+          }
+          break;
+        }
+
         if (p->index == 1) {
           // Switch key finished.
           TypeCheckLast(p, kAstI32);
 
-          uint16_t case_count = *reinterpret_cast<const uint16_t*>(p->pc() + 1);
-          uint16_t table_count = *reinterpret_cast<const uint16_t*>(p->pc() + 3);
-
-          if (case_count == 0) {
-            // A degenerate switch returns the key value.
-            p->tree->type = p->last()->type;
-            p->tree->node = p->last()->node;
-            break;
-          }
-
           TFNode* sw = BUILD(Switch, table_count, p->last()->node);
 
           // Allocate environments for each case.
+          uint16_t case_count = *reinterpret_cast<const uint16_t*>(p->pc() + 1);
           SsaEnv** case_envs = zone_->NewArray<SsaEnv*>(case_count);
           for (int i = 0; i < case_count; i++) {
             case_envs[i] = UnreachableEnv();
@@ -875,13 +884,8 @@ class LR_WasmDecoder : public Decoder {
             }
           }
 
-          if (p->tree->count == 2) {
-            // Switch with only 1 (default) case.
-            SetEnv(copy);
-          } else {
-            // Switch with > 1 cases. Use first environment.
-            SetEnv(case_envs[0]);
-          }
+          // Switch to the environment for the first case.
+          SetEnv(case_envs[0]);
         } else {
           // Switch case finished.
           SsaEnv* next;

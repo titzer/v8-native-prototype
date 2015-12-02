@@ -1799,14 +1799,31 @@ TEST_F(WasmDecoderTest, TableSwitch1b) {
 }
 
 
-TEST_F(WasmDecoderTest, TableSwitch_invalid_br) {
-  EXPECT_FAILURE_INLINE(&env_i_i, 
-                        WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(0)),
-                        WASM_GET_LOCAL(0));
+TEST_F(WasmDecoderTest, TableSwitch_br) {
   EXPECT_VERIFIES_INLINE(&env_i_i, 
-                         WASM_BLOCK(1,
-                                    WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(0)),
-                                    WASM_GET_LOCAL(0)));
+                         WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(0)),
+                         WASM_GET_LOCAL(0));
+  for (int depth = 0; depth < 2; depth++) {
+    EXPECT_VERIFIES_INLINE(&env_i_i, 
+                           WASM_BLOCK(1,
+                                      WASM_TABLESWITCH_OP(0, 1,
+                                                          WASM_CASE_BR(depth)),
+                                      WASM_GET_LOCAL(0)));
+  }
+}
+
+
+TEST_F(WasmDecoderTest, TableSwitch_invalid_br) {
+  for (int depth = 1; depth < 4; depth++) {
+    EXPECT_FAILURE_INLINE(&env_i_i, 
+                          WASM_TABLESWITCH_OP(0, 1, WASM_CASE_BR(depth)),
+                          WASM_GET_LOCAL(0));
+    EXPECT_FAILURE_INLINE(&env_i_i, 
+                           WASM_BLOCK(1,
+                                      WASM_TABLESWITCH_OP(0, 1,
+                                                          WASM_CASE_BR(depth + 1)),
+                                      WASM_GET_LOCAL(0)));
+  }
 }
 
 
