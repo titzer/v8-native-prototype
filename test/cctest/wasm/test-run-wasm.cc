@@ -2731,17 +2731,13 @@ TEST(Run_WasmCall_Float32Sub) {
   unsigned index = t.CompileAndAdd(&module);
 
   // Builder the caller function.
-  WasmRunner<int32_t> r(kMachInt32, kMachInt32);
+  WasmRunner<float> r(kMachFloat32, kMachFloat32);
   r.env()->module = &module;
-  BUILD(r, WASM_I32_SCONVERT_F32(WASM_CALL_FUNCTION(
-               index, WASM_F32_SCONVERT_I32(WASM_GET_LOCAL(0)),
-               WASM_F32_SCONVERT_I32(WASM_GET_LOCAL(1)))));
+  BUILD(r, WASM_CALL_FUNCTION(index, WASM_GET_LOCAL(0), WASM_GET_LOCAL(1)));
 
-  FOR_INT32_INPUTS(i) {
-    FOR_INT32_INPUTS(j) {
-      int32_t expected =
-          static_cast<int32_t>(static_cast<float>(*i) - static_cast<float>(*j));
-      CHECK_EQ(expected, r.Call(*i, *j));
+  FOR_FLOAT32_INPUTS(i) {
+    FOR_FLOAT32_INPUTS(j) {
+      CheckFloatEq(*i - *j, r.Call(*i, *j));
     }
   }
 }
