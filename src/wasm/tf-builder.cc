@@ -217,14 +217,14 @@ class TFTrapHelper : public ZoneObject{
       const Runtime::Function* fun = Runtime::FunctionForId(f);
       compiler::CallDescriptor* desc =
         compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs,
-                                                    compiler::Operator::kNoProperties);
+                                                    compiler::Operator::kNoProperties,
+                                                    compiler::CallDescriptor::kNoFlags);
       TFNode* inputs[] = {
         graph->CEntryStubConstant(fun->result_size),                     // C entry
         exception,                                                       // exception
         graph->ExternalConstant(ExternalReference(f, graph->isolate())), // ref
         graph->Int32Constant(fun->nargs),                                // arity
         graph->Constant(module->context),                                // context
-        graph->EmptyFrameState(),
         *effect,
         *control
       };
