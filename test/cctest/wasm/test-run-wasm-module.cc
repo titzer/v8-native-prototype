@@ -186,7 +186,7 @@ TEST(Run_WasmModule_Global) {
   byte code2[] = {
       WASM_STORE_GLOBAL(global1, WASM_I32(56)),
       WASM_STORE_GLOBAL(global2, WASM_I32(41)),
-      WASM_RETURN(WASM_CALL_FUNCTION(f1_index))};
+      WASM_RETURN(WASM_CALL_FUNCTION0(f1_index))};
   f->AddBody(code2, sizeof(code2));
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), 97);
