@@ -15,8 +15,6 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-using compiler::MachineType;
-using compiler::MachineSignature;
 using compiler::LocationSignature;
 using compiler::CallDescriptor;
 using compiler::LinkageLocation;
@@ -25,16 +23,16 @@ namespace {
 MachineType MachineTypeFor(LocalType type) {
   switch (type) {
     case kAstI32:
-      return compiler::kMachInt32;
+      return kMachInt32;
     case kAstI64:
-      return compiler::kMachInt64;
+      return kMachInt64;
     case kAstF64:
-      return compiler::kMachFloat64;
+      return kMachFloat64;
     case kAstF32:
-      return compiler::kMachFloat32;
+      return kMachFloat32;
     default:
       UNREACHABLE();
-      return compiler::kMachAnyTagged;
+      return kMachAnyTagged;
   }
 }
 
@@ -252,7 +250,7 @@ CallDescriptor* ModuleEnv::GetWasmCallDescriptor(Zone* zone,
   const RegList kCalleeSaveFPRegisters = 0;
 
   // The target for WASM calls is always a code object.
-  MachineType target_type = compiler::kMachAnyTagged;
+  MachineType target_type = kMachAnyTagged;
   LinkageLocation target_loc = LinkageLocation::ForAnyRegister();
   return new (zone) CallDescriptor(       // --
       CallDescriptor::kCallCodeObject,    // kind

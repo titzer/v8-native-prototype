@@ -185,7 +185,7 @@ Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
   compiler::Graph graph(&zone);
   compiler::CommonOperatorBuilder common(&zone);
   compiler::MachineOperatorBuilder machine(
-      &zone, compiler::kMachPtr,
+      &zone, kMachPtr,
       compiler::InstructionSelector::SupportedMachineOperatorFlags());
   compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr,
                             &machine);

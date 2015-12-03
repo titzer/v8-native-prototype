@@ -60,47 +60,47 @@ static const char* kTrapMessages[] = {
     "remainder by zero", "integer result unrepresentable",
     "invalid function",  "function signature mismatch"};
 
-compiler::MachineType MachineTypeFor(LocalType type) {
+MachineType MachineTypeFor(LocalType type) {
   switch (type) {
     case kAstI32:
-      return compiler::kMachInt32;
+      return kMachInt32;
     case kAstI64:
-      return compiler::kMachInt64;
+      return kMachInt64;
     case kAstF64:
-      return compiler::kMachFloat64;
+      return kMachFloat64;
     case kAstF32:
-      return compiler::kMachFloat32;
+      return kMachFloat32;
     default:
       UNREACHABLE();
-      return compiler::kMachAnyTagged;
+      return kMachAnyTagged;
   }
 }
 
-compiler::MachineType MachineTypeFor(MemType type) {
+MachineType MachineTypeFor(MemType type) {
   switch (type) {
     case kMemI8:
-      return compiler::kMachInt8;
+      return kMachInt8;
     case kMemI16:
-      return compiler::kMachInt16;
+      return kMachInt16;
     case kMemI32:
-      return compiler::kMachInt32;
+      return kMachInt32;
     case kMemI64:
-      return compiler::kMachInt64;
+      return kMachInt64;
     case kMemU8:
-      return compiler::kMachUint8;
+      return kMachUint8;
     case kMemU16:
-      return compiler::kMachUint16;
+      return kMachUint16;
     case kMemU32:
-      return compiler::kMachUint32;
+      return kMachUint32;
     case kMemU64:
-      return compiler::kMachUint64;
+      return kMachUint64;
     case kMemF64:
-      return compiler::kMachFloat64;
+      return kMachFloat64;
     case kMemF32:
-      return compiler::kMachFloat32;
+      return kMachFloat32;
     default:
       UNREACHABLE();
-      return compiler::kMachAnyTagged;
+      return kMachAnyTagged;
   }
 }
 }  // namespace
@@ -327,7 +327,7 @@ TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
   DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(vals, count + 1);
   buf[count] = control;
-  compiler::MachineType machine_type = MachineTypeFor(type);
+  MachineType machine_type = MachineTypeFor(type);
   return graph->graph()->NewNode(graph->common()->Phi(machine_type, count),
                                  count + 1, buf);
 }
@@ -410,7 +410,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       TFNode* rem =
           graph->graph()->NewNode(m->Int32Mod(), left, right, d.if_false);
 
-      return d.Phi(compiler::kMachInt32, graph->Int32Constant(0), rem);
+      return d.Phi(kMachInt32, graph->Int32Constant(0), rem);
     }
     case kExprI32RemU:
       op = m->Uint32Mod();
@@ -512,7 +512,7 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       TFNode* rem =
           graph->graph()->NewNode(m->Int64Mod(), left, right, d.if_false);
 
-      return d.Phi(compiler::kMachInt64, graph->Int64Constant(0), rem);
+      return d.Phi(kMachInt64, graph->Int64Constant(0), rem);
     }
     case kExprI64RemU:
       op = m->Uint64Mod();
@@ -1233,7 +1233,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   const int fixed_offset = access.header_size - access.tag();
   {
     TFNode* load_sig =
-        g->NewNode(machine->Load(compiler::kMachAnyTagged), table,
+        g->NewNode(machine->Load(kMachAnyTagged), table,
                    g->NewNode(machine->Int32Add(),
                               g->NewNode(machine->Word32Shl(), key,
                                          Int32Constant(kPointerSizeLog2)),
@@ -1247,7 +1247,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
   // Load code object from the table.
   int offset = fixed_offset + kPointerSize * table_size;
   TFNode* load_code =
-      g->NewNode(machine->Load(compiler::kMachAnyTagged), table,
+      g->NewNode(machine->Load(kMachAnyTagged), table,
                  g->NewNode(machine->Int32Add(),
                             g->NewNode(machine->Word32Shl(), key,
                                        Int32Constant(kPointerSizeLog2)),
