@@ -96,6 +96,7 @@ class LR_WasmDecoder : public Decoder {
   LR_WasmDecoder(Zone* zone, TFGraph* g)
       : Decoder(nullptr, nullptr),
         zone_(zone),
+        graph_(g),
         builder_(zone, g),
         trees_(zone),
         stack_(zone),
@@ -159,6 +160,7 @@ class LR_WasmDecoder : public Decoder {
   static const size_t kErrorMsgSize = 128;
 
   Zone* zone_;
+  TFGraph* graph_;
   TFBuilder builder_;
   const byte* base_;
   TreeResult result_;
@@ -171,7 +173,7 @@ class LR_WasmDecoder : public Decoder {
   ZoneVector<Block> blocks_;
   ZoneVector<IfEnv> ifs_;
 
-  inline bool build() { return builder_.graph && ssa_env_->go(); }
+  inline bool build() { return graph_ && ssa_env_->go(); }
 
   void InitSsaEnv() {
     FunctionSig* sig = function_env_->sig;
@@ -184,7 +186,7 @@ class LR_WasmDecoder : public Decoder {
         size > 0 ? reinterpret_cast<TFNode**>(zone_->New(size)) : nullptr;
 
     int pos = 0;
-    if (builder_.graph) {
+    if (graph_) {
       start = builder_.Start(param_count + 1);
       // Initialize parameters.
       for (int i = 0; i < param_count; i++) {
@@ -223,7 +225,7 @@ class LR_WasmDecoder : public Decoder {
     }
     ssa_env->control = start;
     ssa_env->effect = start;
-    builder_.module = function_env_->module;
+    builder_.set_module(function_env_->module);
     SetEnv(ssa_env);
   }
 
@@ -290,8 +292,7 @@ class LR_WasmDecoder : public Decoder {
     TRACE("wasm-decode %p...%p (%d bytes) %s\n",
           reinterpret_cast<const void*>(start_),
           reinterpret_cast<const void*>(limit_),
-          static_cast<int>(limit_ - start_),
-          builder_.graph ? "graph building" : "");
+          static_cast<int>(limit_ - start_), graph_ ? "graph building" : "");
 
     if (pc_ >= limit_) return;  // Nothing to do.
 
@@ -742,7 +743,7 @@ class LR_WasmDecoder : public Decoder {
                 if (a != b) {
                   TFNode* vals[] = {b,
                                     a};  // false predecessor first, then true.
-                  result = BUILD(Phi, left->type, 2, vals, *builder_.control);
+                  result = BUILD(Phi, left->type, 2, vals, builder_.Control());
                 }
                 p->tree->type = left->type;
                 p->tree->node = result;
@@ -924,7 +925,7 @@ class LR_WasmDecoder : public Decoder {
         LocalType type = LocalOperand(p->pc(), &index, &unused);
         Tree* val = p->last();
         if (type == val->type) {
-          if (builder_.graph) ssa_env_->locals[index] = val->node;
+          if (graph_) ssa_env_->locals[index] = val->node;
           p->tree->node = val->node;
         } else {
           error(p->pc(), val->pc, "Typecheck failed in SetLocal");
@@ -1120,8 +1121,8 @@ class LR_WasmDecoder : public Decoder {
           static_cast<void*>(env), static_cast<int>(blocks_.size()),
           env->state);
     ssa_env_ = env;
-    builder_.control = &env->control;
-    builder_.effect = &env->effect;
+    builder_.set_control_ptr(&env->control);
+    builder_.set_effect_ptr(&env->effect);
   }
 
   void Goto(SsaEnv* from, SsaEnv* to) {
@@ -1137,7 +1138,7 @@ class LR_WasmDecoder : public Decoder {
       }
       case SsaEnv::kReached: {  // Create a new merge.
         to->state = SsaEnv::kMerged;
-        if (!builder_.graph) break;
+        if (!graph_) break;
         // Merge control.
         TFNode* controls[] = {to->control, from->control};
         TFNode* merge = builder_.Merge(2, controls);
@@ -1160,7 +1161,7 @@ class LR_WasmDecoder : public Decoder {
         break;
       }
       case SsaEnv::kMerged: {
-        if (!builder_.graph) break;
+        if (!graph_) break;
         TFNode* merge = to->control;
         // Extend the existing merge.
         builder_.AppendToMerge(merge, from->control);
@@ -1224,7 +1225,7 @@ class LR_WasmDecoder : public Decoder {
   void PrepareForLoop(SsaEnv* env) {
     if (env->go()) {
       env->state = SsaEnv::kMerged;
-      if (!builder_.graph) return;
+      if (!graph_) return;
       env->control = builder_.Loop(env->control);
       env->effect = builder_.EffectPhi(1, &env->effect, env->control);
       builder_.Terminate(env->effect, env->control);
@@ -1307,7 +1308,7 @@ class LR_WasmDecoder : public Decoder {
   }
 
   int EnvironmentCount() {
-    if (builder_.graph) return static_cast<int>(function_env_->GetLocalCount());
+    if (graph_) return static_cast<int>(function_env_->GetLocalCount());
     return 0;  // if we aren't building a graph, don't bother with SSA renaming.
   }
 
@@ -1371,8 +1372,8 @@ class LR_WasmDecoder : public Decoder {
   }
 
   virtual void onFirstError() {
-    limit_ = start_;           // Terminate decoding loop.
-    builder_.graph = nullptr;  // Don't build any more nodes.
+    limit_ = start_;   // Terminate decoding loop.
+    graph_ = nullptr;  // Don't build any more nodes.
 #if DEBUG
     PrintStackForDebugging();
 #endif

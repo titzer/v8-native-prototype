@@ -26,26 +26,10 @@ struct ModuleEnv;
 
 class TFTrapHelper;
 
-// Abstracts details of building TurboFan graph nodes, making the decoder
-// independent of the exact IR details.
-struct TFBuilder {
-  static const int kDefaultBufferSize = 16;
-
-  Zone* zone;
-  TFGraph* graph;
-  ModuleEnv* module;
-  TFNode* mem_buffer;
-  TFNode* mem_size;
-  TFNode* function_table;
-  TFNode** control;
-  TFNode** effect;
-  TFNode** cur_buffer;
-  size_t cur_bufsize;
-  TFNode* def_buffer[kDefaultBufferSize];
-  bool asm_js;
-
-  TFTrapHelper* trap;
-
+// Abstracts details of building TurboFan graph nodes for WASM to separate
+// the WASM decoder from the internal details of TurboFan.
+class TFBuilder {
+ public:
   TFBuilder(Zone* z, TFGraph* g);
 
   TFNode** Buffer(size_t count) {
@@ -56,12 +40,6 @@ struct TFBuilder {
       cur_bufsize = new_size;
     }
     return cur_buffer;
-  }
-
-  TFNode** Realloc(TFNode** buffer, size_t count) {
-    TFNode** buf = Buffer(count);
-    if (buf != buffer) memcpy(buf, buffer, count * sizeof(TFNode*));
-    return buf;
   }
 
   //-----------------------------------------------------------------------
@@ -106,28 +84,64 @@ struct TFBuilder {
   TFNode* FromJS(TFNode* node, TFNode* context, LocalType type);
   TFNode* Invert(TFNode* node);
   TFNode* FunctionTable();
-  TFNode* MakeWasmCall(FunctionSig* sig, TFNode** args);
-  TFNode* MakeF32CopySign(TFNode* left, TFNode* right);
-  TFNode* MakeF64CopySign(TFNode* left, TFNode* right);
-  TFNode* MakeI32Ctz(TFNode* input);
-  TFNode* MakeI32Popcnt(TFNode* input);
-  TFNode* MakeI64Ctz(TFNode* input);
-  TFNode* MakeI64Popcnt(TFNode* input);
 
   //-----------------------------------------------------------------------
   // Operations that concern the linear memory.
   //-----------------------------------------------------------------------
-  TFNode* MemBuffer(uint32_t offset);
   TFNode* MemSize(uint32_t offset);
   TFNode* LoadGlobal(uint32_t index);
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
-  void BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset);
   TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index,
                   uint32_t offset);
   TFNode* StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val);
 
   static void PrintDebugName(TFNode* node);
+
+  TFNode* Control() { return *control; }
+  TFNode* Effect() { return *effect; }
+
+  void set_module(ModuleEnv* env) { this->module = env; }
+
+  void set_control_ptr(TFNode** control) { this->control = control; }
+
+  void set_effect_ptr(TFNode** effect) { this->effect = effect; }
+
+ private:
+  static const int kDefaultBufferSize = 16;
+  friend class TFTrapHelper;
+
+  Zone* zone;
+  TFGraph* graph;
+  ModuleEnv* module;
+  TFNode* mem_buffer;
+  TFNode* mem_size;
+  TFNode* function_table;
+  TFNode** control;
+  TFNode** effect;
+  TFNode** cur_buffer;
+  size_t cur_bufsize;
+  TFNode* def_buffer[kDefaultBufferSize];
+
+  TFTrapHelper* trap;
+
+  // Internal helper methods.
   TFNode* String(const char* string);
+  TFNode* MemBuffer(uint32_t offset);
+  void BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset);
+
+  TFNode* BuildWasmCall(FunctionSig* sig, TFNode** args);
+  TFNode* BuildF32CopySign(TFNode* left, TFNode* right);
+  TFNode* BuildF64CopySign(TFNode* left, TFNode* right);
+  TFNode* BuildI32Ctz(TFNode* input);
+  TFNode* BuildI32Popcnt(TFNode* input);
+  TFNode* BuildI64Ctz(TFNode* input);
+  TFNode* BuildI64Popcnt(TFNode* input);
+
+  TFNode** Realloc(TFNode** buffer, size_t count) {
+    TFNode** buf = Buffer(count);
+    if (buf != buffer) memcpy(buf, buffer, count * sizeof(TFNode*));
+    return buf;
+  }
 };
 }
 }

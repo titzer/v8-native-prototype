@@ -572,9 +572,9 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
 #endif
 
     case kExprF32CopySign:
-      return MakeF32CopySign(left, right);
+      return BuildF32CopySign(left, right);
     case kExprF64CopySign:
-      return MakeF64CopySign(left, right);
+      return BuildF64CopySign(left, right);
     case kExprF32Add:
       op = m->Float32Add();
       break;
@@ -757,7 +757,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         op = m->Word32Ctz().op();
         break;
       } else {
-        return MakeI32Ctz(input);
+        return BuildI32Ctz(input);
       }
     }
     case kExprI32Popcnt: {
@@ -765,7 +765,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         op = m->Word32Popcnt().op();
         break;
       } else {
-        return MakeI32Popcnt(input);
+        return BuildI32Popcnt(input);
       }
     }
     case kExprF32Floor: {
@@ -879,7 +879,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         op = m->Word64Ctz().op();
         break;
       } else {
-        return MakeI64Ctz(input);
+        return BuildI64Ctz(input);
       }
     }
     case kExprI64Popcnt: {
@@ -887,7 +887,7 @@ TFNode* TFBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         op = m->Word64Popcnt().op();
         break;
       } else {
-        return MakeI64Popcnt(input);
+        return BuildI64Popcnt(input);
       }
     }
 #endif
@@ -976,7 +976,7 @@ TFNode* TFBuilder::Unreachable() {
 }
 
 
-TFNode* TFBuilder::MakeF32CopySign(TFNode* left, TFNode* right) {
+TFNode* TFBuilder::BuildF32CopySign(TFNode* left, TFNode* right) {
   TFNode* result = Unop(
       kExprF32ReinterpretI32,
       Binop(kExprI32Ior, Binop(kExprI32And, Unop(kExprI32ReinterpretF32, left),
@@ -988,7 +988,7 @@ TFNode* TFBuilder::MakeF32CopySign(TFNode* left, TFNode* right) {
 }
 
 
-TFNode* TFBuilder::MakeF64CopySign(TFNode* left, TFNode* right) {
+TFNode* TFBuilder::BuildF64CopySign(TFNode* left, TFNode* right) {
 #if WASM_64
   TFNode* result = Unop(
       kExprF64ReinterpretI64,
@@ -1017,7 +1017,7 @@ TFNode* TFBuilder::MakeF64CopySign(TFNode* left, TFNode* right) {
 }
 
 
-TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
+TFNode* TFBuilder::BuildI32Ctz(TFNode* input) {
   DCHECK_NOT_NULL(graph);
   //// Implement the following code as TF graph.
   // value = value | (value << 1);
@@ -1042,14 +1042,14 @@ TFNode* TFBuilder::MakeI32Ctz(TFNode* input) {
   result = Binop(kExprI32Ior, result,
                  Binop(kExprI32Shl, result, graph->Int32Constant(16)));
 
-  result = MakeI32Popcnt(
+  result = BuildI32Popcnt(
       Binop(kExprI32Xor, graph->Int32Constant(0xffffffff), result));
 
   return result;
 }
 
 
-TFNode* TFBuilder::MakeI64Ctz(TFNode* input) {
+TFNode* TFBuilder::BuildI64Ctz(TFNode* input) {
   //// Implement the following code as TF graph.
   // value = value | (value << 1);
   // value = value | (value << 2);
@@ -1077,13 +1077,13 @@ TFNode* TFBuilder::MakeI64Ctz(TFNode* input) {
   result = Binop(kExprI64Ior, result,
                  Binop(kExprI64Shl, result, graph->Int64Constant(32)));
 
-  result = MakeI64Popcnt(
+  result = BuildI64Popcnt(
       Binop(kExprI64Xor, graph->Int64Constant(0xffffffffffffffff), result));
 
   return result;
 }
 
-TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
+TFNode* TFBuilder::BuildI32Popcnt(TFNode* input) {
   DCHECK_NOT_NULL(graph);
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
@@ -1123,7 +1123,7 @@ TFNode* TFBuilder::MakeI32Popcnt(TFNode* input) {
 }
 
 
-TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
+TFNode* TFBuilder::BuildI64Popcnt(TFNode* input) {
   DCHECK_NOT_NULL(graph);
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x5555555555555555) + (value & 0x5555555555555555);
@@ -1175,7 +1175,7 @@ TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
 }
 
 
-TFNode* TFBuilder::MakeWasmCall(FunctionSig* sig, TFNode** args) {
+TFNode* TFBuilder::BuildWasmCall(FunctionSig* sig, TFNode** args) {
   const size_t params = sig->parameter_count();
   const size_t extra = 2;  // effect and control inputs.
   const size_t count = 1 + params + extra;
@@ -1203,7 +1203,7 @@ TFNode* TFBuilder::CallDirect(uint32_t index, TFNode** args) {
   args[0] = Constant(module->GetFunctionCode(index));
   FunctionSig* sig = module->GetFunctionSignature(index);
 
-  return MakeWasmCall(sig, args);
+  return BuildWasmCall(sig, args);
 }
 
 TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
@@ -1256,7 +1256,7 @@ TFNode* TFBuilder::CallIndirect(uint32_t index, TFNode** args) {
 
   args[0] = load_code;
   FunctionSig* sig = module->GetSignature(index);
-  return MakeWasmCall(sig, args);
+  return BuildWasmCall(sig, args);
 }
 
 TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {

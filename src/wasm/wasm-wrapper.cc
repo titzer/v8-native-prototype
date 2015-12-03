@@ -54,9 +54,9 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
   TFNode* effect = nullptr;
 
   TFBuilder builder(&zone, &jsgraph);
-  builder.control = &control;
-  builder.effect = &effect;
-  builder.module = module;
+  builder.set_control_ptr(&control);
+  builder.set_effect_ptr(&effect);
+  builder.set_module(module);
   builder.BuildJSToWasmWrapper(wasm_code, func->sig);
 
   //----------------------------------------------------------------------------
@@ -136,9 +136,9 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
   TFNode* effect = nullptr;
 
   TFBuilder builder(&zone, &jsgraph);
-  builder.control = &control;
-  builder.effect = &effect;
-  builder.module = module;
+  builder.set_control_ptr(&control);
+  builder.set_effect_ptr(&effect);
+  builder.set_module(module);
   builder.BuildWasmToJSWrapper(function, func->sig);
 
   Handle<Code> code = Handle<Code>::null();
