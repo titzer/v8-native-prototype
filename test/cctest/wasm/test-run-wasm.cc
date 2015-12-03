@@ -1031,7 +1031,7 @@ TEST(Run_WASM_Int32DivS_trap_effect) {
   module.AddMemoryElems<int32_t>(8);
   r.env()->module = &module;
   
-  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),
+  BUILD(r, WASM_IF_ELSE(WASM_GET_LOCAL(0),
                         WASM_I32_DIVS(WASM_STORE_MEM(kMemI8, WASM_ZERO,
                                                      WASM_GET_LOCAL(0)),
                                       WASM_GET_LOCAL(1)),
@@ -1230,10 +1230,10 @@ TEST(Run_WasmFloat64Unops) {
 }
 
 
-TEST(Run_Wasm_IfThen_P) {
+TEST(Run_Wasm_IfElse_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // if (p0) return 11; else return 22;
-  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0), // --
+  BUILD(r, WASM_IF_ELSE(WASM_GET_LOCAL(0), // --
                         WASM_I8(11),       // --
                         WASM_I8(22)));     // --
   FOR_INT32_INPUTS(i) {
@@ -1672,11 +1672,11 @@ TEST(Run_Wasm_Block_BrIf_P) {
 }
 
 
-TEST(Run_Wasm_Block_IfThen_P_assign) {
+TEST(Run_Wasm_Block_IfElse_P_assign) {
   WasmRunner<int32_t> r(kMachInt32);
   // { if (p0) p0 = 71; else p0 = 72; return p0; }
   BUILD(r, WASM_BLOCK(2,                                             // --
-                      WASM_IF_THEN(WASM_GET_LOCAL(0),                // --
+                      WASM_IF_ELSE(WASM_GET_LOCAL(0),                // --
                                    WASM_SET_LOCAL(0, WASM_I8(71)),   // --
                                    WASM_SET_LOCAL(0, WASM_I8(72))),  // --
                       WASM_GET_LOCAL(0)));
@@ -1687,11 +1687,11 @@ TEST(Run_Wasm_Block_IfThen_P_assign) {
 }
 
 
-TEST(Run_Wasm_Block_IfThen_P_return) {
+TEST(Run_Wasm_Block_IfElse_P_return) {
   WasmRunner<int32_t> r(kMachInt32);
   // if (p0) return 81; else return 82;
   BUILD(r,                                        // --
-	WASM_IF_THEN(WASM_GET_LOCAL(0),           // --
+	WASM_IF_ELSE(WASM_GET_LOCAL(0),           // --
 		     WASM_RETURN(WASM_I8(81)),    // --
 		     WASM_RETURN(WASM_I8(82))));  // --
   FOR_INT32_INPUTS(i) {
@@ -1717,7 +1717,7 @@ TEST(Run_Wasm_Block_If_P_assign) {
 TEST(Run_Wasm_ExprIf_P) {
   WasmRunner<int32_t> r(kMachInt32);
   // p0 ? 11 : 22;
-  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),  // --
+  BUILD(r, WASM_IF_ELSE(WASM_GET_LOCAL(0),  // --
 			WASM_I8(11),        // --
 			WASM_I8(22)));      // --
   FOR_INT32_INPUTS(i) {
@@ -1730,7 +1730,7 @@ TEST(Run_Wasm_ExprIf_P) {
 TEST(Run_Wasm_ExprIf_P_fallthru) {
   WasmRunner<int32_t> r(kMachInt32);
   // p0 ? 11 : 22;
-  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),  // --
+  BUILD(r, WASM_IF_ELSE(WASM_GET_LOCAL(0),  // --
                         WASM_I8(11),        // --
                         WASM_I8(22)));      // --
   FOR_INT32_INPUTS(i) {
@@ -2114,7 +2114,7 @@ TEST(Run_Wasm_CheckMemIsZero) {
         kExprIf,
           kExprGetLocal,0,
           kExprBr, 0,
-            kExprIfThen,
+            kExprIfElse,
               kExprI32LoadMem,0,kExprGetLocal,0,
               kExprBr,2, kExprI8Const, 255,
               kExprSetLocal,0,
@@ -2291,7 +2291,7 @@ TEST(Build_Wasm_UnreachableIf1) {
 
 TEST(Build_Wasm_UnreachableIf2) {
   WasmRunner<int32_t> r(kMachInt32);
-  BUILD(r, WASM_UNREACHABLE, WASM_IF_THEN(WASM_GET_LOCAL(0),
+  BUILD(r, WASM_UNREACHABLE, WASM_IF_ELSE(WASM_GET_LOCAL(0),
                                           WASM_GET_LOCAL(0),
                                           WASM_UNREACHABLE));
 }
@@ -2319,7 +2319,7 @@ TEST(Run_Wasm_Infinite_Loop_not_taken1) {
 
 TEST(Run_Wasm_Infinite_Loop_not_taken2) {
   WasmRunner<int32_t> r(kMachInt32);
-  BUILD(r, WASM_BLOCK(1, WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_BRV(0, WASM_I8(45)),
+  BUILD(r, WASM_BLOCK(1, WASM_IF_ELSE(WASM_GET_LOCAL(0), WASM_BRV(0, WASM_I8(45)),
 				      WASM_INFINITE_LOOP)));
   // Run the code, but don't go into the infinite loop.
   CHECK_EQ(45, r.Call(1));
@@ -3017,11 +3017,11 @@ TEST(Run_Wasm_ExprBlock_ManualSwitch_brif) {
 TEST(Run_Wasm_nested_ifs) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
 
-  BUILD(r, WASM_IF_THEN(WASM_GET_LOCAL(0),
-			WASM_IF_THEN(WASM_GET_LOCAL(1),
+  BUILD(r, WASM_IF_ELSE(WASM_GET_LOCAL(0),
+			WASM_IF_ELSE(WASM_GET_LOCAL(1),
 				     WASM_I8(11),
 				     WASM_I8(12)),
-			WASM_IF_THEN(WASM_GET_LOCAL(1),
+			WASM_IF_ELSE(WASM_GET_LOCAL(1),
 				     WASM_I8(13),
 				     WASM_I8(14))));
 
@@ -3036,7 +3036,7 @@ TEST(Run_Wasm_nested_ifs) {
 TEST(Run_Wasm_ExprBlock_if) {
   WasmRunner<int32_t> r(kMachInt32);
 
-  BUILD(r, WASM_BLOCK(1, WASM_IF_THEN(WASM_GET_LOCAL(0),
+  BUILD(r, WASM_BLOCK(1, WASM_IF_ELSE(WASM_GET_LOCAL(0),
 				      WASM_BRV(0, WASM_I8(11)),
 				      WASM_BRV(0, WASM_I8(14)))));
 
@@ -3048,11 +3048,11 @@ TEST(Run_Wasm_ExprBlock_if) {
 TEST(Run_Wasm_ExprBlock_nested_ifs) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
 
-  BUILD(r, WASM_BLOCK(1, WASM_IF_THEN(WASM_GET_LOCAL(0),
-				      WASM_IF_THEN(WASM_GET_LOCAL(1),
+  BUILD(r, WASM_BLOCK(1, WASM_IF_ELSE(WASM_GET_LOCAL(0),
+				      WASM_IF_ELSE(WASM_GET_LOCAL(1),
 						   WASM_BRV(0, WASM_I8(11)),
 						   WASM_BRV(0, WASM_I8(12))),
-				      WASM_IF_THEN(WASM_GET_LOCAL(1),
+				      WASM_IF_ELSE(WASM_GET_LOCAL(1),
 						   WASM_BRV(0, WASM_I8(13)),
 						   WASM_BRV(0, WASM_I8(14))))));
 
@@ -3067,11 +3067,11 @@ TEST(Run_Wasm_ExprBlock_nested_ifs) {
 TEST(Run_Wasm_ExprLoop_nested_ifs) {
   WasmRunner<int32_t> r(kMachInt32, kMachInt32);
 
-  BUILD(r, WASM_LOOP(1, WASM_IF_THEN(WASM_GET_LOCAL(0),
-				     WASM_IF_THEN(WASM_GET_LOCAL(1),
+  BUILD(r, WASM_LOOP(1, WASM_IF_ELSE(WASM_GET_LOCAL(0),
+				     WASM_IF_ELSE(WASM_GET_LOCAL(1),
 						  WASM_BRV(1, WASM_I8(11)),
 						  WASM_BRV(1, WASM_I8(12))),
-				     WASM_IF_THEN(WASM_GET_LOCAL(1),
+				     WASM_IF_ELSE(WASM_GET_LOCAL(1),
 						  WASM_BRV(1, WASM_I8(13)),
 						  WASM_BRV(1, WASM_I8(14))))));
 

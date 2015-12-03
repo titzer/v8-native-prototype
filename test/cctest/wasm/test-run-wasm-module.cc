@@ -131,7 +131,7 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
     WASM_BLOCK(2,
 	       WASM_WHILE(
 			  WASM_I32_LTS(WASM_GET_LOCAL(localIndex), WASM_I32(kCheckSize)),
-			  WASM_IF_THEN(WASM_LOAD_MEM(kMemI32, WASM_GET_LOCAL(localIndex)),
+			  WASM_IF_ELSE(WASM_LOAD_MEM(kMemI32, WASM_GET_LOCAL(localIndex)),
 				       WASM_BRV(2, WASM_I8(-1)),
 				       WASM_INC_LOCAL_BY(localIndex, 4))),
 	       WASM_I8(11))};
@@ -154,7 +154,7 @@ TEST(Run_WasmModule_CallMain_recursive) {
       WASM_BLOCK(
           2, 
           WASM_SET_LOCAL(localIndex, WASM_LOAD_MEM(kMemI32, WASM_ZERO)),
-          WASM_IF_THEN(WASM_I32_LTS(WASM_GET_LOCAL(localIndex), WASM_I8(5)),
+          WASM_IF_ELSE(WASM_I32_LTS(WASM_GET_LOCAL(localIndex), WASM_I8(5)),
                        WASM_BLOCK(2,
                                   WASM_STORE_MEM(kMemI32, WASM_ZERO,
                                                  WASM_INC_LOCAL(localIndex)),

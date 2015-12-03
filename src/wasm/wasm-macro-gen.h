@@ -18,7 +18,7 @@
 #define WASM_INFINITE_LOOP kExprLoop, 1, kExprBr, 0, kExprNop
 #define WASM_LOOP(count, ...) kExprLoop, static_cast<byte>(count), __VA_ARGS__
 #define WASM_IF(cond, tstmt) kExprIf, cond, tstmt
-#define WASM_IF_THEN(cond, tstmt, fstmt) kExprIfThen, cond, tstmt, fstmt
+#define WASM_IF_ELSE(cond, tstmt, fstmt) kExprIfElse, cond, tstmt, fstmt
 #define WASM_SELECT(cond, tval, fval) kExprSelect, cond, tval, fval
 #define WASM_BR(depth) kExprBr, static_cast<byte>(depth), kExprNop
 #define WASM_BR_IF(depth, cond) kExprBrIf, static_cast<byte>(depth), cond, kExprNop

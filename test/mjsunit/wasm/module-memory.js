@@ -34,7 +34,7 @@ function genModule(memory) {
         kExprIf,
           kExprGetLocal,0,
           kExprBr, 0,
-            kExprIfThen,
+            kExprIfElse,
               kExprI32LoadMem,0,kExprGetLocal,0,
               kExprBr,2, kExprI8Const, 255,
               kExprSetLocal,0,

@@ -105,7 +105,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitIfStatement(IfStatement* stmt) {
     DCHECK(in_function_);
     if(stmt->HasElseStatement()) {
-      current_function_builder_->AppendCode(kExprIfThen, false);
+      current_function_builder_->AppendCode(kExprIfElse, false);
     } else {
       current_function_builder_->AppendCode(kExprIf, false);
     }

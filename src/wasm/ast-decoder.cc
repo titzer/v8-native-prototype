@@ -365,7 +365,7 @@ class LR_WasmDecoder : public Decoder {
         case kExprIf:
           Shift(kAstStmt, 2);
           break;
-        case kExprIfThen:
+        case kExprIfElse:
           Shift(kAstStmt, 3);  // Result type is typeof(x) in {c ? x : y}.
           break;
         case kExprSelect:
@@ -717,7 +717,7 @@ class LR_WasmDecoder : public Decoder {
         }
         break;
       }
-      case kExprIfThen: {
+      case kExprIfElse: {
         Tree* left = p->tree->children[1];
         Tree* right = p->tree->children[2];
         if (p->index == 1) {
@@ -1556,7 +1556,7 @@ int OpcodeArity(FunctionEnv* env, const byte* pc) {
     case kExprIf:
     case kExprBrIf:
       return 2;
-    case kExprIfThen:
+    case kExprIfElse:
     case kExprSelect:
       return 3;
     case kExprBlock:

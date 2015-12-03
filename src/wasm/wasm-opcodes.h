@@ -62,7 +62,7 @@ typedef Signature<LocalType> FunctionSig;
   V(Block,       0x01, _)         \
   V(Loop,        0x02, _)         \
   V(If,          0x03, _)	  \
-  V(IfThen,      0x04, _)         \
+  V(IfElse,      0x04, _)         \
   V(Select,      0x05, _)	  \
   V(Br,          0x06, _)         \
   V(BrIf,        0x07, _)	  \

@@ -542,7 +542,7 @@ TEST_F(WasmDecoderTest, IfEmpty) {
 
 
 TEST_F(WasmDecoderTest, IfSet) {
-  static const byte code[] = {kExprIfThen, kExprGetLocal, 0, kExprSetLocal, 0,
+  static const byte code[] = {kExprIfElse, kExprGetLocal, 0, kExprSetLocal, 0,
                               kExprI8Const, 0, kExprNop};
   EXPECT_VERIFIES(&env_v_i, code);
 }
@@ -550,7 +550,7 @@ TEST_F(WasmDecoderTest, IfSet) {
 
 TEST_F(WasmDecoderTest, IfBlock1) {
   static const byte code[] = {
-    kExprIfThen,
+    kExprIfElse,
       kExprGetLocal, 0,
       kExprBlock, 1,
         kExprSetLocal, 0, kExprI8Const, 0,
@@ -572,15 +572,15 @@ TEST_F(WasmDecoderTest, IfBlock2) {
 }
 
 
-TEST_F(WasmDecoderTest, IfThenEmpty) {
-  static const byte code[] = {kExprIfThen, kExprGetLocal, 0, kExprNop,
+TEST_F(WasmDecoderTest, IfElseEmpty) {
+  static const byte code[] = {kExprIfElse, kExprGetLocal, 0, kExprNop,
                               kExprNop};
   EXPECT_VERIFIES(&env_v_i, code);
 }
 
 
-TEST_F(WasmDecoderTest, IfThenSet) {
-  static const byte code[] = {kExprIfThen, kExprGetLocal, 0,       // --
+TEST_F(WasmDecoderTest, IfElseSet) {
+  static const byte code[] = {kExprIfElse, kExprGetLocal, 0,       // --
                               kExprSetLocal, 0, kExprI8Const, 0,   // --
                               kExprSetLocal, 0, kExprI8Const, 1};  // --
   EXPECT_VERIFIES(&env_v_i, code);
@@ -725,31 +725,31 @@ TEST_F(WasmDecoderTest, ExprIf_off_end) {
 TEST_F(WasmDecoderTest, ExprIf_type) {
   {
     // float|double ? 1 : 2
-    static const byte kCode[] = {kExprIfThen, kExprGetLocal, 0, kExprI8Const, 1, kExprI8Const, 2};
+    static const byte kCode[] = {kExprIfElse, kExprGetLocal, 0, kExprI8Const, 1, kExprI8Const, 2};
     EXPECT_FAILURE(&env_i_f, kCode);
     EXPECT_FAILURE(&env_i_d, kCode);
   }
   {
     // 1 ? float|double : 2
-    static const byte kCode[] = {kExprIfThen, kExprI8Const, 1, kExprGetLocal, 0, kExprI8Const, 2};
+    static const byte kCode[] = {kExprIfElse, kExprI8Const, 1, kExprGetLocal, 0, kExprI8Const, 2};
     EXPECT_FAILURE(&env_i_f, kCode);
     EXPECT_FAILURE(&env_i_d, kCode);
   }
   {
     // stmt ? 0 : 1
-    static const byte kCode[] = {kExprIfThen, kExprNop, kExprI8Const, 0,
+    static const byte kCode[] = {kExprIfElse, kExprNop, kExprI8Const, 0,
                                  kExprI8Const, 1};
     EXPECT_FAILURE(&env_i_i, kCode);
   }
   {
     // 0 ? stmt : 1
-    static const byte kCode[] = {kExprIfThen, kExprI8Const, 0, kExprNop,
+    static const byte kCode[] = {kExprIfElse, kExprI8Const, 0, kExprNop,
                                  kExprI8Const, 1};
     EXPECT_FAILURE(&env_i_i, kCode);
   }
   {
     // 0 ? 1 : stmt
-    static const byte kCode[] = {kExprIfThen, kExprI8Const, 0,
+    static const byte kCode[] = {kExprIfElse, kExprI8Const, 0,
                                  kExprI8Const, 1, 0, kExprBlock};
     EXPECT_FAILURE(&env_i_i, kCode);
   }
@@ -838,7 +838,7 @@ TEST_F(WasmDecoderTest, MacrosStmt) {
   VERIFY(WASM_SET_LOCAL(0, WASM_I32(87348)));
   VERIFY(WASM_STORE_MEM(kMemI32, WASM_I8(24), WASM_I8(40)));
   VERIFY(WASM_IF(WASM_GET_LOCAL(0), WASM_NOP));
-  VERIFY(WASM_IF_THEN(WASM_GET_LOCAL(0), WASM_NOP, WASM_NOP));
+  VERIFY(WASM_IF_ELSE(WASM_GET_LOCAL(0), WASM_NOP, WASM_NOP));
   VERIFY(WASM_NOP);
   VERIFY(WASM_BLOCK(1, WASM_NOP));
   VERIFY(WASM_LOOP(1, WASM_NOP));
@@ -1922,7 +1922,7 @@ TEST_F(WasmOpcodeLengthTest, Statements) {
   EXPECT_LENGTH(2, kExprBlock);
   EXPECT_LENGTH(2, kExprLoop);
   EXPECT_LENGTH(1, kExprIf);
-  EXPECT_LENGTH(1, kExprIfThen);
+  EXPECT_LENGTH(1, kExprIfElse);
   EXPECT_LENGTH(1, kExprSelect);
   EXPECT_LENGTH(2, kExprBr);
   EXPECT_LENGTH(2, kExprBrIf);
@@ -1942,7 +1942,7 @@ TEST_F(WasmOpcodeLengthTest, MiscExpressions) {
   EXPECT_LENGTH(2, kExprCallFunction);
   EXPECT_LENGTH(2, kExprCallIndirect);
   EXPECT_LENGTH(1, kExprIf);
-  EXPECT_LENGTH(1, kExprIfThen);
+  EXPECT_LENGTH(1, kExprIfElse);
   EXPECT_LENGTH(2, kExprBlock);
   EXPECT_LENGTH(2, kExprLoop);
   EXPECT_LENGTH(2, kExprBr);
@@ -2150,7 +2150,7 @@ TEST_F(WasmOpcodeArityTest, Control) {
   EXPECT_ARITY(11, kExprLoop, 11);
 
   EXPECT_ARITY(2, kExprIf);
-  EXPECT_ARITY(3, kExprIfThen);
+  EXPECT_ARITY(3, kExprIfElse);
   EXPECT_ARITY(3, kExprSelect);
 
   EXPECT_ARITY(1, kExprBr);
