@@ -13,10 +13,9 @@ namespace internal {
 namespace wasm {
 
 #if DEBUG
-#define TRACE(...)               \
-  do {                           \
-    if (FLAG_trace_wasm_decoder) \
-      PrintF(__VA_ARGS__);       \
+#define TRACE(...)                                    \
+  do {                                                \
+    if (FLAG_trace_wasm_decoder) PrintF(__VA_ARGS__); \
   } while (false)
 #else
 #define TRACE(...)
@@ -84,8 +83,7 @@ class ModuleDecoder : public Decoder {
           module->signatures->reserve(SafeReserve(signatures_count));
           // Decode signatures.
           for (uint32_t i = 0; i < signatures_count; i++) {
-            if (failed())
-              break;
+            if (failed()) break;
             TRACE("DecodeSignature[%d] module+%d\n", i,
                   static_cast<int>(pc_ - start_));
             FunctionSig* s = sig();  // read function sig.
@@ -109,8 +107,7 @@ class ModuleDecoder : public Decoder {
           menv.asm_js = asm_js_;
           // Decode functions.
           for (uint32_t i = 0; i < functions_count; i++) {
-            if (failed())
-              break;
+            if (failed()) break;
             TRACE("DecodeFunction[%d] module+%d\n", i,
                   static_cast<int>(pc_ - start_));
 
@@ -121,8 +118,7 @@ class ModuleDecoder : public Decoder {
           }
           if (ok() && verify_functions) {
             for (uint32_t i = 0; i < functions_count; i++) {
-              if (failed())
-                break;
+              if (failed()) break;
               WasmFunction* function = &module->functions->at(i);
               if (!function->external) {
                 VerifyFunctionBody(i, &menv, function);
@@ -139,8 +135,7 @@ class ModuleDecoder : public Decoder {
           module->globals->reserve(SafeReserve(globals_count));
           // Decode globals.
           for (uint32_t i = 0; i < globals_count; i++) {
-            if (failed())
-              break;
+            if (failed()) break;
             TRACE("DecodeGlobal[%d] module+%d\n", i,
                   static_cast<int>(pc_ - start_));
             module->globals->push_back({0, kMemI32, 0, false});
@@ -155,8 +150,7 @@ class ModuleDecoder : public Decoder {
           module->data_segments->reserve(SafeReserve(data_segments_count));
           // Decode data segments.
           for (uint32_t i = 0; i < data_segments_count; i++) {
-            if (failed())
-              break;
+            if (failed()) break;
             TRACE("DecodeDataSegment[%d] module+%d\n", i,
                   static_cast<int>(pc_ - start_));
             module->data_segments->push_back({0, 0, 0});
@@ -173,8 +167,7 @@ class ModuleDecoder : public Decoder {
           module->function_table->reserve(SafeReserve(function_table_count));
           // Decode function table.
           for (uint32_t i = 0; i < function_table_count; i++) {
-            if (failed())
-              break;
+            if (failed()) break;
             TRACE("DecodeFunctionTable[%d] module+%d\n", i,
                   static_cast<int>(pc_ - start_));
             uint16_t index = u16();
@@ -201,13 +194,10 @@ class ModuleDecoder : public Decoder {
     return count < kMaxReserve ? count : kMaxReserve;
   }
 
-  void CheckForPreviousSection(bool* sections,
-                               WasmSectionDeclCode section,
+  void CheckForPreviousSection(bool* sections, WasmSectionDeclCode section,
                                bool present) {
-    if (section >= kMaxModuleSectionCode)
-      return;
-    if (sections[section] == present)
-      return;
+    if (section >= kMaxModuleSectionCode) return;
+    if (sections[section] == present) return;
     const char* name = "";
     switch (section) {
       case kDeclMemory:
@@ -254,8 +244,7 @@ class ModuleDecoder : public Decoder {
     function->exported = false;                  // ---- exported
     function->external = false;                  // ---- external
 
-    if (ok())
-      VerifyFunctionBody(0, module_env, function);
+    if (ok()) VerifyFunctionBody(0, module_env, function);
 
     FunctionResult result;
     result.CopyFrom(result_);  // Copy error code and location.
@@ -286,8 +275,7 @@ class ModuleDecoder : public Decoder {
   }
 
   // Decodes a single function entry inside a module starting at {pc_}.
-  void DecodeFunctionInModule(WasmModule* module,
-                              WasmFunction* function,
+  void DecodeFunctionInModule(WasmModule* module, WasmFunction* function,
                               bool verify_body = true) {
     byte decl_bits = u8("function decl");
 
@@ -352,8 +340,7 @@ class ModuleDecoder : public Decoder {
   }
 
   // Verifies the body (code) of a given function.
-  void VerifyFunctionBody(uint32_t func_num,
-                          ModuleEnv* menv,
+  void VerifyFunctionBody(uint32_t func_num, ModuleEnv* menv,
                           WasmFunction* function) {
     if (FLAG_trace_wasm_decode_time) {
       // TODO: clean me up a bit.
@@ -454,13 +441,11 @@ class ModuleDecoder : public Decoder {
     byte count = u8("param count");
     LocalType ret = local_type();
     FunctionSig::Builder builder(module_zone, ret == kAstStmt ? 0 : 1, count);
-    if (ret != kAstStmt)
-      builder.AddReturn(ret);
+    if (ret != kAstStmt) builder.AddReturn(ret);
 
     for (int i = 0; i < count; i++) {
       LocalType param = local_type();
-      if (param == kAstStmt)
-        error(pc_ - 1, "invalid void parameter type");
+      if (param == kAstStmt) error(pc_ - 1, "invalid void parameter type");
       builder.AddParam(param);
     }
     return builder.Build();
@@ -493,37 +478,29 @@ class FunctionError : public FunctionResult {
   }
 };
 
-ModuleResult DecodeWasmModule(Isolate* isolate,
-                              Zone* zone,
-                              const byte* module_start,
-                              const byte* module_end,
-                              bool verify_functions,
-                              bool asm_js) {
+ModuleResult DecodeWasmModule(Isolate* isolate, Zone* zone,
+                              const byte* module_start, const byte* module_end,
+                              bool verify_functions, bool asm_js) {
   size_t size = module_end - module_start;
-  if (module_start > module_end)
-    return ModuleError("start > end");
-  if (size >= kMaxModuleSize)
-    return ModuleError("size > maximum module size");
+  if (module_start > module_end) return ModuleError("start > end");
+  if (size >= kMaxModuleSize) return ModuleError("size > maximum module size");
   WasmModule* module = new WasmModule();
   ModuleDecoder decoder(zone, module_start, module_end, asm_js);
   return decoder.DecodeModule(module, verify_functions);
 }
 
-FunctionSig* DecodeWasmSignatureForTesting(Zone* zone,
-                                           const byte* start,
+FunctionSig* DecodeWasmSignatureForTesting(Zone* zone, const byte* start,
                                            const byte* end) {
   ModuleDecoder decoder(zone, start, end, false);
   return decoder.DecodeFunctionSignature(start);
 }
 
-FunctionResult DecodeWasmFunction(Isolate* isolate,
-                                  Zone* zone,
+FunctionResult DecodeWasmFunction(Isolate* isolate, Zone* zone,
                                   ModuleEnv* module_env,
                                   const byte* function_start,
                                   const byte* function_end) {
   size_t size = function_end - function_start;
-  if (function_start > function_end)
-    return FunctionError("start > end");
+  if (function_start > function_end) return FunctionError("start > end");
   if (size > kMaxFunctionSize)
     return FunctionError("size > maximum function size");
   WasmFunction* function = new WasmFunction();

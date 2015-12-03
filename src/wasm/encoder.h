@@ -27,9 +27,7 @@ class WasmFunctionEncoder : public ZoneObject {
   void Serialize(byte* buffer, byte** header, byte** body) const;
 
  private:
-  WasmFunctionEncoder(Zone* zone,
-                      uint8_t return_type,
-                      uint8_t exported,
+  WasmFunctionEncoder(Zone* zone, uint8_t return_type, uint8_t exported,
                       uint8_t external);
   friend class WasmFunctionBuilder;
   uint16_t signature_index_;
@@ -54,10 +52,8 @@ class WasmFunctionBuilder : public ZoneObject {
   uint16_t AddLocal(uint8_t type);
   void ReturnType(uint8_t type);
   void AddBody(const byte* code, uint32_t code_size);
-  void AddBody(const byte* code,
-               uint32_t code_size,
-               const uint32_t* local_indices,
-               uint32_t indices_size);
+  void AddBody(const byte* code, uint32_t code_size,
+               const uint32_t* local_indices, uint32_t indices_size);
   void AppendCode(const byte opcode, bool add_local_operand);
   uint32_t AppendEditableImmediate(const byte immediate);
   void EditImmediate(uint32_t index, const byte immediate);
@@ -81,9 +77,7 @@ class WasmFunctionBuilder : public ZoneObject {
 
 class WasmDataSegmentEncoder : public ZoneObject {
  public:
-  WasmDataSegmentEncoder(Zone* zone,
-                         const byte* data,
-                         uint32_t size,
+  WasmDataSegmentEncoder(Zone* zone, const byte* data, uint32_t size,
                          uint32_t dest);
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;

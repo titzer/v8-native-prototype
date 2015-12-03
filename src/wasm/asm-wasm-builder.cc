@@ -17,12 +17,11 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-#define RECURSE(call)            \
-  do {                           \
-    DCHECK(!HasStackOverflow()); \
-    call;                        \
-    if (HasStackOverflow())      \
-      return;                    \
+#define RECURSE(call)               \
+  do {                              \
+    DCHECK(!HasStackOverflow());    \
+    call;                           \
+    if (HasStackOverflow()) return; \
   } while (false)
 
 
@@ -32,8 +31,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
       : local_variables_(HashMap::PointersMatch,
                          ZoneHashMap::kDefaultHashMapCapacity,
                          ZoneAllocationPolicy(zone)),
-        functions_(HashMap::PointersMatch,
-                   ZoneHashMap::kDefaultHashMapCapacity,
+        functions_(HashMap::PointersMatch, ZoneHashMap::kDefaultHashMapCapacity,
                    ZoneAllocationPolicy(zone)),
         in_function_(false),
         is_set_op_(false),
@@ -73,14 +71,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
     for (int i = 0; i < stmts->length(); ++i) {
       Statement* stmt = stmts->at(i);
       RECURSE(Visit(stmt));
-      if (stmt->IsJump())
-        break;
+      if (stmt->IsJump()) break;
     }
   }
 
   void VisitBlock(Block* stmt) {
-    if (!in_function_)
-      return;
+    if (!in_function_) return;
     breakable_blocks_.push_back(
         std::make_pair(stmt->AsBreakableStatement(), false));
     current_function_builder_->AppendCode(kExprBlock, false);
@@ -104,7 +100,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitIfStatement(IfStatement* stmt) {
     DCHECK(in_function_);
-    if(stmt->HasElseStatement()) {
+    if (stmt->HasElseStatement()) {
       current_function_builder_->AppendCode(kExprIfElse, false);
     } else {
       current_function_builder_->AppendCode(kExprIf, false);
@@ -260,7 +256,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
         Type::FunctionType* func_type = expr->bounds().lower->AsFunction();
         LocalType return_type = TypeFrom(func_type->Result());
         current_function_builder_->ReturnType(return_type);
-        for(int i = 0; i < expr->parameter_count(); i++) {
+        for (int i = 0; i < expr->parameter_count(); i++) {
           LocalType type = TypeFrom(func_type->Parameter(i));
           DCHECK(type != kAstStmt);
           LookupOrInsertLocal(scope->parameter(i), type);
@@ -319,20 +315,20 @@ class AsmWasmBuilderImpl : public AstVisitor {
             int val = static_cast<int>(expr->raw_value()->AsNumber());
             byte code[] = {WASM_I32(val)};
             current_function_builder_->AddBody(code, sizeof(code));
+            break;
           }
-          break;
           case kAstF32: {
             float val = static_cast<float>(expr->raw_value()->AsNumber());
             byte code[] = {WASM_F32(val)};
             current_function_builder_->AddBody(code, sizeof(code));
+            break;
           }
-          break;
           case kAstF64: {
             double val = static_cast<double>(expr->raw_value()->AsNumber());
             byte code[] = {WASM_F64(val)};
             current_function_builder_->AddBody(code, sizeof(code));
+            break;
           }
-          break;
           default:
             UNREACHABLE();
         }
@@ -422,8 +418,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     current_function_builder_->AppendCode(
         WasmOpcodes::LoadStoreOpcodeOf(mtype, is_set_op_), false);
     is_set_op_ = false;
-    current_function_builder_->AppendCode(
-        WasmOpcodes::LoadStoreAccessOf(mtype), false);
+    current_function_builder_->AppendCode(WasmOpcodes::LoadStoreAccessOf(mtype),
+                                          false);
     Literal* value = expr->key()->AsLiteral();
     if (value) {
       DCHECK(value->raw_value()->IsNumber());
@@ -479,8 +475,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
       case Token::NOT: {
         DCHECK(TypeOf(expr->expression()) == kAstI32);
         current_function_builder_->AppendCode(kExprBoolNot, false);
+        break;
       }
-      break;
       default:
         UNREACHABLE();
     }
@@ -491,8 +487,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     RECURSE(Visit(expr->expression()));
   }
 
-  bool MatchIntBinaryOperation(BinaryOperation* expr, 
-                               Token::Value op, int32_t val) {
+  bool MatchIntBinaryOperation(BinaryOperation* expr, Token::Value op,
+                               int32_t val) {
     DCHECK(expr->right() != NULL);
     if (expr->op() == op && expr->right()->IsLiteral() &&
         TypeOf(expr) == kAstI32) {
@@ -505,8 +501,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     return false;
   }
 
-  bool MatchDoubleBinaryOperation(BinaryOperation* expr,
-                                  Token::Value op, double val) {
+  bool MatchDoubleBinaryOperation(BinaryOperation* expr, Token::Value op,
+                                  double val) {
     DCHECK(expr->right() != NULL);
     if (expr->op() == op && expr->right()->IsLiteral() &&
         TypeOf(expr) == kAstF64) {
@@ -519,12 +515,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     return false;
   }
 
-  enum ConvertOperation {
-    kNone,
-    kAsIs,
-    kToInt,
-    kToDouble
-  };
+  enum ConvertOperation { kNone, kAsIs, kToInt, kToDouble };
 
   ConvertOperation MatchOr(BinaryOperation* expr) {
     if (MatchIntBinaryOperation(expr, Token::BIT_OR, 0)) {
@@ -593,24 +584,32 @@ class AsmWasmBuilderImpl : public AstVisitor {
     }
   }
 
-#define NON_SIGNED_BINOP(op)                                          \
-  static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op,          \
-                                 kExprF32##op, kExprF64##op}
+#define NON_SIGNED_BINOP(op)      \
+  static WasmOpcode opcodes[] = { \
+    kExprI32##op,                 \
+    kExprI32##op,                 \
+    kExprF32##op,                 \
+    kExprF64##op                  \
+  }
 
-#define SIGNED_BINOP(op)                                              \
-  static WasmOpcode opcodes[] = {kExprI32##op##S, kExprI32##op##U,    \
-                                 kExprF32##op, kExprF64##op}
+#define SIGNED_BINOP(op)          \
+  static WasmOpcode opcodes[] = { \
+    kExprI32##op##S,              \
+    kExprI32##op##U,              \
+    kExprF32##op,                 \
+    kExprF64##op                  \
+  }
 
-#define NON_SIGNED_INT_BINOP(op)                                      \
-  static WasmOpcode opcodes[] = {kExprI32##op, kExprI32##op}
+#define NON_SIGNED_INT_BINOP(op) \
+  static WasmOpcode opcodes[] = { kExprI32##op, kExprI32##op }
 
 #define BINOP_CASE(token, op, V, ignore_sign)                         \
   case token: {                                                       \
     V(op);                                                            \
     int type = TypeIndexOf(expr->left(), expr->right(), ignore_sign); \
     current_function_builder_->AppendCode(opcodes[type], false);      \
-  }                                                                   \
-  break
+    break;                                                            \
+  }
 
   Expression* GetLeft(BinaryOperation* expr) {
     if (expr->op() == Token::BIT_XOR) {
@@ -669,8 +668,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
           } else {
             UNREACHABLE();
           }
+          break;
         }
-        break;
         default:
           UNREACHABLE();
       }
@@ -710,7 +709,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     std::vector<uint8_t> index_vec = UnsignedLEB128From(index);
     uint32_t pos_of_index[1] = {0};
     current_function_builder_->AddBody(index_vec.data(),
-        static_cast<uint32_t>(index_vec.size()), pos_of_index, 1);
+                                       static_cast<uint32_t>(index_vec.size()),
+                                       pos_of_index, 1);
   }
 
   void VisitCompareOperation(CompareOperation* expr) {
@@ -754,7 +754,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
       right_index = kInt32;
     }
     DCHECK((left_index == right_index) ||
-        (ignore_sign && (left_index <= 1) && (right_index <= 1)));
+           (ignore_sign && (left_index <= 1) && (right_index <= 1)));
     return left_index;
   }
 
@@ -879,11 +879,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
   DISALLOW_COPY_AND_ASSIGN(AsmWasmBuilderImpl);
 };
 
-AsmWasmBuilder::AsmWasmBuilder(Isolate* isolate,
-                               Zone* zone,
+AsmWasmBuilder::AsmWasmBuilder(Isolate* isolate, Zone* zone,
                                FunctionLiteral* literal)
-    : isolate_(isolate), zone_(zone), literal_(literal) {
-}
+    : isolate_(isolate), zone_(zone), literal_(literal) {}
 
 /*TODO: probably should take zone (to write wasm to) as input so that zone in
   constructor may be thrown away once wasm module is written */

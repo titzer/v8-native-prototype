@@ -35,8 +35,7 @@ struct RawBuffer {
 };
 
 RawBuffer GetRawBufferArgument(
-    ErrorThrower& thrower,
-    const v8::FunctionCallbackInfo<v8::Value>& args) {
+    ErrorThrower& thrower, const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (args.Length() < 1 || !args[0]->IsArrayBuffer()) {
     thrower.Error("Argument 0 must be an array buffer");
     return {nullptr, nullptr};
@@ -62,8 +61,7 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   ErrorThrower thrower(isolate, "WASM.verifyModule()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (thrower.error())
-    return;
+  if (thrower.error()) return;
 
   i::Zone zone;
   internal::wasm::ModuleResult result = internal::wasm::DecodeWasmModule(
@@ -73,8 +71,7 @@ void VerifyModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
     thrower.Failed("", result);
   }
 
-  if (result.val)
-    delete result.val;
+  if (result.val) delete result.val;
 }
 
 void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -84,8 +81,7 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   // TODO(titzer): no need to externalize to get the bytes for verification.
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (thrower.error())
-    return;
+  if (thrower.error()) return;
 
   internal::wasm::FunctionResult result;
   {
@@ -100,8 +96,7 @@ void VerifyFunction(const v8::FunctionCallbackInfo<v8::Value>& args) {
     thrower.Failed("", result);
   }
 
-  if (result.val)
-    delete result.val;
+  if (result.val) delete result.val;
 }
 
 void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -110,8 +105,7 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   ErrorThrower thrower(isolate, "WASM.compileRun()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (thrower.error())
-    return;
+  if (thrower.error()) return;
 
   // Decode and pre-verify the functions before compiling and running.
   i::Zone zone;
@@ -126,8 +120,7 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
     args.GetReturnValue().Set(retval);
   }
 
-  if (result.val)
-    delete result.val;
+  if (result.val) delete result.val;
 }
 
 void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -163,7 +156,7 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
       info.scope()->declarations()->at(0)->AsFunctionDeclaration()->fun());
 
   v8::internal::AsmTyper typer(info.isolate(), info.zone(), *(info.script()),
-                         info.literal());
+                               info.literal());
   if (!typer.Validate()) {
     thrower.Error("Asm.js validation failed");
     return;
@@ -171,7 +164,8 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   v8::internal::wasm::WasmModuleIndex* module =
       v8::internal::wasm::AsmWasmBuilder(info.isolate(), info.zone(),
-                                         info.literal()).Run();
+                                         info.literal())
+          .Run();
   int32_t result = v8::internal::wasm::CompileAndRunWasmModule(
       isolate, module->Begin(), module->End(), true);
   args.GetReturnValue().Set(result);
@@ -183,8 +177,7 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
   ErrorThrower thrower(isolate, "WASM.instantiateModule()");
 
   RawBuffer buffer = GetRawBufferArgument(thrower, args);
-  if (buffer.start == nullptr)
-    return;
+  if (buffer.start == nullptr) return;
 
   i::Handle<i::JSArrayBuffer> memory = i::Handle<i::JSArrayBuffer>::null();
   if (args.Length() > 2 && args[2]->IsArrayBuffer()) {
@@ -212,16 +205,15 @@ void InstantiateModule(const v8::FunctionCallbackInfo<v8::Value>& args) {
       ffi = i::Handle<i::JSObject>::cast(v8::Utils::OpenHandle(*obj));
     }
 
-    i::MaybeHandle<i::JSObject> object = result.val->Instantiate(
-        isolate, ffi, memory);
+    i::MaybeHandle<i::JSObject> object =
+        result.val->Instantiate(isolate, ffi, memory);
 
     if (!object.is_null()) {
       args.GetReturnValue().Set(v8::Utils::ToLocal(object.ToHandleChecked()));
     }
   }
 
-  if (result.val)
-    delete result.val;
+  if (result.val) delete result.val;
 }
 }
 
@@ -239,10 +231,8 @@ static Handle<String> v8_str(Isolate* isolate, const char* str) {
   return isolate->factory()->NewStringFromAsciiChecked(str);
 }
 
-static void InstallFunc(Isolate* isolate,
-                        Handle<JSObject> object,
-                        const char* str,
-                        FunctionCallback func) {
+static void InstallFunc(Isolate* isolate, Handle<JSObject> object,
+                        const char* str, FunctionCallback func) {
   Handle<String> name = v8_str(isolate, str);
   Handle<FunctionTemplateInfo> temp = NewTemplate(isolate, func);
   Handle<JSFunction> function =

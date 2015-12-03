@@ -55,15 +55,10 @@ enum TrapReason {
 };
 
 static const char* kTrapMessages[] = {
-  "unreachable",
-  "memory access out of bounds",
-  "divide by zero",
-  "divide result unrepresentable", 
-  "remainder by zero",
-  "integer result unrepresentable",
-  "invalid function",
-  "function signature mismatch"
-};
+    "unreachable",       "memory access out of bounds",
+    "divide by zero",    "divide result unrepresentable",
+    "remainder by zero", "integer result unrepresentable",
+    "invalid function",  "function signature mismatch"};
 
 compiler::MachineType MachineTypeFor(LocalType type) {
   switch (type) {
@@ -115,20 +110,15 @@ compiler::MachineType MachineTypeFor(MemType type) {
 // To avoid generating a ton of redundant code that just calls the runtime
 // to trap, we generate a per-trap-reason block of code that all trap sites
 // in this function will branch to.
-class TFTrapHelper : public ZoneObject{
+class TFTrapHelper : public ZoneObject {
  public:
-  explicit TFTrapHelper(TFBuilder* b) :
-    builder(b),
-    graph(b->graph),
-    g(b->graph ? b->graph->graph() : nullptr) {
-
+  explicit TFTrapHelper(TFBuilder* b)
+      : builder(b), graph(b->graph), g(b->graph ? b->graph->graph() : nullptr) {
     for (int i = 0; i < kTrapCount; i++) traps[i] = nullptr;
   }
 
   // Make the current control path trap to unreachable.
-  void Unreachable() {
-    ConnectTrap(kTrapUnreachable);
-  }
+  void Unreachable() { ConnectTrap(kTrapUnreachable); }
   // Add a check that traps if {node} is equal to {val}.
   TFNode* TrapIfEq32(TrapReason reason, TFNode* node, int32_t val) {
     compiler::Int32Matcher m(node);
@@ -136,8 +126,8 @@ class TFTrapHelper : public ZoneObject{
     if (val == 0) {
       AddTrapIfFalse(reason, node);
     } else {
-      AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word32Equal(),
-                                       node, graph->Int32Constant(val)));
+      AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word32Equal(), node,
+                                       graph->Int32Constant(val)));
     }
     return *(builder->control);
   }
@@ -149,8 +139,8 @@ class TFTrapHelper : public ZoneObject{
   TFNode* TrapIfEq64(TrapReason reason, TFNode* node, int64_t val) {
     compiler::Int64Matcher m(node);
     if (m.HasValue() && !m.Is(val)) return g->start();
-    AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word64Equal(),
-                                     node, graph->Int64Constant(val)));
+    AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word64Equal(), node,
+                                     graph->Int64Constant(val)));
     return *(builder->control);
   }
   // Add a check that traps if {node} is zero.
@@ -171,13 +161,13 @@ class TFTrapHelper : public ZoneObject{
     TFNode** effect = builder->effect;
     TFNode** control = builder->control;
     TFNode* before = *effect;
-    compiler::BranchHint hint = iftrue ? compiler::BranchHint::kFalse :
-      compiler::BranchHint::kTrue;
-    TFNode* branch = g->NewNode(graph->common()->Branch(hint), cond,
-                                *(builder->control));
+    compiler::BranchHint hint =
+        iftrue ? compiler::BranchHint::kFalse : compiler::BranchHint::kTrue;
+    TFNode* branch =
+        g->NewNode(graph->common()->Branch(hint), cond, *(builder->control));
     TFNode* if_true = g->NewNode(graph->common()->IfTrue(), branch);
     TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
-    
+
     *control = iftrue ? if_true : if_false;
     ConnectTrap(reason);
     *control = iftrue ? if_false : if_true;
@@ -208,51 +198,48 @@ class TFTrapHelper : public ZoneObject{
     TFNode** effect = builder->effect;
     ModuleEnv* module = builder->module;
     *control = traps[reason] = g->NewNode(graph->common()->Merge(1), *control);
-    *effect = effects[reason] = g->NewNode(graph->common()->EffectPhi(1),
-                                           *effect, *control);
+    *effect = effects[reason] =
+        g->NewNode(graph->common()->EffectPhi(1), *effect, *control);
 
     if (module && !module->context.is_null()) {
       // Use the module context to call the runtime to throw an exception.
       Runtime::FunctionId f = Runtime::kThrow;
       const Runtime::Function* fun = Runtime::FunctionForId(f);
       compiler::CallDescriptor* desc =
-        compiler::Linkage::GetRuntimeCallDescriptor(graph->zone(), f, fun->nargs,
-                                                    compiler::Operator::kNoProperties,
-                                                    compiler::CallDescriptor::kNoFlags);
+          compiler::Linkage::GetRuntimeCallDescriptor(
+              graph->zone(), f, fun->nargs, compiler::Operator::kNoProperties,
+              compiler::CallDescriptor::kNoFlags);
       TFNode* inputs[] = {
-        graph->CEntryStubConstant(fun->result_size),                     // C entry
-        exception,                                                       // exception
-        graph->ExternalConstant(ExternalReference(f, graph->isolate())), // ref
-        graph->Int32Constant(fun->nargs),                                // arity
-        graph->Constant(module->context),                                // context
-        *effect,
-        *control
-      };
-      
+          graph->CEntryStubConstant(fun->result_size),  // C entry
+          exception,                                    // exception
+          graph->ExternalConstant(
+              ExternalReference(f, graph->isolate())),  // ref
+          graph->Int32Constant(fun->nargs),             // arity
+          graph->Constant(module->context),             // context
+          *effect,
+          *control};
+
       TFNode* node = g->NewNode(graph->common()->Call(desc),
                                 static_cast<int>(arraysize(inputs)), inputs);
       *control = node;
       *effect = node;
-      
     }
     if (false) {
       // End the control flow with a throw
-      TFNode* thrw = g->NewNode(graph->common()->Throw(),
-                                graph->ZeroConstant(), *effect, *control);
+      TFNode* thrw = g->NewNode(graph->common()->Throw(), graph->ZeroConstant(),
+                                *effect, *control);
       end = thrw;
     } else {
       // End the control flow with returning 0xdeadbeef
       TFNode* ret_dead =
-        g->NewNode(graph->common()->Return(), graph->Int32Constant(0xdeadbeef),
-                   *effect, *control);
+          g->NewNode(graph->common()->Return(),
+                     graph->Int32Constant(0xdeadbeef), *effect, *control);
       end = ret_dead;
     }
-    
+
     MergeControlToEnd(graph, end);
   }
 };
-
-
 
 
 TFBuilder::TFBuilder(Zone* z, TFGraph* g)
@@ -266,8 +253,7 @@ TFBuilder::TFBuilder(Zone* z, TFGraph* g)
       effect(nullptr),
       cur_buffer(def_buffer),
       cur_bufsize(kDefaultBufferSize),
-      trap(new (z) TFTrapHelper(this)) {
-}
+      trap(new (z) TFTrapHelper(this)) {}
 
 TFNode* TFBuilder::Error() {
   DCHECK_NOT_NULL(graph);
@@ -336,9 +322,7 @@ TFNode* TFBuilder::Merge(unsigned count, TFNode** controls) {
                                  controls);
 }
 
-TFNode* TFBuilder::Phi(LocalType type,
-                       unsigned count,
-                       TFNode** vals,
+TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
                        TFNode* control) {
   DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(vals, count + 1);
@@ -348,8 +332,7 @@ TFNode* TFBuilder::Phi(LocalType type,
                                  count + 1, buf);
 }
 
-TFNode* TFBuilder::EffectPhi(unsigned count,
-                             TFNode** effects,
+TFNode* TFBuilder::EffectPhi(unsigned count, TFNode** effects,
                              TFNode* control) {
   DCHECK_NOT_NULL(graph);
   DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
@@ -400,8 +383,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       TFNode* before = *control;
       TFNode* denom_is_m1;
       TFNode* denom_is_not_m1;
-      Branch(graph->graph()->NewNode(graph->machine()->Word32Equal(),
-                                     right, graph->Int32Constant(-1)),
+      Branch(graph->graph()->NewNode(graph->machine()->Word32Equal(), right,
+                                     graph->Int32Constant(-1)),
              &denom_is_m1, &denom_is_not_m1);
       *control = denom_is_m1;
       trap->TrapIfEq32(kTrapDivUnrepresentable, left, kMinInt);
@@ -419,12 +402,13 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
                                      trap->ZeroCheck32(kTrapDivByZero, right));
     case kExprI32RemS: {
       trap->ZeroCheck32(kTrapRemByZero, right);
-      compiler::Diamond d(graph->graph(), graph->common(),
-                          graph->graph()->NewNode(graph->machine()->Word32Equal(),
-                                                  right, graph->Int32Constant(-1)));
+      compiler::Diamond d(
+          graph->graph(), graph->common(),
+          graph->graph()->NewNode(graph->machine()->Word32Equal(), right,
+                                  graph->Int32Constant(-1)));
 
-      TFNode* rem = graph->graph()->NewNode(m->Int32Mod(), left, right,
-                                            d.if_false);
+      TFNode* rem =
+          graph->graph()->NewNode(m->Int32Mod(), left, right, d.if_false);
 
       return d.Phi(compiler::kMachInt32, graph->Int32Constant(0), rem);
     }
@@ -500,8 +484,8 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
       TFNode* before = *control;
       TFNode* denom_is_m1;
       TFNode* denom_is_not_m1;
-      Branch(graph->graph()->NewNode(graph->machine()->Word64Equal(),
-                                     right, graph->Int64Constant(-1)),
+      Branch(graph->graph()->NewNode(graph->machine()->Word64Equal(), right,
+                                     graph->Int64Constant(-1)),
              &denom_is_m1, &denom_is_not_m1);
       *control = denom_is_m1;
       trap->TrapIfEq64(kTrapDivUnrepresentable, left,
@@ -520,18 +504,19 @@ TFNode* TFBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
                                      trap->ZeroCheck64(kTrapDivByZero, right));
     case kExprI64RemS: {
       trap->ZeroCheck64(kTrapRemByZero, right);
-      compiler::Diamond d(graph->graph(), graph->common(),
-                          graph->graph()->NewNode(graph->machine()->Word64Equal(),
-                                                  right, graph->Int64Constant(-1)));
+      compiler::Diamond d(
+          graph->graph(), graph->common(),
+          graph->graph()->NewNode(graph->machine()->Word64Equal(), right,
+                                  graph->Int64Constant(-1)));
 
-      TFNode* rem = graph->graph()->NewNode(m->Int64Mod(), left, right,
-                                            d.if_false);
+      TFNode* rem =
+          graph->graph()->NewNode(m->Int64Mod(), left, right, d.if_false);
 
       return d.Phi(compiler::kMachInt64, graph->Int64Constant(0), rem);
     }
     case kExprI64RemU:
       op = m->Uint64Mod();
-      return graph->graph()->NewNode(op, left, right, 
+      return graph->graph()->NewNode(op, left, right,
                                      trap->ZeroCheck64(kTrapRemByZero, right));
     case kExprI64And:
       op = m->Word64And();
@@ -927,7 +912,8 @@ TFNode* TFBuilder::Constant(Handle<Object> value) {
   return graph->Constant(value);
 }
 
-TFNode* TFBuilder::Branch(TFNode* cond, TFNode** true_node, TFNode** false_node) {
+TFNode* TFBuilder::Branch(TFNode* cond, TFNode** true_node,
+                          TFNode** false_node) {
   DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(cond);
   DCHECK_NOT_NULL(*control);
@@ -981,9 +967,7 @@ TFNode* TFBuilder::Return(unsigned count, TFNode** vals) {
 }
 
 
-TFNode* TFBuilder::ReturnVoid() {
-  return Return(0, Buffer(0));
-}
+TFNode* TFBuilder::ReturnVoid() { return Return(0, Buffer(0)); }
 
 TFNode* TFBuilder::Unreachable() {
   DCHECK_NOT_NULL(graph);
@@ -993,47 +977,42 @@ TFNode* TFBuilder::Unreachable() {
 
 
 TFNode* TFBuilder::MakeF32CopySign(TFNode* left, TFNode* right) {
-  TFNode* result = Unop(kExprF32ReinterpretI32,
-                     Binop(kExprI32Ior,
-                           Binop(kExprI32And,
-                                 Unop(kExprI32ReinterpretF32, left),
-                                 graph->Int32Constant(0x7fffffff)),
-                           Binop(kExprI32And,
-                                 Unop(kExprI32ReinterpretF32, right),
-                                 graph->Int32Constant(0x80000000))));
+  TFNode* result = Unop(
+      kExprF32ReinterpretI32,
+      Binop(kExprI32Ior, Binop(kExprI32And, Unop(kExprI32ReinterpretF32, left),
+                               graph->Int32Constant(0x7fffffff)),
+            Binop(kExprI32And, Unop(kExprI32ReinterpretF32, right),
+                  graph->Int32Constant(0x80000000))));
 
   return result;
 }
 
 
 TFNode* TFBuilder::MakeF64CopySign(TFNode* left, TFNode* right) {
-
 #if WASM_64
-  TFNode* result = Unop(kExprF64ReinterpretI64,
-                     Binop(kExprI64Ior,
-                           Binop(kExprI64And,
-                                 Unop(kExprI64ReinterpretF64, left),
-                                 graph->Int64Constant(0x7fffffffffffffff)),
-                           Binop(kExprI64And,
-                                 Unop(kExprI64ReinterpretF64, right),
-                                 graph->Int64Constant(0x8000000000000000))));
+  TFNode* result = Unop(
+      kExprF64ReinterpretI64,
+      Binop(kExprI64Ior, Binop(kExprI64And, Unop(kExprI64ReinterpretF64, left),
+                               graph->Int64Constant(0x7fffffffffffffff)),
+            Binop(kExprI64And, Unop(kExprI64ReinterpretF64, right),
+                  graph->Int64Constant(0x8000000000000000))));
 
   return result;
 #else
   compiler::MachineOperatorBuilder* m = graph->machine();
 
-  TFNode* high_word_left = graph->graph()->NewNode(m->Float64ExtractHighWord32(), left);
-  TFNode* high_word_right = graph->graph()->NewNode(m->Float64ExtractHighWord32(), right);
+  TFNode* high_word_left =
+      graph->graph()->NewNode(m->Float64ExtractHighWord32(), left);
+  TFNode* high_word_right =
+      graph->graph()->NewNode(m->Float64ExtractHighWord32(), right);
 
-  TFNode* new_high_word = Binop(kExprI32Ior,
-                                Binop(kExprI32And,
-                                      high_word_left,
-                                      graph->Int32Constant(0x7fffffff)),
-                                Binop(kExprI32And,
-                                      high_word_right,
-                                      graph->Int32Constant(0x80000000)));
-  
-  return graph->graph()->NewNode(m->Float64InsertHighWord32(), left, new_high_word);
+  TFNode* new_high_word = Binop(
+      kExprI32Ior,
+      Binop(kExprI32And, high_word_left, graph->Int32Constant(0x7fffffff)),
+      Binop(kExprI32And, high_word_right, graph->Int32Constant(0x80000000)));
+
+  return graph->graph()->NewNode(m->Float64InsertHighWord32(), left,
+                                 new_high_word);
 #endif
 }
 
@@ -1151,8 +1130,10 @@ TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
   // value = ((value >> 2) & 0x3333333333333333) + (value & 0x3333333333333333);
   // value = ((value >> 4) & 0x0f0f0f0f0f0f0f0f) + (value & 0x0f0f0f0f0f0f0f0f);
   // value = ((value >> 8) & 0x00ff00ff00ff00ff) + (value & 0x00ff00ff00ff00ff);
-  // value = ((value >> 16) & 0x0000ffff0000ffff) + (value & 0x0000ffff0000ffff);
-  // value = ((value >> 32) & 0x00000000ffffffff) + (value & 0x00000000ffffffff);
+  // value = ((value >> 16) & 0x0000ffff0000ffff) + (value &
+  // 0x0000ffff0000ffff);
+  // value = ((value >> 32) & 0x00000000ffffffff) + (value &
+  // 0x00000000ffffffff);
 
   TFNode* result = Binop(
       kExprI64Add,
@@ -1160,20 +1141,23 @@ TFNode* TFBuilder::MakeI64Popcnt(TFNode* input) {
             graph->Int64Constant(0x5555555555555555)),
       Binop(kExprI64And, input, graph->Int64Constant(0x5555555555555555)));
 
-  result = Binop(kExprI64Add, Binop(kExprI64And, Binop(kExprI64ShrU, result,
-                                                       graph->Int64Constant(2)),
-                                    graph->Int64Constant(0x3333333333333333)),
-                 Binop(kExprI64And, result, graph->Int64Constant(0x3333333333333333)));
+  result = Binop(
+      kExprI64Add,
+      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(2)),
+            graph->Int64Constant(0x3333333333333333)),
+      Binop(kExprI64And, result, graph->Int64Constant(0x3333333333333333)));
 
-  result = Binop(kExprI64Add, Binop(kExprI64And, Binop(kExprI64ShrU, result,
-                                                       graph->Int64Constant(4)),
-                                    graph->Int64Constant(0x0f0f0f0f0f0f0f0f)),
-                 Binop(kExprI64And, result, graph->Int64Constant(0x0f0f0f0f0f0f0f0f)));
+  result = Binop(
+      kExprI64Add,
+      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(4)),
+            graph->Int64Constant(0x0f0f0f0f0f0f0f0f)),
+      Binop(kExprI64And, result, graph->Int64Constant(0x0f0f0f0f0f0f0f0f)));
 
-  result = Binop(kExprI64Add, Binop(kExprI64And, Binop(kExprI64ShrU, result,
-                                                       graph->Int64Constant(8)),
-                                    graph->Int64Constant(0x00ff00ff00ff00ff)),
-                 Binop(kExprI64And, result, graph->Int64Constant(0x00ff00ff00ff00ff)));
+  result = Binop(
+      kExprI64Add,
+      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(8)),
+            graph->Int64Constant(0x00ff00ff00ff00ff)),
+      Binop(kExprI64And, result, graph->Int64Constant(0x00ff00ff00ff00ff)));
 
   result = Binop(
       kExprI64Add,
@@ -1424,7 +1408,7 @@ void TFBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
     arg_count_before_args = true;
   }
 
-  args[pos++] = graph->Constant(function);   // JS function.
+  args[pos++] = graph->Constant(function);  // JS function.
   if (arg_count_before_args) {
     args[pos++] = graph->Int32Constant(wasm_count);  // argument count
   }
@@ -1480,8 +1464,7 @@ TFNode* TFBuilder::MemSize(uint32_t offset) {
 
 
 TFNode* TFBuilder::FunctionTable() {
-  if (!graph)
-    return nullptr;
+  if (!graph) return nullptr;
   if (!function_table) {
     DCHECK(!module->function_table.is_null());
     function_table = graph->Constant(module->function_table);
@@ -1518,7 +1501,8 @@ TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   return node;
 }
 
-void TFBuilder::BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset) {
+void TFBuilder::BoundsCheckMem(MemType memtype, TFNode* index,
+                               uint32_t offset) {
   // TODO(turbofan): fold bounds checks for constant indexes.
   compiler::Graph* g = graph->graph();
   CHECK_GE(module->mem_end, module->mem_start);
@@ -1541,9 +1525,8 @@ void TFBuilder::BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset) 
 
 
 TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
-			     uint32_t offset) {
-  if (!graph)
-    return nullptr;
+                           uint32_t offset) {
+  if (!graph) return nullptr;
 
   compiler::Graph* g = graph->graph();
   TFNode* load;
@@ -1552,9 +1535,8 @@ TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
     // asm.js semantics use CheckedLoad (i.e. OOB reads return 0ish).
     DCHECK_EQ(0, offset);
     const compiler::Operator* op =
-      graph->machine()->CheckedLoad(MachineTypeFor(memtype));
-    load = g->NewNode(op, MemBuffer(0), index, MemSize(0),
-                                   *effect, *control);
+        graph->machine()->CheckedLoad(MachineTypeFor(memtype));
+    load = g->NewNode(op, MemBuffer(0), index, MemSize(0), *effect, *control);
   } else {
     // WASM semantics throw on OOB. Introduce explicit bounds check.
     BoundsCheckMem(memtype, index, offset);
@@ -1581,25 +1563,24 @@ TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
 
 TFNode* TFBuilder::StoreMem(MemType memtype, TFNode* index, uint32_t offset,
                             TFNode* val) {
-  if (!graph)
-    return nullptr;
+  if (!graph) return nullptr;
 
   TFNode* store;
   if (module && module->asm_js) {
     // asm.js semantics use CheckedStore (i.e. ignore OOB writes).
     DCHECK_EQ(0, offset);
     const compiler::Operator* op =
-      graph->machine()->CheckedStore(MachineTypeFor(memtype));
+        graph->machine()->CheckedStore(MachineTypeFor(memtype));
     store = graph->graph()->NewNode(op, MemBuffer(0), index, MemSize(0), val,
-                                           *effect, *control);
+                                    *effect, *control);
   } else {
     // WASM semantics throw on OOB. Introduce explicit bounds check.
     BoundsCheckMem(memtype, index, offset);
     compiler::StoreRepresentation rep(MachineTypeFor(memtype),
                                       compiler::kNoWriteBarrier);
-    store = graph->graph()->NewNode(graph->machine()->Store(rep),
-                                    MemBuffer(offset),
-                                    index, val, *effect, *control);
+    store =
+        graph->graph()->NewNode(graph->machine()->Store(rep), MemBuffer(offset),
+                                index, val, *effect, *control);
   }
   *effect = store;
   return store;
@@ -1613,9 +1594,9 @@ void TFBuilder::PrintDebugName(TFNode* node) {
 
 TFNode* TFBuilder::String(const char* string) {
   DCHECK_NOT_NULL(graph);
-  return graph->Constant(graph->isolate()->factory()->NewStringFromAsciiChecked(string));
+  return graph->Constant(
+      graph->isolate()->factory()->NewStringFromAsciiChecked(string));
 }
-
 }
 }
 }

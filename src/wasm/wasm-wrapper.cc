@@ -22,8 +22,7 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
-Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
-                                          ModuleEnv* module,
+Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
                                           Handle<String> name,
                                           Handle<Code> wasm_code,
                                           uint32_t index) {
@@ -117,8 +116,7 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
   return function;
 }
 
-Handle<Code> CompileWasmToJSWrapper(Isolate* isolate,
-                                    ModuleEnv* module,
+Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
                                     Handle<JSFunction> function,
                                     uint32_t index) {
   WasmFunction* func = &module->module->functions->at(index);

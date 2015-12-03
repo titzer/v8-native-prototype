@@ -13,7 +13,6 @@ typedef Signature<LocalType> FunctionSig;
 
 const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
   switch (opcode) {
-
 #define DECLARE_NAME_CASE(name, opcode, sig) \
   case kExpr##name:                          \
     return "Expr" #name;
@@ -86,8 +85,7 @@ FOREACH_SIGNATURE(DECLARE_SIG)
 #define DECLARE_SIG_ENTRY(name, ...) &kSig_##name,
 
 static const FunctionSig* kSimpleExprSigs[] = {
-    nullptr,
-    FOREACH_SIGNATURE(DECLARE_SIG_ENTRY)};
+    nullptr, FOREACH_SIGNATURE(DECLARE_SIG_ENTRY)};
 
 static byte kSimpleExprSigTable[256];
 
@@ -101,8 +99,7 @@ static void InitSigTable() {
 
 FunctionSig* WasmOpcodes::Signature(WasmOpcode opcode) {
   // TODO(titzer): use LazyInstance to make this thread safe.
-  if (kSimpleExprSigTable[kExprI32Add] == 0)
-    InitSigTable();
+  if (kSimpleExprSigTable[kExprI32Add] == 0) InitSigTable();
   return const_cast<FunctionSig*>(
       kSimpleExprSigs[kSimpleExprSigTable[static_cast<byte>(opcode)]]);
 }

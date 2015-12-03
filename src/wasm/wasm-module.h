@@ -102,8 +102,7 @@ struct WasmModule {
   // Get a pointer to a string stored in the module bytes representing a name.
   const char* GetName(uint32_t offset) {
     CHECK(BoundsCheck(offset, offset + 1));
-    if (offset == 0)
-      return "<?>";  // no name.
+    if (offset == 0) return "<?>";  // no name.
     return reinterpret_cast<const char*>(module_start + offset);
   }
 
@@ -134,7 +133,7 @@ struct ModuleEnv {
   Handle<FixedArray> function_table;
   Handle<JSArrayBuffer> memory;
   Handle<Context> context;
-  bool asm_js;                // true if the module originated from asm.js.
+  bool asm_js;  // true if the module originated from asm.js.
 
   bool IsValidGlobal(uint32_t index) {
     return module && index < module->globals->size();
@@ -176,10 +175,8 @@ typedef Result<WasmFunction*> FunctionResult;
 
 // For testing. Decode, verify, and run the last exported function in the
 // given encoded module.
-int32_t CompileAndRunWasmModule(Isolate* isolate,
-                                const byte* module_start,
-                                const byte* module_end,
-                                bool asm_js = false);
+int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
+                                const byte* module_end, bool asm_js = false);
 
 // For testing. Decode, verify, and run the last exported function in the
 // given decoded module.

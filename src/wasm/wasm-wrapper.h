@@ -13,15 +13,13 @@ namespace internal {
 namespace wasm {
 
 // Wraps a JS function, producing a code object that can be called from WASM.
-Handle<Code> CompileWasmToJSWrapper(Isolate* isolate,
-                                    ModuleEnv* module,
+Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
                                     Handle<JSFunction> function,
                                     uint32_t index);
 
 // Wraps a given wasm code object, producing a JSFunction that can be called
 // from JavaScript.
-Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
-                                          ModuleEnv* module,
+Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
                                           Handle<String> name,
                                           Handle<Code> wasm_code,
                                           uint32_t index);

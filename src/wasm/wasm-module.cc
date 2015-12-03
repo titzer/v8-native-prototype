@@ -30,12 +30,9 @@ std::ostream& operator<<(std::ostream& os, const WasmModule& module) {
   os << "WASM module with ";
   os << (1 << module.min_mem_size_log2) << " min mem";
   os << (1 << module.max_mem_size_log2) << " max mem";
-  if (module.functions)
-    os << module.functions->size() << " functions";
-  if (module.globals)
-    os << module.functions->size() << " globals";
-  if (module.data_segments)
-    os << module.functions->size() << " data segments";
+  if (module.functions) os << module.functions->size() << " functions";
+  if (module.globals) os << module.functions->size() << " globals";
+  if (module.data_segments) os << module.functions->size() << " data segments";
   return os;
 }
 
@@ -43,14 +40,12 @@ std::ostream& operator<<(std::ostream& os, const WasmFunction& function) {
   os << "WASM function with signature ";
 
   // TODO(titzer): factor out rendering of signatures.
-  if (function.sig->return_count() == 0)
-    os << "v";
+  if (function.sig->return_count() == 0) os << "v";
   for (size_t i = 0; i < function.sig->return_count(); i++) {
     os << WasmOpcodes::ShortNameOf(function.sig->GetReturn(i));
   }
   os << "_";
-  if (function.sig->parameter_count() == 0)
-    os << "v";
+  if (function.sig->parameter_count() == 0) os << "v";
   for (size_t i = 0; i < function.sig->parameter_count(); i++) {
     os << WasmOpcodes::ShortNameOf(function.sig->GetParam(i));
   }
@@ -148,8 +143,7 @@ class WasmLinker {
       }
     }
     if (modified) {
-      Assembler::FlushICache(isolate_,
-                             code->instruction_start(),
+      Assembler::FlushICache(isolate_, code->instruction_start(),
                              code->instruction_size());
     }
   }
@@ -164,11 +158,9 @@ const int kWasmMemArrayBuffer = 2;
 const int kWasmGlobalsArrayBuffer = 3;
 
 // Helper function to compile a single function.
-Handle<Code> CompileFunction(ErrorThrower& thrower,
-                             Isolate* isolate,
+Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
                              ModuleEnv* module_env,
-                             const WasmFunction& function,
-                             int index) {
+                             const WasmFunction& function, int index) {
   if (FLAG_trace_wasm_compiler || FLAG_trace_wasm_decode_time) {
     // TODO(titzer): clean me up a bit.
     OFStream os(stdout);
@@ -244,8 +236,7 @@ Handle<Code> CompileFunction(ErrorThrower& thrower,
 
 size_t AllocateGlobalsOffsets(std::vector<WasmGlobal>* globals) {
   uint32_t offset = 0;
-  if (!globals)
-    return 0;
+  if (!globals) return 0;
   for (WasmGlobal& global : *globals) {
     byte size = WasmOpcodes::MemSize(global.type);
     offset = (offset + size - 1) & ~(size - 1);  // align
@@ -257,8 +248,7 @@ size_t AllocateGlobalsOffsets(std::vector<WasmGlobal>* globals) {
 
 void LoadDataSegments(WasmModule* module, byte* mem_addr, size_t mem_size) {
   for (const WasmDataSegment& segment : *module->data_segments) {
-    if (!segment.init)
-      continue;
+    if (!segment.init) continue;
     CHECK_LT(segment.dest_addr, mem_size);
     CHECK_LE(segment.source_size, mem_size);
     CHECK_LE(segment.dest_addr + segment.source_size, mem_size);
@@ -282,12 +272,10 @@ Handle<FixedArray> BuildFunctionTable(Isolate* isolate, WasmModule* module) {
   return fixed;
 }
 
-Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate,
-                                     int size,
+Handle<JSArrayBuffer> NewArrayBuffer(Isolate* isolate, int size,
                                      byte** backing_store) {
   void* memory = isolate->array_buffer_allocator()->Allocate(size);
-  if (!memory)
-    return Handle<JSArrayBuffer>::null();
+  if (!memory) return Handle<JSArrayBuffer>::null();
   *backing_store = reinterpret_cast<byte*>(memory);
 
 #if DEBUG
@@ -403,8 +391,7 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
 
   // First pass: compile each function and initialize the code table.
   for (const WasmFunction& func : *functions) {
-    if (thrower.error())
-      break;
+    if (thrower.error()) break;
 
     const char* cstr = GetName(func.name_offset);
     Handle<String> name = factory->InternalizeUtf8String(cstr);
@@ -467,10 +454,8 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
 
 Handle<Code> ModuleEnv::GetFunctionCode(uint32_t index) {
   DCHECK(IsValidFunction(index));
-  if (linker)
-    return linker->GetFunctionCode(index);
-  if (function_code)
-    return function_code->at(index);
+  if (linker) return linker->GetFunctionCode(index);
+  if (function_code) return function_code->at(index);
   return Handle<Code>::null();
 }
 
@@ -483,10 +468,8 @@ compiler::CallDescriptor* ModuleEnv::GetCallDescriptor(Zone* zone,
   return GetWasmCallDescriptor(zone, function->sig);
 }
 
-int32_t CompileAndRunWasmModule(Isolate* isolate,
-                                const byte* module_start,
-                                const byte* module_end,
-                                bool asm_js) {
+int32_t CompileAndRunWasmModule(Isolate* isolate, const byte* module_start,
+                                const byte* module_end, bool asm_js) {
   HandleScope scope(isolate);
   Zone zone;
   // Decode the module, but don't verify function bodies, since we'll
@@ -546,12 +529,10 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
       Handle<Code> code =
           CompileFunction(thrower, isolate, &module_env, func, index);
       if (!code.is_null()) {
-        if (func.exported)
-          main_code = code;
+        if (func.exported) main_code = code;
         linker.Finish(index, code);
       }
-      if (thrower.error())
-        return -1;
+      if (thrower.error()) return -1;
     }
     index++;
   }

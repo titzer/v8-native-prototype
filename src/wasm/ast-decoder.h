@@ -43,20 +43,15 @@ struct FunctionEnv {
   bool IsValidLocal(uint32_t index) { return index < total_locals; }
   uint32_t GetLocalCount() { return total_locals; }
   LocalType GetLocalType(uint32_t index) {
-    if (index < sig->parameter_count())
-      return sig->GetParam(index);
+    if (index < sig->parameter_count()) return sig->GetParam(index);
     index -= sig->parameter_count();
-    if (index < local_int32_count)
-      return kAstI32;
+    if (index < local_int32_count) return kAstI32;
     index -= local_int32_count;
-    if (index < local_int64_count)
-      return kAstI64;
+    if (index < local_int64_count) return kAstI64;
     index -= local_int64_count;
-    if (index < local_float32_count)
-      return kAstF32;
+    if (index < local_float32_count) return kAstF32;
     index -= local_float32_count;
-    if (index < local_float64_count)
-      return kAstF64;
+    if (index < local_float64_count) return kAstF64;
     return kAstStmt;
   }
 
@@ -95,35 +90,25 @@ typedef Result<Tree*> TreeResult;
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree);
 
-TreeResult VerifyWasmCode(FunctionEnv* env,
-                          const byte* base,
-                          const byte* start,
+TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
                           const byte* end);
-TreeResult BuildTFGraph(TFGraph* graph,
-                        FunctionEnv* env,
-                        const byte* base,
-                        const byte* start,
-                        const byte* end);
+TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
+                        const byte* start, const byte* end);
 
-inline TreeResult VerifyWasmCode(FunctionEnv* env,
-                                 const byte* start,
+inline TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
                                  const byte* end) {
   return VerifyWasmCode(env, nullptr, start, end);
 }
 
-inline TreeResult BuildTFGraph(TFGraph* graph,
-                               FunctionEnv* env,
-                               const byte* start,
-                               const byte* end) {
+inline TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env,
+                               const byte* start, const byte* end) {
   return BuildTFGraph(graph, env, nullptr, start, end);
 }
 
 enum ReadUnsignedLEB128ErrorCode { kNoError, kInvalidLEB128, kMissingLEB128 };
 
-ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte*,
-                                                      const byte*,
-                                                      int*,
-                                                      uint32_t*);
+ReadUnsignedLEB128ErrorCode ReadUnsignedLEB128Operand(const byte*, const byte*,
+                                                      int*, uint32_t*);
 
 // Computes the length of the opcode at the given address.
 int OpcodeLength(const byte* pc);
@@ -132,10 +117,9 @@ int OpcodeLength(const byte* pc);
 int OpcodeArity(FunctionEnv* env, const byte* pc);
 
 #if DEBUG
-#define TRACE(...)               \
-  do {                           \
-    if (FLAG_trace_wasm_decoder) \
-      PrintF(__VA_ARGS__);       \
+#define TRACE(...)                                    \
+  do {                                                \
+    if (FLAG_trace_wasm_decoder) PrintF(__VA_ARGS__); \
   } while (false)
 #else
 #define TRACE(...)
@@ -230,8 +214,7 @@ class Decoder {
 
     const byte* pos = pc_;
     const byte* end = pc_ + 5;
-    if (end > limit_)
-      end = limit_;
+    if (end > limit_) end = limit_;
 
     uint32_t result = 0;
     int shift = 0;
@@ -240,8 +223,7 @@ class Decoder {
       b = *pc_++;
       TRACE("%02x ", b);
       result = result | ((b & 0x7F) << shift);
-      if ((b & 0x80) == 0)
-        break;
+      if ((b & 0x80) == 0) break;
       shift += 7;
     }
 

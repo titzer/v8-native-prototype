@@ -60,8 +60,7 @@ struct TFBuilder {
 
   TFNode** Realloc(TFNode** buffer, size_t count) {
     TFNode** buf = Buffer(count);
-    if (buf != buffer)
-      memcpy(buf, buffer, count * sizeof(TFNode*));
+    if (buf != buffer) memcpy(buf, buffer, count * sizeof(TFNode*));
     return buf;
   }
 
@@ -123,7 +122,8 @@ struct TFBuilder {
   TFNode* LoadGlobal(uint32_t index);
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
   void BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset);
-  TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index, uint32_t offset);
+  TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index,
+                  uint32_t offset);
   TFNode* StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val);
 
   static void PrintDebugName(TFNode* node);
