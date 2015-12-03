@@ -33,6 +33,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
                          ZoneAllocationPolicy(zone)),
         functions_(HashMap::PointersMatch, ZoneHashMap::kDefaultHashMapCapacity,
                    ZoneAllocationPolicy(zone)),
+        global_variables_(HashMap::PointersMatch,
+                          ZoneHashMap::kDefaultHashMapCapacity,
+                          ZoneAllocationPolicy(zone)),
         in_function_(false),
         is_set_op_(false),
         marking_exported(false),
@@ -76,18 +79,21 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitBlock(Block* stmt) {
-    if (!in_function_) return;
-    breakable_blocks_.push_back(
-        std::make_pair(stmt->AsBreakableStatement(), false));
-    current_function_builder_->AppendCode(kExprBlock, false);
-    uint32_t index = current_function_builder_->AppendEditableImmediate(0);
-    int prev_block_size = block_size_;
-    block_size_ = static_cast<byte>(stmt->statements()->length());
-    RECURSE(VisitStatements(stmt->statements()));
-    DCHECK(block_size_ >= 0);
-    current_function_builder_->EditImmediate(index, block_size_);
-    block_size_ = prev_block_size;
-    breakable_blocks_.pop_back();
+    if (in_function_) {
+      breakable_blocks_.push_back(
+          std::make_pair(stmt->AsBreakableStatement(), false));
+      current_function_builder_->AppendCode(kExprBlock, false);
+      uint32_t index = current_function_builder_->AppendEditableImmediate(0);
+      int prev_block_size = block_size_;
+      block_size_ = static_cast<byte>(stmt->statements()->length());
+      RECURSE(VisitStatements(stmt->statements()));
+      DCHECK(block_size_ >= 0);
+      current_function_builder_->EditImmediate(index, block_size_);
+      block_size_ = prev_block_size;
+      breakable_blocks_.pop_back();
+    } else {
+      RECURSE(VisitStatements(stmt->statements()));
+    }
   }
 
   void VisitExpressionStatement(ExpressionStatement* stmt) {
@@ -288,14 +294,26 @@ class AsmWasmBuilderImpl : public AstVisitor {
                                            static_cast<uint32_t>(index.size()));
       } else {
         if (is_set_op_) {
-          current_function_builder_->AppendCode(kExprSetLocal, false);
+          if (var->IsContextSlot()) {
+            current_function_builder_->AppendCode(kExprStoreGlobal, false);
+          } else {
+            current_function_builder_->AppendCode(kExprSetLocal, false);
+          }
           is_set_op_ = false;
         } else {
-          current_function_builder_->AppendCode(kExprGetLocal, false);
+          if (var->IsContextSlot()) {
+            current_function_builder_->AppendCode(kExprLoadGlobal, false);
+          } else {
+            current_function_builder_->AppendCode(kExprGetLocal, false);
+          }
         }
         LocalType var_type = TypeOf(expr);
         DCHECK(var_type != kAstStmt);
-        AccessTemp(LookupOrInsertLocal(var, var_type));
+        if (var->IsContextSlot()) {
+          AddLeb128(LookupOrInsertGlobal(var, var_type), false);
+        } else {
+          AddLeb128(LookupOrInsertLocal(var, var_type), true);
+        }
       }
     } else if (marking_exported) {
       Variable* var = expr->var();
@@ -355,21 +373,24 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitAssignment(Assignment* expr) {
-    DCHECK(in_function_);
-    BinaryOperation* value_op = expr->value()->AsBinaryOperation();
-    if (value_op != NULL && MatchBinaryOperation(value_op) == kAsIs) {
-      VariableProxy* target_var = expr->target()->AsVariableProxy();
-      VariableProxy* effective_value_var = GetLeft(value_op)->AsVariableProxy();
-      if (target_var != NULL && effective_value_var != NULL &&
-          target_var->var() == effective_value_var->var()) {
-        block_size_--;
-        return;
+    if (in_function_) {
+      BinaryOperation* value_op = expr->value()->AsBinaryOperation();
+      if (value_op != NULL && MatchBinaryOperation(value_op) == kAsIs) {
+        VariableProxy* target_var = expr->target()->AsVariableProxy();
+        VariableProxy* effective_value_var = 
+            GetLeft(value_op)->AsVariableProxy();
+        // TODO (aseemgarg): simplify block_size_ or replace with a kNop
+        if (target_var != NULL && effective_value_var != NULL &&
+            target_var->var() == effective_value_var->var()) {
+          block_size_--;
+          return;
+        }
       }
+      is_set_op_ = true;
+      RECURSE(Visit(expr->target()));
+      DCHECK(!is_set_op_);
+      RECURSE(Visit(expr->value()));
     }
-    is_set_op_ = true;
-    RECURSE(Visit(expr->target()));
-    DCHECK(!is_set_op_);
-    RECURSE(Visit(expr->value()));
   }
 
   void VisitYield(Yield* expr) {
@@ -684,33 +705,39 @@ class AsmWasmBuilderImpl : public AstVisitor {
     uint16_t index_0 = current_function_builder_->AddLocal(kAstF64);
     uint16_t index_1 = current_function_builder_->AddLocal(kAstF64);
     current_function_builder_->AppendCode(kExprSetLocal, false);
-    AccessTemp(index_0);
+    AddLeb128(index_0, true);
     RECURSE(Visit(expr->left()));
     current_function_builder_->AppendCode(kExprSetLocal, false);
-    AccessTemp(index_1);
+    AddLeb128(index_1, true);
     RECURSE(Visit(expr->right()));
     current_function_builder_->AppendCode(kExprF64Sub, false);
     current_function_builder_->AppendCode(kExprGetLocal, false);
-    AccessTemp(index_0);
+    AddLeb128(index_0, true);
     current_function_builder_->AppendCode(kExprF64Mul, false);
     current_function_builder_->AppendCode(kExprGetLocal, false);
-    AccessTemp(index_1);
+    AddLeb128(index_1, true);
     // Use trunc instead of two casts
     current_function_builder_->AppendCode(kExprF64SConvertI32, false);
     current_function_builder_->AppendCode(kExprI32SConvertF64, false);
     current_function_builder_->AppendCode(kExprF64Div, false);
     current_function_builder_->AppendCode(kExprGetLocal, false);
-    AccessTemp(index_0);
+    AddLeb128(index_0, true);
     current_function_builder_->AppendCode(kExprGetLocal, false);
-    AccessTemp(index_1);
+    AddLeb128(index_1, true);
   }
 
-  void AccessTemp(uint32_t index) {
+  void AddLeb128(uint32_t index, bool is_local) {
     std::vector<uint8_t> index_vec = UnsignedLEB128From(index);
-    uint32_t pos_of_index[1] = {0};
-    current_function_builder_->AddBody(index_vec.data(),
-                                       static_cast<uint32_t>(index_vec.size()),
-                                       pos_of_index, 1);
+    if (is_local) {
+      uint32_t pos_of_index[1] = {0};
+      current_function_builder_->AddBody(
+          index_vec.data(), static_cast<uint32_t>(index_vec.size()),
+          pos_of_index, 1);
+    } else {
+      current_function_builder_->AddBody(
+          index_vec.data(),
+          static_cast<uint32_t>(index_vec.size()));
+    }
   }
 
   void VisitCompareOperation(CompareOperation* expr) {
@@ -831,6 +858,20 @@ class AsmWasmBuilderImpl : public AstVisitor {
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;
   }
 
+  uint16_t LookupOrInsertGlobal(Variable* v, LocalType type) {
+    ZoneHashMap::Entry* entry =
+        global_variables_.Lookup(v, ComputePointerHash(v));
+    if (entry == NULL) {
+      uint16_t index = builder_->AddGlobal(type, 0);
+      IndexContainer* container = new (zone()) IndexContainer();
+      container->index = index;
+      entry = global_variables_.LookupOrInsert(v, ComputePointerHash(v),
+                                              ZoneAllocationPolicy(zone()));
+      entry->value = container;
+    }
+    return (reinterpret_cast<IndexContainer*>(entry->value))->index;
+  }
+
   uint16_t LookupOrInsertFunction(Variable* v) {
     DCHECK(builder_ != NULL);
     ZoneHashMap::Entry* entry = functions_.Lookup(v, ComputePointerHash(v));
@@ -866,6 +907,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   ZoneHashMap local_variables_;
   ZoneHashMap functions_;
+  ZoneHashMap global_variables_;
   bool in_function_;
   bool is_set_op_;
   bool marking_exported;
