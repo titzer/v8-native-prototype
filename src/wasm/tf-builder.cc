@@ -60,49 +60,6 @@ static const char* kTrapMessages[] = {
     "remainder by zero", "integer result unrepresentable",
     "invalid function",  "function signature mismatch"};
 
-MachineType MachineTypeFor(LocalType type) {
-  switch (type) {
-    case kAstI32:
-      return kMachInt32;
-    case kAstI64:
-      return kMachInt64;
-    case kAstF64:
-      return kMachFloat64;
-    case kAstF32:
-      return kMachFloat32;
-    default:
-      UNREACHABLE();
-      return kMachAnyTagged;
-  }
-}
-
-MachineType MachineTypeFor(MemType type) {
-  switch (type) {
-    case kMemI8:
-      return kMachInt8;
-    case kMemI16:
-      return kMachInt16;
-    case kMemI32:
-      return kMachInt32;
-    case kMemI64:
-      return kMachInt64;
-    case kMemU8:
-      return kMachUint8;
-    case kMemU16:
-      return kMachUint16;
-    case kMemU32:
-      return kMachUint32;
-    case kMemU64:
-      return kMachUint64;
-    case kMemF64:
-      return kMachFloat64;
-    case kMemF32:
-      return kMachFloat32;
-    default:
-      UNREACHABLE();
-      return kMachAnyTagged;
-  }
-}
 }  // namespace
 
 
@@ -327,9 +284,8 @@ TFNode* TFBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
   DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
   TFNode** buf = Realloc(vals, count + 1);
   buf[count] = control;
-  MachineType machine_type = MachineTypeFor(type);
-  return graph->graph()->NewNode(graph->common()->Phi(machine_type, count),
-                                 count + 1, buf);
+  return graph->graph()->NewNode(graph->common()->Phi(type, count), count + 1,
+                                 buf);
 }
 
 TFNode* TFBuilder::EffectPhi(unsigned count, TFNode** effects,
@@ -1278,7 +1234,7 @@ TFNode* TFBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
     case kAstStmt:
       return graph->UndefinedConstant();
-    case kAstEnd:
+    default:
       UNREACHABLE();
       return nullptr;
   }
@@ -1319,7 +1275,7 @@ TFNode* TFBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
     case kAstStmt:
       num = graph->Int32Constant(0);
       break;
-    case kAstEnd:
+    default:
       UNREACHABLE();
       return nullptr;
   }
@@ -1475,11 +1431,10 @@ TFNode* TFBuilder::FunctionTable() {
 
 TFNode* TFBuilder::LoadGlobal(uint32_t index) {
   DCHECK_NOT_NULL(graph);
-  MemType mem_type = module->GetGlobalType(index);
+  MachineType mem_type = module->GetGlobalType(index);
   TFNode* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
-  const compiler::Operator* op =
-      graph->machine()->Load(MachineTypeFor(mem_type));
+  const compiler::Operator* op = graph->machine()->Load(mem_type);
   TFNode* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0),
                                          *effect, *control);
   *effect = node;
@@ -1489,19 +1444,18 @@ TFNode* TFBuilder::LoadGlobal(uint32_t index) {
 
 TFNode* TFBuilder::StoreGlobal(uint32_t index, TFNode* val) {
   DCHECK_NOT_NULL(graph);
-  MemType mem_type = module->GetGlobalType(index);
+  MachineType mem_type = module->GetGlobalType(index);
   TFNode* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
-  const compiler::Operator* op =
-      graph->machine()->Store(compiler::StoreRepresentation(
-          MachineTypeFor(mem_type), compiler::kNoWriteBarrier));
+  const compiler::Operator* op = graph->machine()->Store(
+      compiler::StoreRepresentation(mem_type, compiler::kNoWriteBarrier));
   TFNode* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0), val,
                                          *effect, *control);
   *effect = node;
   return node;
 }
 
-void TFBuilder::BoundsCheckMem(MemType memtype, TFNode* index,
+void TFBuilder::BoundsCheckMem(MachineType memtype, TFNode* index,
                                uint32_t offset) {
   // TODO(turbofan): fold bounds checks for constant indexes.
   compiler::Graph* g = graph->graph();
@@ -1524,7 +1478,7 @@ void TFBuilder::BoundsCheckMem(MemType memtype, TFNode* index,
 }
 
 
-TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
+TFNode* TFBuilder::LoadMem(LocalType type, MachineType memtype, TFNode* index,
                            uint32_t offset) {
   if (!graph) return nullptr;
 
@@ -1534,25 +1488,24 @@ TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
   if (module && module->asm_js) {
     // asm.js semantics use CheckedLoad (i.e. OOB reads return 0ish).
     DCHECK_EQ(0, offset);
-    const compiler::Operator* op =
-        graph->machine()->CheckedLoad(MachineTypeFor(memtype));
+    const compiler::Operator* op = graph->machine()->CheckedLoad(memtype);
     load = g->NewNode(op, MemBuffer(0), index, MemSize(0), *effect, *control);
   } else {
     // WASM semantics throw on OOB. Introduce explicit bounds check.
     BoundsCheckMem(memtype, index, offset);
-    load = g->NewNode(graph->machine()->Load(MachineTypeFor(memtype)),
-                      MemBuffer(offset), index, *effect, *control);
+    load = g->NewNode(graph->machine()->Load(memtype), MemBuffer(offset), index,
+                      *effect, *control);
   }
 
   *effect = load;
 
-  if (type == kAstI64 && WasmOpcodes::MemSize(memtype) < 8) {
+  if (type == kAstI64 && ElementSizeLog2Of(memtype) < 3) {
     // TODO(titzer): TF zeroes the upper bits of 64-bit loads for subword sizes.
-    bool sign_extend =
-        memtype == kMemI8 || memtype == kMemI16 || memtype == kMemI32;
-    if (sign_extend) {
+    if (TypeOf(memtype) == kTypeInt32) {
+      // sign extend
       load = g->NewNode(graph->machine()->ChangeInt32ToInt64(), load);
     } else {
+      // zero extend
       load = g->NewNode(graph->machine()->ChangeUint32ToUint64(), load);
     }
   }
@@ -1561,7 +1514,7 @@ TFNode* TFBuilder::LoadMem(LocalType type, MemType memtype, TFNode* index,
 }
 
 
-TFNode* TFBuilder::StoreMem(MemType memtype, TFNode* index, uint32_t offset,
+TFNode* TFBuilder::StoreMem(MachineType memtype, TFNode* index, uint32_t offset,
                             TFNode* val) {
   if (!graph) return nullptr;
 
@@ -1569,15 +1522,13 @@ TFNode* TFBuilder::StoreMem(MemType memtype, TFNode* index, uint32_t offset,
   if (module && module->asm_js) {
     // asm.js semantics use CheckedStore (i.e. ignore OOB writes).
     DCHECK_EQ(0, offset);
-    const compiler::Operator* op =
-        graph->machine()->CheckedStore(MachineTypeFor(memtype));
+    const compiler::Operator* op = graph->machine()->CheckedStore(memtype);
     store = graph->graph()->NewNode(op, MemBuffer(0), index, MemSize(0), val,
                                     *effect, *control);
   } else {
     // WASM semantics throw on OOB. Introduce explicit bounds check.
     BoundsCheckMem(memtype, index, offset);
-    compiler::StoreRepresentation rep(MachineTypeFor(memtype),
-                                      compiler::kNoWriteBarrier);
+    compiler::StoreRepresentation rep(memtype, compiler::kNoWriteBarrier);
     store =
         graph->graph()->NewNode(graph->machine()->Store(rep), MemBuffer(offset),
                                 index, val, *effect, *control);

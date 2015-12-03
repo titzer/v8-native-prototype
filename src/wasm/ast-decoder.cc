@@ -29,11 +29,11 @@ namespace wasm {
 
 // The root of a decoded tree.
 struct Tree {
-  LocalType type : 4;  // tree type.
-  int count : 28;      // number of children.
-  const byte* pc;      // start of the syntax tree.
-  TFNode* node;        // node in the TurboFan graph.
-  Tree* children[1];   // pointers to children.
+  LocalType type;     // tree type.
+  uint32_t count;     // number of children.
+  const byte* pc;     // start of the syntax tree.
+  TFNode* node;       // node in the TurboFan graph.
+  Tree* children[1];  // pointers to children.
 
   WasmOpcode opcode() const { return static_cast<WasmOpcode>(*pc); }
 };
@@ -947,58 +947,58 @@ class LR_WasmDecoder : public Decoder {
       }
 
       case kExprI32LoadMem8S:
-        return ReduceLoadMem(p, kAstI32, kMemI8);
+        return ReduceLoadMem(p, kAstI32, kMachInt8);
       case kExprI32LoadMem8U:
-        return ReduceLoadMem(p, kAstI32, kMemU8);
+        return ReduceLoadMem(p, kAstI32, kMachUint8);
       case kExprI32LoadMem16S:
-        return ReduceLoadMem(p, kAstI32, kMemI16);
+        return ReduceLoadMem(p, kAstI32, kMachInt16);
       case kExprI32LoadMem16U:
-        return ReduceLoadMem(p, kAstI32, kMemU16);
+        return ReduceLoadMem(p, kAstI32, kMachUint16);
       case kExprI32LoadMem:
-        return ReduceLoadMem(p, kAstI32, kMemI32);
+        return ReduceLoadMem(p, kAstI32, kMachInt32);
 
       case kExprI64LoadMem8S:
-        return ReduceLoadMem(p, kAstI64, kMemI8);
+        return ReduceLoadMem(p, kAstI64, kMachInt8);
       case kExprI64LoadMem8U:
-        return ReduceLoadMem(p, kAstI64, kMemU8);
+        return ReduceLoadMem(p, kAstI64, kMachUint8);
       case kExprI64LoadMem16S:
-        return ReduceLoadMem(p, kAstI64, kMemI16);
+        return ReduceLoadMem(p, kAstI64, kMachInt16);
       case kExprI64LoadMem16U:
-        return ReduceLoadMem(p, kAstI64, kMemU16);
+        return ReduceLoadMem(p, kAstI64, kMachUint16);
       case kExprI64LoadMem32S:
-        return ReduceLoadMem(p, kAstI64, kMemI32);
+        return ReduceLoadMem(p, kAstI64, kMachInt32);
       case kExprI64LoadMem32U:
-        return ReduceLoadMem(p, kAstI64, kMemU32);
+        return ReduceLoadMem(p, kAstI64, kMachUint32);
       case kExprI64LoadMem:
-        return ReduceLoadMem(p, kAstI64, kMemI64);
+        return ReduceLoadMem(p, kAstI64, kMachInt64);
 
       case kExprF32LoadMem:
-        return ReduceLoadMem(p, kAstF32, kMemF32);
+        return ReduceLoadMem(p, kAstF32, kMachFloat32);
 
       case kExprF64LoadMem:
-        return ReduceLoadMem(p, kAstF64, kMemF64);
+        return ReduceLoadMem(p, kAstF64, kMachFloat64);
 
       case kExprI32StoreMem8:
-        return ReduceStoreMem(p, kAstI32, kMemI8);
+        return ReduceStoreMem(p, kAstI32, kMachInt8);
       case kExprI32StoreMem16:
-        return ReduceStoreMem(p, kAstI32, kMemI16);
+        return ReduceStoreMem(p, kAstI32, kMachInt16);
       case kExprI32StoreMem:
-        return ReduceStoreMem(p, kAstI32, kMemI32);
+        return ReduceStoreMem(p, kAstI32, kMachInt32);
 
       case kExprI64StoreMem8:
-        return ReduceStoreMem(p, kAstI64, kMemI8);
+        return ReduceStoreMem(p, kAstI64, kMachInt8);
       case kExprI64StoreMem16:
-        return ReduceStoreMem(p, kAstI64, kMemI16);
+        return ReduceStoreMem(p, kAstI64, kMachInt16);
       case kExprI64StoreMem32:
-        return ReduceStoreMem(p, kAstI64, kMemI32);
+        return ReduceStoreMem(p, kAstI64, kMachInt32);
       case kExprI64StoreMem:
-        return ReduceStoreMem(p, kAstI64, kMemI64);
+        return ReduceStoreMem(p, kAstI64, kMachInt64);
 
       case kExprF32StoreMem:
-        return ReduceStoreMem(p, kAstF32, kMemF32);
+        return ReduceStoreMem(p, kAstF32, kMachFloat32);
 
       case kExprF64StoreMem:
-        return ReduceStoreMem(p, kAstF64, kMemF64);
+        return ReduceStoreMem(p, kAstF64, kMachFloat64);
 
       case kExprGrowMemory:
         TypeCheckLast(p, kAstI32);
@@ -1074,7 +1074,7 @@ class LR_WasmDecoder : public Decoder {
     }
   }
 
-  void ReduceLoadMem(Production* p, LocalType type, MemType mem_type) {
+  void ReduceLoadMem(Production* p, LocalType type, MachineType mem_type) {
     DCHECK_EQ(1, p->index);
     TypeCheckLast(p, kAstI32);  // index
     if (build()) {
@@ -1085,7 +1085,7 @@ class LR_WasmDecoder : public Decoder {
     }
   }
 
-  void ReduceStoreMem(Production* p, LocalType type, MemType mem_type) {
+  void ReduceStoreMem(Production* p, LocalType type, MachineType mem_type) {
     if (p->index == 1) {
       TypeCheckLast(p, kAstI32);  // index
     } else {

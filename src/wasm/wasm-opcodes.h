@@ -6,23 +6,23 @@
 #define V8_WASM_OPCODES_H_
 
 #include "src/signature.h"
+#include "src/machine-type.h"
 
 namespace v8 {
 namespace internal {
 namespace wasm {
 
-// Types for syntax tree nodes.
-enum LocalType {
-  kAstStmt = 0,  // expression that produces no value
-  kAstI32 = 1,   // expression that produces an int32 value
-  kAstI64 = 2,   // expression that produces an int64 value
-  kAstF32 = 3,   // expression that produces a float32 value
-  kAstF64 = 4,   // expression that produces a float64 value
-  kAstEnd = 5    // expression that ends control flow
+// Binary encoding of local types.
+enum LocalTypeCode {
+  kLocalVoid = 0,
+  kLocalI32 = 1,
+  kLocalI64 = 2,
+  kLocalF32 = 3,
+  kLocalF64 = 4
 };
 
-// Types for memory accesses and globals.
-enum MemType {
+// Binary encoding of memory types.
+enum MemTypeCode {
   kMemI8 = 0,
   kMemU8 = 1,
   kMemI16 = 2,
@@ -34,6 +34,16 @@ enum MemType {
   kMemF32 = 8,
   kMemF64 = 9
 };
+
+// We reuse the internal machine type to represent WebAssembly AST types.
+// A typedef improves readability without adding a whole new type system.
+typedef MachineType LocalType;
+const LocalType kAstStmt = kMachNone;
+const LocalType kAstI32 = kMachInt32;
+const LocalType kAstI64 = kMachInt64;
+const LocalType kAstF32 = kMachFloat32;
+const LocalType kAstF64 = kMachFloat64;
+const LocalType kAstEnd = kTypeAny;
 
 // Functionality related to encoding memory accesses.
 struct MemoryAccess {
@@ -291,67 +301,98 @@ class WasmOpcodes {
  public:
   static bool IsSupported(WasmOpcode opcode);
   static const char* OpcodeName(WasmOpcode opcode);
-  static const char* TypeName(LocalType type);
-  static const char* TypeName(MemType type);
   static FunctionSig* Signature(WasmOpcode opcode);
 
-  static byte MemSize(MemType type) {
+  static byte MemSize(MachineType type) { return ElementSizeOf(type); }
+
+  static LocalTypeCode LocalTypeCodeFor(LocalType type) {
     switch (type) {
-      case kMemI8:
-      case kMemU8:
-        return 1;
-      case kMemI16:
-      case kMemU16:
-        return 2;
-      case kMemI32:
-      case kMemU32:
-      case kMemF32:
-        return 4;
-      case kMemI64:
-      case kMemU64:
-      case kMemF64:
-        return 8;
+      case kAstI32:
+        return kLocalI32;
+      case kAstI64:
+        return kLocalI64;
+      case kAstF32:
+        return kLocalF32;
+      case kAstF64:
+        return kLocalF64;
+      case kAstStmt:
+        return kLocalVoid;
+      default:
+        UNREACHABLE();
+        return kLocalVoid;
     }
   }
 
-  static LocalType LocalTypeFor(MemType type) {
+  static MemTypeCode MemTypeCodeFor(MachineType type) {
     switch (type) {
-      case kMemI8:
-      case kMemU8:
-      case kMemI16:
-      case kMemU16:
-      case kMemI32:
-      case kMemU32:
+      case kMachInt8:
+        return kMemI8;
+      case kMachUint8:
+        return kMemU8;
+      case kMachInt16:
+        return kMemI16;
+      case kMachUint16:
+        return kMemU16;
+      case kMachInt32:
+        return kMemI32;
+      case kMachUint32:
+        return kMemU32;
+      case kMachInt64:
+        return kMemI64;
+      case kMachUint64:
+        return kMemU64;
+      case kMachFloat32:
+        return kMemF32;
+      case kMachFloat64:
+        return kMemF64;
+      default:
+        UNREACHABLE();
+        return kMemI32;
+    }
+  }
+
+  static LocalType LocalTypeFor(MachineType type) {
+    switch (type) {
+      case kMachInt8:
+      case kMachUint8:
+      case kMachInt16:
+      case kMachUint16:
+      case kMachInt32:
+      case kMachUint32:
         return kAstI32;
-      case kMemI64:
-      case kMemU64:
+      case kMachInt64:
+      case kMachUint64:
         return kAstI64;
-      case kMemF32:
+      case kMachFloat32:
         return kAstF32;
-      case kMemF64:
+      case kMachFloat64:
         return kAstF64;
+      default:
+        UNREACHABLE();
+        return kAstI32;
     }
   }
 
-  static byte LoadStoreOpcodeOf(MemType type, bool store) {
+  // TODO(titzer): remove this method
+  static byte LoadStoreOpcodeOf(MachineType type, bool store) {
     switch (type) {
-      case kMemI8:
+      case kMachInt8:
         return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;
-      case kMemU8:
+      case kMachUint8:
         return store ? kExprI32StoreMem8 : kExprI32LoadMem8U;
-      case kMemI16:
+      case kMachInt16:
         return store ? kExprI32StoreMem16 : kExprI32LoadMem16S;
-      case kMemU16:
+      case kMachUint16:
         return store ? kExprI32StoreMem16 : kExprI32LoadMem16U;
-      case kMemI32:
-      case kMemU32:
+      case kMachInt32:
+      case kMachUint32:
         return store ? kExprI32StoreMem : kExprI32LoadMem;
-      case kMemI64:
-      case kMemU64:
+      case kMachInt64:
+      case kMachUint64:
         return store ? kExprI64StoreMem : kExprI64LoadMem;
-      case kMemF32:
+      case kMachFloat32:
         return store ? kExprF32StoreMem : kExprF32LoadMem;
-      case kMemF64:
+      case kMachFloat64:
         return store ? kExprF64StoreMem : kExprF64LoadMem;
       default:
         UNREACHABLE();
@@ -359,7 +400,7 @@ class WasmOpcodes {
     }
   }
 
-  static byte LoadStoreAccessOf(MemType type, bool with_offset = false) {
+  static byte LoadStoreAccessOf(bool with_offset) {
     return MemoryAccess::OffsetField::encode(with_offset);
   }
 
@@ -377,6 +418,28 @@ class WasmOpcodes {
         return 'v';
       case kAstEnd:
         return 'x';
+      default:
+        UNREACHABLE();
+        return '?';
+    }
+  }
+
+  static const char* TypeName(LocalType type) {
+    switch (type) {
+      case kAstI32:
+        return "i32";
+      case kAstI64:
+        return "i64";
+      case kAstF32:
+        return "f32";
+      case kAstF64:
+        return "f64";
+      case kAstStmt:
+        return "<stmt>";
+      case kAstEnd:
+        return "<end>";
+      default:
+        return "<unknown>";
     }
   }
 };

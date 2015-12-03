@@ -24,52 +24,6 @@ const char* WasmOpcodes::OpcodeName(WasmOpcode opcode) {
   return "Unknown";
 }
 
-const char* WasmOpcodes::TypeName(LocalType type) {
-  switch (type) {
-    case kAstStmt:
-      return "<stmt>";
-    case kAstI32:
-      return "int32";
-    case kAstI64:
-      return "int64";
-    case kAstF32:
-      return "float32";
-    case kAstF64:
-      return "float64";
-    case kAstEnd:
-      return "<end>";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* WasmOpcodes::TypeName(MemType type) {
-  switch (type) {
-    case kMemI8:
-      return "int8";
-    case kMemU8:
-      return "uint8";
-    case kMemI16:
-      return "int16";
-    case kMemU16:
-      return "uint16";
-    case kMemI32:
-      return "int32";
-    case kMemU32:
-      return "uint32";
-    case kMemI64:
-      return "int64";
-    case kMemU64:
-      return "uint64";
-    case kMemF32:
-      return "float32";
-    case kMemF64:
-      return "float64";
-    default:
-      return "Unknown";
-  }
-}
-
 #define DECLARE_SIG_ENUM(name, ...) kSigEnum_##name,
 
 enum WasmOpcodeSig { FOREACH_SIGNATURE(DECLARE_SIG_ENUM) };

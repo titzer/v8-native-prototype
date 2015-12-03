@@ -15,7 +15,7 @@ namespace wasm {
 
 class EncoderTest : public TestWithZone {
  protected:
-  void AddLocal(WasmFunctionBuilder* f, uint8_t type) {
+  void AddLocal(WasmFunctionBuilder* f, LocalType type) {
     uint16_t index = f->AddLocal(type);
     const std::vector<uint8_t>& out_index = UnsignedLEB128From(index);
     std::vector<uint8_t> code;
