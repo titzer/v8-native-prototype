@@ -34,8 +34,15 @@ class WasmModuleVerifyTest : public TestWithZone {
   } while (false)
 
 
-static const LocalType kLocalTypes[] = {kAstI32, kAstI64, kAstF32,
-                                        kAstF64};
+struct LocalTypePair {
+  uint8_t code;
+  LocalType type;
+} kLocalTypes[] = {
+  {kLocalI32, kAstI32},
+  {kLocalI64, kAstI64},
+  {kLocalF32, kAstF32},
+  {kLocalF64, kAstF64}
+};
 
 
 TEST_F(WasmModuleVerifyTest, DecodeEmpty) {
@@ -70,7 +77,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobal) {
     WasmGlobal* global = &result.val->globals->back();
 
     EXPECT_EQ(0, global->name_offset);
-    EXPECT_EQ(kMemI32, global->type);
+    EXPECT_EQ(kMachInt32, global->type);
     EXPECT_EQ(0, global->offset);
     EXPECT_EQ(false, global->exported);
   }
@@ -174,12 +181,12 @@ TEST_F(WasmModuleVerifyTest, TwoGlobals) {
     WasmGlobal* g1 = &result.val->globals->at(1);
 
     EXPECT_EQ(0, g0->name_offset);
-    EXPECT_EQ(kMemF32, g0->type);
+    EXPECT_EQ(kMachFloat32, g0->type);
     EXPECT_EQ(0, g0->offset);
     EXPECT_EQ(false, g0->exported);
 
     EXPECT_EQ(0, g1->name_offset);
-    EXPECT_EQ(kMemF64, g1->type);
+    EXPECT_EQ(kMachFloat64, g1->type);
     EXPECT_EQ(0, g1->offset);
     EXPECT_EQ(true, g1->exported);
   }
@@ -195,7 +202,7 @@ TEST_F(WasmModuleVerifyTest, TwoGlobals) {
 TEST_F(WasmModuleVerifyTest, OneSignature) {
   static const byte data[] = {
     kDeclSignatures, 1,
-    0, kAstStmt  // void -> void
+    0, kLocalVoid  // void -> void
   };
   EXPECT_VERIFIES(data);
 }
@@ -204,9 +211,9 @@ TEST_F(WasmModuleVerifyTest, OneSignature) {
 TEST_F(WasmModuleVerifyTest, MultipleSignatures) {
   static const byte data[] = {
     kDeclSignatures, 3,
-    0, kAstStmt,                  // void -> void
-    1, kAstI32, kAstF32,          // f32 -> i32
-    2, kAstI32, kAstF64, kAstF64, // (f64,f64) -> i32
+    0, kLocalVoid,                  // void -> void
+    1, kLocalI32, kLocalF32,          // f32 -> i32
+    2, kLocalI32, kLocalF64, kLocalF64, // (f64,f64) -> i32
   };
 
   ModuleResult result = DecodeModule(data, data + arraysize(data));
@@ -454,7 +461,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
     WasmGlobal* global = &result.val->globals->back();
 
     EXPECT_EQ(0, global->name_offset);
-    EXPECT_EQ(kMemU8, global->type);
+    EXPECT_EQ(kMachUint8, global->type);
     EXPECT_EQ(0, global->offset);
     EXPECT_EQ(false, global->exported);
 
@@ -587,7 +594,7 @@ TEST_F(WasmModuleVerifyTest, MultipleIndirectFunctions) {
       // sig#0 -------------------------------------------------------
       kDeclSignatures, 2,
       0, 0,                          // void -> void
-      0, kAstI32,                    // void -> i32
+      0, kLocalI32,                    // void -> i32
       // func#0 ------------------------------------------------------
       kDeclFunctions, 4,
       FUNCTION(0, 1),
@@ -667,50 +674,50 @@ TEST_F(WasmSignatureDecodeTest, Ok_v_v) {
 
 TEST_F(WasmSignatureDecodeTest, Ok_t_v) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
-    LocalType ret_type = kLocalTypes[i];
-    const byte data[] = {0, static_cast<byte>(ret_type)};
+    LocalTypePair ret_type = kLocalTypes[i];
+    const byte data[] = {0, ret_type.code};
     FunctionSig* sig =
         DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
 
     EXPECT_TRUE(sig != nullptr);
     EXPECT_EQ(0, sig->parameter_count());
     EXPECT_EQ(1, sig->return_count());
-    EXPECT_EQ(ret_type, sig->GetReturn());
+    EXPECT_EQ(ret_type.type, sig->GetReturn());
   }
 }
 
 
 TEST_F(WasmSignatureDecodeTest, Ok_v_t) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
-    LocalType param_type = kLocalTypes[i];
-    const byte data[] = {1, 0, static_cast<byte>(param_type)};
+    LocalTypePair param_type = kLocalTypes[i];
+    const byte data[] = {1, 0, param_type.code};
     FunctionSig* sig =
         DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
 
     EXPECT_TRUE(sig != nullptr);
     EXPECT_EQ(1, sig->parameter_count());
     EXPECT_EQ(0, sig->return_count());
-    EXPECT_EQ(param_type, sig->GetParam(0));
+    EXPECT_EQ(param_type.type, sig->GetParam(0));
   }
 }
 
 
 TEST_F(WasmSignatureDecodeTest, Ok_t_t) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
-    LocalType ret_type = kLocalTypes[i];
+    LocalTypePair ret_type = kLocalTypes[i];
     for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
-      LocalType param_type = kLocalTypes[j];
+      LocalTypePair param_type = kLocalTypes[j];
       const byte data[] = {1,                               // param count
-                           static_cast<byte>(ret_type),     // ret
-                           static_cast<byte>(param_type)};  // param
+                           ret_type.code,     // ret
+                           param_type.code};  // param
       FunctionSig* sig = DecodeWasmSignatureForTesting(
           zone(), data, data + arraysize(data));
 
       EXPECT_TRUE(sig != nullptr);
       EXPECT_EQ(1, sig->parameter_count());
       EXPECT_EQ(1, sig->return_count());
-      EXPECT_EQ(param_type, sig->GetParam(0));
-      EXPECT_EQ(ret_type, sig->GetReturn());
+      EXPECT_EQ(param_type.type, sig->GetParam(0));
+      EXPECT_EQ(ret_type.type, sig->GetReturn());
     }
   }
 }
@@ -718,21 +725,21 @@ TEST_F(WasmSignatureDecodeTest, Ok_t_t) {
 
 TEST_F(WasmSignatureDecodeTest, Ok_i_tt) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
-    LocalType p0_type = kLocalTypes[i];
+    LocalTypePair p0_type = kLocalTypes[i];
     for (size_t j = 0; j < arraysize(kLocalTypes); j++) {
-      LocalType p1_type = kLocalTypes[j];
-      const byte data[] = {2,                             // param count
-                           static_cast<byte>(kAstI32),  // ret
-                           static_cast<byte>(p0_type),    // p0
-                           static_cast<byte>(p1_type)};   // p1
+      LocalTypePair p1_type = kLocalTypes[j];
+      const byte data[] = {2,               // param count
+                           kLocalI32,       // ret
+                           p0_type.code,    // p0
+                           p1_type.code};   // p1
       FunctionSig* sig = DecodeWasmSignatureForTesting(
           zone(), data, data + arraysize(data));
 
       EXPECT_TRUE(sig != nullptr);
       EXPECT_EQ(2, sig->parameter_count());
       EXPECT_EQ(1, sig->return_count());
-      EXPECT_EQ(p0_type, sig->GetParam(0));
-      EXPECT_EQ(p1_type, sig->GetParam(1));
+      EXPECT_EQ(p0_type.type, sig->GetParam(0));
+      EXPECT_EQ(p1_type.type, sig->GetParam(1));
     }
   }
 }
@@ -741,7 +748,7 @@ TEST_F(WasmSignatureDecodeTest, Ok_i_tt) {
 TEST_F(WasmSignatureDecodeTest, Fail_off_end) {
   byte data[256];
   for (int p = 0; p <= 255; p = p + 1 + p * 3) {
-    for (int i = 0; i <= p; i++) data[i] = static_cast<byte>(kAstI32);
+    for (int i = 0; i <= p; i++) data[i] = kLocalI32;
     data[0] = static_cast<byte>(p);
 
     for (int i = 0; i < p + 1; i++) {
@@ -757,7 +764,7 @@ TEST_F(WasmSignatureDecodeTest, Fail_off_end) {
 TEST_F(WasmSignatureDecodeTest, Fail_invalid_type) {
   byte kInvalidType = 76;
   for (int i = 1; i < 3; i++) {
-    byte data[] = {2, kAstI32, kAstI32, kAstI32};
+    byte data[] = {2, kLocalI32, kLocalI32, kLocalI32};
     data[i] = kInvalidType;
     FunctionSig* sig =
         DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
@@ -769,8 +776,8 @@ TEST_F(WasmSignatureDecodeTest, Fail_invalid_type) {
 TEST_F(WasmSignatureDecodeTest, Fail_invalid_param_type) {
   static const int kParamCount = 3;
   for (int i = 0; i < kParamCount; i++) {
-    byte data[] = {kParamCount, kAstI32, kAstI32, kAstI32, kAstI32};
-    data[i + 2] = kAstStmt;
+    byte data[] = {kParamCount, kLocalI32, kLocalI32, kLocalI32, kLocalI32};
+    data[i + 2] = kLocalVoid;
     FunctionSig* sig =
         DecodeWasmSignatureForTesting(zone(), data, data + arraysize(data));
     EXPECT_EQ(nullptr, sig);
@@ -783,7 +790,7 @@ class WasmFunctionVerifyTest : public TestWithZone {};
 
 TEST_F(WasmFunctionVerifyTest, Ok_v_v_empty) {
   byte data[] = {
-      0,       kAstStmt,  // signature
+      0,       kLocalVoid,  // signature
       3,       0,         // local int32 count
       4,       0,         // local int64 count
       5,       0,         // local float32 count

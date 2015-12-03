@@ -67,7 +67,7 @@ struct ModuleEnv;  // forward declaration of decoder interface.
 // Static representation of a wasm global variable.
 struct WasmGlobal {
   uint32_t name_offset;  // offset in the module bytes of the name, if any.
-  MemType type;          // type of the global.
+  MachineType type;      // type of the global.
   uint32_t offset;       // offset from beginning of globals area.
   bool exported;         // true if this global is exported.
 };
@@ -144,7 +144,7 @@ struct ModuleEnv {
   bool IsValidSignature(uint32_t index) {
     return module && index < module->signatures->size();
   }
-  MemType GetGlobalType(uint32_t index) {
+  MachineType GetGlobalType(uint32_t index) {
     DCHECK(IsValidGlobal(index));
     return module->globals->at(index).type;
   }

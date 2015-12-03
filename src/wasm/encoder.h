@@ -27,17 +27,17 @@ class WasmFunctionEncoder : public ZoneObject {
   void Serialize(byte* buffer, byte** header, byte** body) const;
 
  private:
-  WasmFunctionEncoder(Zone* zone, uint8_t return_type, uint8_t exported,
-                      uint8_t external);
+  WasmFunctionEncoder(Zone* zone, LocalType return_type, bool exported,
+                      bool external);
   friend class WasmFunctionBuilder;
   uint16_t signature_index_;
-  ZoneVector<uint8_t> params_;
+  ZoneVector<LocalType> params_;
   uint16_t local_int32_count_;
   uint16_t local_int64_count_;
   uint16_t local_float32_count_;
   uint16_t local_float64_count_;
-  uint8_t exported_;
-  uint8_t external_;
+  bool exported_;
+  bool external_;
   ZoneVector<uint8_t> body_;
 
   bool HasLocals() const {
@@ -48,9 +48,9 @@ class WasmFunctionEncoder : public ZoneObject {
 
 class WasmFunctionBuilder : public ZoneObject {
  public:
-  uint16_t AddParam(uint8_t type);
-  uint16_t AddLocal(uint8_t type);
-  void ReturnType(uint8_t type);
+  uint16_t AddParam(LocalType type);
+  uint16_t AddLocal(LocalType type);
+  void ReturnType(LocalType type);
   void AddBody(const byte* code, uint32_t code_size);
   void AddBody(const byte* code, uint32_t code_size,
                const uint32_t* local_indices, uint32_t indices_size);
@@ -64,14 +64,14 @@ class WasmFunctionBuilder : public ZoneObject {
  private:
   WasmFunctionBuilder(Zone* zone);
   friend class WasmModuleBuilder;
+  LocalType return_type_;
   struct Type;
-  uint8_t return_type_;
   ZoneVector<Type> locals_;
   uint8_t exported_;
   uint8_t external_;
   ZoneVector<uint8_t> body_;
   ZoneVector<uint32_t> local_indices_;
-  uint16_t AddVar(uint8_t type, bool param);
+  uint16_t AddVar(LocalType type, bool param);
   void IndexVars(WasmFunctionEncoder* e, uint16_t* var_index) const;
 };
 
@@ -112,14 +112,14 @@ class WasmModuleWriter : public ZoneObject {
   ZoneVector<WasmDataSegmentEncoder*> data_segments_;
   ZoneVector<FunctionSig*> signatures_;
   ZoneVector<uint16_t> indirect_functions_;
-  ZoneVector<std::pair<uint8_t, uint8_t>> globals_;
+  ZoneVector<std::pair<MachineType, bool>> globals_;
 };
 
 class WasmModuleBuilder : public ZoneObject {
  public:
   WasmModuleBuilder(Zone* zone);
   uint16_t AddFunction();
-  uint32_t AddGlobal(uint8_t type, uint8_t exported);
+  uint32_t AddGlobal(MachineType type, bool exported);
   WasmFunctionBuilder* FunctionAt(size_t index);
   void AddDataSegment(WasmDataSegmentEncoder* data);
   uint16_t AddSignature(FunctionSig* sig);
@@ -137,7 +137,7 @@ class WasmModuleBuilder : public ZoneObject {
   ZoneVector<WasmFunctionBuilder*> functions_;
   ZoneVector<WasmDataSegmentEncoder*> data_segments_;
   ZoneVector<uint16_t> indirect_functions_;
-  ZoneVector<std::pair<uint8_t, uint8_t>> globals_;
+  ZoneVector<std::pair<MachineType, bool>> globals_;
   SignatureMap signature_map_;
 };
 

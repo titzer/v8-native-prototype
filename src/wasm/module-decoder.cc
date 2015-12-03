@@ -138,7 +138,7 @@ class ModuleDecoder : public Decoder {
             if (failed()) break;
             TRACE("DecodeGlobal[%d] module+%d\n", i,
                   static_cast<int>(pc_ - start_));
-            module->globals->push_back({0, kMemI32, 0, false});
+            module->globals->push_back({0, kMachInt32, 0, false});
             WasmGlobal* global = &module->globals->back();
             DecodeGlobalInModule(global);
           }
@@ -400,14 +400,18 @@ class ModuleDecoder : public Decoder {
   // Reads a single 8-bit integer, interpreting it as a local type.
   LocalType local_type() {
     byte val = u8("local type");
-    LocalType t = static_cast<LocalType>(val);
+    LocalTypeCode t = static_cast<LocalTypeCode>(val);
     switch (t) {
-      case kAstStmt:
-      case kAstI32:
-      case kAstI64:
-      case kAstF32:
-      case kAstF64:
-        return t;
+      case kLocalVoid:
+        return kAstStmt;
+      case kLocalI32:
+        return kAstI32;
+      case kLocalI64:
+        return kAstI64;
+      case kLocalF32:
+        return kAstF32;
+      case kLocalF64:
+        return kAstF64;
       default:
         error(pc_ - 1, "invalid local type");
         return kAstStmt;
@@ -415,24 +419,33 @@ class ModuleDecoder : public Decoder {
   }
 
   // Reads a single 8-bit integer, interpreting it as a memory type.
-  MemType mem_type() {
+  MachineType mem_type() {
     byte val = u8("memory type");
-    MemType t = static_cast<MemType>(val);
+    MemTypeCode t = static_cast<MemTypeCode>(val);
     switch (t) {
       case kMemI8:
+        return kMachInt8;
       case kMemU8:
+        return kMachUint8;
       case kMemI16:
+        return kMachInt16;
       case kMemU16:
+        return kMachUint16;
       case kMemI32:
+        return kMachInt32;
       case kMemU32:
+        return kMachUint32;
       case kMemI64:
+        return kMachInt64;
       case kMemU64:
+        return kMachUint64;
       case kMemF32:
+        return kMachFloat32;
       case kMemF64:
-        return t;
+        return kMachFloat64;
       default:
         error(pc_ - 1, "invalid memory type");
-        return kMemI32;
+        return kMachNone;
     }
   }
 

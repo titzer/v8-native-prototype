@@ -91,9 +91,10 @@ class TFBuilder {
   TFNode* MemSize(uint32_t offset);
   TFNode* LoadGlobal(uint32_t index);
   TFNode* StoreGlobal(uint32_t index, TFNode* val);
-  TFNode* LoadMem(LocalType type, MemType memtype, TFNode* index,
+  TFNode* LoadMem(LocalType type, MachineType memtype, TFNode* index,
                   uint32_t offset);
-  TFNode* StoreMem(MemType type, TFNode* index, uint32_t offset, TFNode* val);
+  TFNode* StoreMem(MachineType type, TFNode* index, uint32_t offset,
+                   TFNode* val);
 
   static void PrintDebugName(TFNode* node);
 
@@ -127,7 +128,7 @@ class TFBuilder {
   // Internal helper methods.
   TFNode* String(const char* string);
   TFNode* MemBuffer(uint32_t offset);
-  void BoundsCheckMem(MemType memtype, TFNode* index, uint32_t offset);
+  void BoundsCheckMem(MachineType memtype, TFNode* index, uint32_t offset);
 
   TFNode* BuildWasmCall(FunctionSig* sig, TFNode** args);
   TFNode* BuildF32CopySign(TFNode* left, TFNode* right);

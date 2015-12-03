@@ -383,34 +383,34 @@ class AsmWasmBuilderImpl : public AstVisitor {
     Expression* obj = expr->obj();
     DCHECK(obj->bounds().lower == obj->bounds().upper);
     TypeImpl<ZoneTypeConfig>* type = obj->bounds().lower;
-    MemType mtype;
+    MachineType mtype;
     int size;
     if (type->Is(cache_.kUint8Array)) {
-      mtype = kMemU8;
+      mtype = kMachUint8;
       size = 1;
     } else if (type->Is(cache_.kInt8Array)) {
-      mtype = kMemI8;
+      mtype = kMachInt8;
       size = 1;
     } else if (type->Is(cache_.kUint16Array)) {
-      mtype = kMemU16;
+      mtype = kMachUint16;
       size = 2;
     } else if (type->Is(cache_.kInt16Array)) {
-      mtype = kMemI16;
+      mtype = kMachInt16;
       size = 2;
     } else if (type->Is(cache_.kUint32Array)) {
-      mtype = kMemU32;
+      mtype = kMachUint32;
       size = 4;
     } else if (type->Is(cache_.kInt32Array)) {
-      mtype = kMemI32;
+      mtype = kMachInt32;
       size = 4;
     } else if (type->Is(cache_.kUint32Array)) {
-      mtype = kMemU32;
+      mtype = kMachUint32;
       size = 4;
     } else if (type->Is(cache_.kFloat32Array)) {
-      mtype = kMemF32;
+      mtype = kMachFloat32;
       size = 4;
     } else if (type->Is(cache_.kFloat64Array)) {
-      mtype = kMemF64;
+      mtype = kMachFloat64;
       size = 8;
     } else {
       UNREACHABLE();
@@ -418,7 +418,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     current_function_builder_->AppendCode(
         WasmOpcodes::LoadStoreOpcodeOf(mtype, is_set_op_), false);
     is_set_op_ = false;
-    current_function_builder_->AppendCode(WasmOpcodes::LoadStoreAccessOf(mtype),
+    current_function_builder_->AppendCode(WasmOpcodes::LoadStoreAccessOf(false),
                                           false);
     Literal* value = expr->key()->AsLiteral();
     if (value) {
