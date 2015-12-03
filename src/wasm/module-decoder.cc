@@ -117,11 +117,18 @@ class ModuleDecoder : public Decoder {
             module->functions->push_back(
                 {nullptr, 0, 0, 0, 0, 0, 0, false, false});
             WasmFunction* function = &module->functions->back();
-            DecodeFunctionInModule(module, function, verify_functions);
-
-            if (ok() && verify_functions) {
-              if (!function->external)
+            DecodeFunctionInModule(module, function, false);
+          }
+          if (ok() && verify_functions) {
+            for (uint32_t i = 0; i < functions_count; i++) {
+              if (failed())
+                break;
+              WasmFunction* function = &module->functions->at(i);
+              if (!function->external) {
                 VerifyFunctionBody(i, &menv, function);
+                if (result_.failed())
+                  error(result_.error_pc, result_.error_msg.get());
+              }
             }
           }
           break;
