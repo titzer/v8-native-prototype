@@ -432,11 +432,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
     BinaryOperation* binop = expr->key()->AsBinaryOperation();
     if (binop) {
       DCHECK(Token::SAR == binop->op());
-      Literal* shift = binop->right()->AsLiteral();
-      DCHECK(shift->raw_value()->IsNumber());
-      DCHECK(kAstI32 == TypeOf(shift));
-      int val = static_cast<int>(shift->raw_value()->AsNumber());
-      DCHECK(size == 1 << val);
+      DCHECK(binop->right()->AsLiteral()->raw_value()->IsNumber());
+      DCHECK(kAstI32 == TypeOf(binop->right()->AsLiteral()));
+      DCHECK(size == 1 << static_cast<int>(
+          binop->right()->AsLiteral()->raw_value()->AsNumber()
+      ));
       // Mask bottom bits to match asm.js behavior.
       current_function_builder_->AppendCode(kExprI32And, false);
       byte code[] = {WASM_I8(~(size - 1))};
