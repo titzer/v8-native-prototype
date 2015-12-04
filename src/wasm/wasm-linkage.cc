@@ -262,7 +262,7 @@ CallDescriptor* ModuleEnv::GetWasmCallDescriptor(Zone* zone,
       compiler::Operator::kNoProperties,  // properties
       kCalleeSaveRegisters,               // callee-saved registers
       kCalleeSaveFPRegisters,             // callee-saved fp regs
-      CallDescriptor::kNoFlags,           // flags
+      CallDescriptor::kUseNativeStack,    // flags
       "c-call");
 }
 }
