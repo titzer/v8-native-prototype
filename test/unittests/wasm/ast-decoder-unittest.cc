@@ -587,6 +587,25 @@ TEST_F(WasmDecoderTest, IfElseSet) {
 }
 
 
+TEST_F(WasmDecoderTest, IfElseUnreachable) {
+  static const byte code[] = {kExprIfElse, kExprI8Const, 0, kExprUnreachable,
+                              kExprGetLocal, 0};
+
+  for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
+    LocalType types[] = {kAstI32, kLocalTypes[i]};
+    FunctionEnv env;
+    FunctionSig sig(1, 1, types);
+    init_env(&env, &sig);
+
+    if (kLocalTypes[i] == kAstI32) {
+      EXPECT_VERIFIES(&env, code);
+    } else {
+      EXPECT_FAILURE(&env, code);
+    }
+  }
+}
+
+
 TEST_F(WasmDecoderTest, Loop0) {
   static const byte code[] = {kExprLoop, 0};
   EXPECT_VERIFIES(&env_v_v, code);

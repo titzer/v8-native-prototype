@@ -434,9 +434,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
       DCHECK(Token::SAR == binop->op());
       DCHECK(binop->right()->AsLiteral()->raw_value()->IsNumber());
       DCHECK(kAstI32 == TypeOf(binop->right()->AsLiteral()));
-      DCHECK(size == 1 << static_cast<int>(
-          binop->right()->AsLiteral()->raw_value()->AsNumber()
-      ));
+      DCHECK(size ==
+             1 << static_cast<int>(
+                 binop->right()->AsLiteral()->raw_value()->AsNumber()));
       // Mask bottom bits to match asm.js behavior.
       current_function_builder_->AppendCode(kExprI32And, false);
       byte code[] = {WASM_I8(~(size - 1))};

@@ -1231,6 +1231,16 @@ TEST(Run_Wasm_IfElse_P) {
 }
 
 
+TEST(Run_Wasm_IfElse_Unreachable1) {
+  WasmRunner<int32_t> r;
+  // if (0) unreachable; else return 22;
+  BUILD(r, WASM_IF_ELSE(WASM_ZERO,        // --
+                        WASM_UNREACHABLE, // --
+                        WASM_I8(27)));    // --
+  CHECK_EQ(27, r.Call());
+}
+
+
 TEST(Run_Wasm_Return12) {
   WasmRunner<int32_t> r;
 

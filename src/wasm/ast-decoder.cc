@@ -78,8 +78,8 @@ struct Block {
 
 // An entry in the stack of ifs during decoding.
 struct IfEnv {
-  SsaEnv* true_env;
   SsaEnv* false_env;
+  SsaEnv* merge_env;
   SsaEnv** case_envs;
 };
 
@@ -226,7 +226,7 @@ class LR_WasmDecoder : public Decoder {
     ssa_env->control = start;
     ssa_env->effect = start;
     builder_.set_module(function_env_->module);
-    SetEnv(ssa_env);
+    SetEnv("initial", ssa_env);
   }
 
   void Leaf(LocalType type, TFNode* node = nullptr) {
@@ -327,11 +327,11 @@ class LR_WasmDecoder : public Decoder {
           if (length < 1) {
             Leaf(kAstStmt);
           } else {
-            Shift(kAstStmt, length);
+            Shift(kAstEnd, length);
             // The break environment is the outer environment.
             SsaEnv* break_env = ssa_env_;
             PushBlock(break_env);
-            SetEnv(Steal(break_env));
+            SetEnv("block:start", Steal(break_env));
           }
           len = 2;
           break;
@@ -341,16 +341,17 @@ class LR_WasmDecoder : public Decoder {
           if (length < 1) {
             Leaf(kAstStmt);
           } else {
-            Shift(kAstStmt, length);
+            Shift(kAstEnd, length);
             // The break environment is the outer environment.
             SsaEnv* break_env = ssa_env_;
             PushBlock(break_env);
             SsaEnv* cont_env = Steal(break_env);
             // The continue environment is the inner environment.
             PrepareForLoop(cont_env);
-            SetEnv(Split(cont_env));
+            SetEnv("loop:start", Split(cont_env));
             if (ssa_env_->go()) ssa_env_->state = SsaEnv::kReached;
             PushBlock(cont_env);
+            blocks_.back().stack_depth = -1;  // no production for inner block.
           }
           len = 2;
           break;
@@ -359,7 +360,7 @@ class LR_WasmDecoder : public Decoder {
           Shift(kAstStmt, 2);
           break;
         case kExprIfElse:
-          Shift(kAstStmt, 3);  // Result type is typeof(x) in {c ? x : y}.
+          Shift(kAstEnd, 3);  // Result type is typeof(x) in {c ? x : y}.
           break;
         case kExprSelect:
           Shift(kAstStmt, 3);  // Result type is typeof(x) in {c ? x : y}.
@@ -401,7 +402,7 @@ class LR_WasmDecoder : public Decoder {
             break;
           }
 
-          Shift(kAstStmt, 1 + case_count);
+          Shift(kAstEnd, 1 + case_count);
 
           // Verify table.
           for (int i = 0; i < table_count; i++) {
@@ -664,11 +665,9 @@ class LR_WasmDecoder : public Decoder {
         if (p->done()) {
           Block* last = &blocks_.back();
           DCHECK_EQ(stack_.size() - 1, last->stack_depth);
-          if (ssa_env_->go()) {
-            // fallthrough with the last expression.
-            ReduceBreakToExprBlock(p, last);
-          }
-          SetEnv(last->ssa_env);
+          // fallthrough with the last expression.
+          ReduceBreakToExprBlock(p, last);
+          SetEnv("block:end", last->ssa_env);
           blocks_.pop_back();
         }
         break;
@@ -680,11 +679,9 @@ class LR_WasmDecoder : public Decoder {
           // Get the break environment.
           Block* last = &blocks_.back();
           DCHECK_EQ(stack_.size() - 1, last->stack_depth);
-          if (ssa_env_->go()) {
-            // fallthrough with the last expression.
-            ReduceBreakToExprBlock(p, last);
-          }
-          SetEnv(last->ssa_env);
+          // fallthrough with the last expression.
+          ReduceBreakToExprBlock(p, last);
+          SetEnv("loop:end", last->ssa_env);
           blocks_.pop_back();
         }
         break;
@@ -693,72 +690,51 @@ class LR_WasmDecoder : public Decoder {
         if (p->index == 1) {
           // Condition done. Split environment for true branch.
           TypeCheckLast(p, kAstI32);
-          ifs_.push_back({Split(ssa_env_), ssa_env_, nullptr});
-          IfEnv* env = &ifs_.back();
-          BUILD(Branch, p->last()->node, &env->true_env->control,
-                &env->false_env->control);
-          SetEnv(env->true_env);
+          SsaEnv* false_env = ssa_env_;
+          SsaEnv* true_env = Split(ssa_env_);
+          ifs_.push_back({nullptr, false_env, nullptr});
+          BUILD(Branch, p->last()->node, &true_env->control,
+                &false_env->control);
+          SetEnv("if:true", true_env);
         } else if (p->index == 2) {
           // True block done. Merge true and false environments.
           IfEnv* env = &ifs_.back();
-          SsaEnv* merge = env->false_env;
-          if (ssa_env_->go() && merge->go()) {
+          SsaEnv* merge = env->merge_env;
+          if (merge->go()) {
             merge->state = SsaEnv::kReached;
             Goto(ssa_env_, merge);
           }
-          SetEnv(merge);
+          SetEnv("if:merge", merge);
           ifs_.pop_back();
         }
         break;
       }
       case kExprIfElse: {
-        Tree* left = p->tree->children[1];
-        Tree* right = p->tree->children[2];
         if (p->index == 1) {
+          // Condition done. Split environment for true and false branches.
           TypeCheckLast(p, kAstI32);
-          ifs_.push_back({Split(ssa_env_), ssa_env_, nullptr});
-          IfEnv* env = &ifs_.back();
-          BUILD(Branch, p->last()->node, &env->true_env->control,
-                &env->false_env->control);
-          SetEnv(env->true_env);
+          SsaEnv* merge_env = ssa_env_;
+          TFNode* if_true = nullptr;
+          TFNode* if_false = nullptr;
+          BUILD(Branch, p->last()->node, &if_true, &if_false);
+          SsaEnv* false_env = Split(ssa_env_);
+          SsaEnv* true_env = Steal(ssa_env_);
+          false_env->control = if_false;
+          true_env->control = if_true;
+          ifs_.push_back({false_env, merge_env, nullptr});
+          SetEnv("if_else:true", true_env);
         } else if (p->index == 2) {
           // True expr done.
+          IfEnv* env = &ifs_.back();
+          MergeIntoProduction(p, env->merge_env, p->last());
           // Switch to environment for false branch.
           SsaEnv* false_env = ifs_.back().false_env;
-          if (false_env->go()) false_env->state = SsaEnv::kReached;
-          SetEnv(false_env);
+          SetEnv("if_else:false", false_env);
         } else if (p->index == 3) {
           // False expr done.
           IfEnv* env = &ifs_.back();
-          if (ssa_env_->go()) {
-            ssa_env_->state = SsaEnv::kReached;
-            if (env->true_env->go()) {
-              // Merge true env into (end of) false env.
-              Goto(env->true_env, ssa_env_);
-              if (right->type == left->type && left->type != kAstStmt) {
-                // Create a phi for the value output.
-                TFNode* a = left->node;
-                TFNode* b = right->node;
-                TFNode* result = a;
-                if (a != b) {
-                  TFNode* vals[] = {b,
-                                    a};  // false predecessor first, then true.
-                  result = BUILD(Phi, left->type, 2, vals, builder_.Control());
-                }
-                p->tree->type = left->type;
-                p->tree->node = result;
-              }
-            } else {
-              // Only false environment fell through.
-            }
-          } else if (env->true_env->go()) {
-            // Only true environment fell through.
-            ssa_env_->Kill(SsaEnv::kUnreachable);
-            Goto(env->true_env, ssa_env_);
-          } else {
-            // Neither environment fell through.
-            ssa_env_->Kill(SsaEnv::kUnreachable);
-          }
+          MergeIntoProduction(p, env->merge_env, p->last());
+          SetEnv("if_else:merge", env->merge_env);
           ifs_.pop_back();
         }
         break;
@@ -829,13 +805,13 @@ class LR_WasmDecoder : public Decoder {
           if (p->index == 1) {
             SsaEnv* break_env = ssa_env_;
             PushBlock(break_env);
-            SetEnv(Steal(break_env));
+            SetEnv("switch:default", Steal(break_env));
           }
           if (p->done()) {
             Block* block = &blocks_.back();
             // fall through to the end.
-            if (ssa_env_->go()) ReduceBreakToExprBlock(p, block);
-            SetEnv(block->ssa_env);
+            ReduceBreakToExprBlock(p, block);
+            SetEnv("switch:end", block->ssa_env);
             blocks_.pop_back();
           }
           break;
@@ -880,29 +856,23 @@ class LR_WasmDecoder : public Decoder {
           }
 
           // Switch to the environment for the first case.
-          SetEnv(case_envs[0]);
+          SetEnv("switch:case", case_envs[0]);
         } else {
           // Switch case finished.
-          SsaEnv* next;
           if (p->done()) {
-            // Last case.
-            if (ssa_env_->go()) {
-              // fall through to the end.
-              Block* block = &blocks_.back();
-              ReduceBreakToExprBlock(p, block);
-            }
-            next = blocks_.back().ssa_env;
+            // Last case. Fall through to the end.
+            Block* block = &blocks_.back();
+            ReduceBreakToExprBlock(p, block);
+            SsaEnv* next = block->ssa_env;
             blocks_.pop_back();
             ifs_.pop_back();
+            SetEnv("switch:end", next);
           } else {
-            // Interior case.
-            next = ifs_.back().case_envs[p->index - 1];
-            if (ssa_env_->go()) {
-              // fall through to the next case.
-              Goto(ssa_env_, next);
-            }
+            // Interior case. Maybe fall through to the next case.
+            SsaEnv* next = ifs_.back().case_envs[p->index - 1];
+            if (ssa_env_->go()) Goto(ssa_env_, next);
+            SetEnv("switch:case", next);
           }
-          SetEnv(next);
         }
         break;
       }
@@ -1052,24 +1022,37 @@ class LR_WasmDecoder : public Decoder {
   }
 
   void ReduceBreakToExprBlock(Production* p, Block* block) {
-    Production* bp = &stack_[block->stack_depth];
-    Tree* expr = p->last();
-    if (block->ssa_env->state == SsaEnv::kUnreachable) {
-      // first break out of this block; set the type and the node.
+    if (block->stack_depth < 0) {
+      // This is the inner loop block, which does not have a value.
       Goto(ssa_env_, block->ssa_env);
-      bp->tree->type = expr->type;
-      bp->tree->node = expr->node;
+    } else {
+      // Merge the value into the production for the block.
+      Production* bp = &stack_[block->stack_depth];
+      MergeIntoProduction(bp, block->ssa_env, p->last());
+    }
+  }
+
+  void MergeIntoProduction(Production* p, SsaEnv* target, Tree* expr) {
+    if (!ssa_env_->go()) return;
+
+    bool first = target->state == SsaEnv::kUnreachable;
+    Goto(ssa_env_, target);
+    if (expr->type == kAstEnd) return;
+
+    if (first) {
+      // first merge to this environment; set the type and the node.
+      p->tree->type = expr->type;
+      p->tree->node = expr->node;
     } else {
       // merge with the existing value for this block.
-      Goto(ssa_env_, block->ssa_env);
-      LocalType type = bp->tree->type;
+      LocalType type = p->tree->type;
       if (expr->type != type) {
         type = kAstStmt;
         p->tree->type = kAstStmt;
         p->tree->node = nullptr;
       } else if (type != kAstStmt) {
-        bp->tree->node = CreateOrMergeIntoPhi(type, block->ssa_env->control,
-                                              bp->tree->node, expr->node);
+        p->tree->node = CreateOrMergeIntoPhi(type, target->control,
+                                             p->tree->node, expr->node);
       }
     }
   }
@@ -1116,10 +1099,14 @@ class LR_WasmDecoder : public Decoder {
     }
   }
 
-  void SetEnv(SsaEnv* env) {
-    TRACE("  env = %p (block depth = %d, state = %d)\n",
-          static_cast<void*>(env), static_cast<int>(blocks_.size()),
-          env->state);
+  void SetEnv(const char* reason, SsaEnv* env) {
+    TRACE("  env = %p, block depth = %d, reason = %s", static_cast<void*>(env),
+          static_cast<int>(blocks_.size()), reason);
+    if (env->control != nullptr && FLAG_trace_wasm_decoder) {
+      TRACE(", control = ");
+      TFBuilder::PrintDebugName(env->control);
+    }
+    TRACE("\n");
     ssa_env_ = env;
     builder_.set_control_ptr(&env->control);
     builder_.set_effect_ptr(&env->effect);
