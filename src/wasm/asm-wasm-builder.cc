@@ -804,6 +804,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitDoExpression(DoExpression* expr) {}
 
+  void VisitRewritableAssignmentExpression(
+      RewritableAssignmentExpression* expr) {}
+
   struct IndexContainer : public ZoneObject {
     uint16_t index;
   };
