@@ -1463,7 +1463,7 @@ void TFBuilder::BoundsCheckMem(MachineType memtype, TFNode* index,
   ptrdiff_t size = module->mem_end - module->mem_start;
   byte memsize = WasmOpcodes::MemSize(memtype);
   TFNode* cond;
-  if (offset >= size || (offset + memsize) >= size) {
+  if (offset >= size || (offset + memsize) > size) {
     // The access will always throw.
     cond = graph->Int32Constant(0);
   } else {

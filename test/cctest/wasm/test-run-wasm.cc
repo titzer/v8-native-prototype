@@ -129,6 +129,13 @@ class TestingModule : public ModuleEnv {
     return reinterpret_cast<T*>(mem_start)[i];
   }
 
+  template <typename T>
+  T raw_val_at(int i) {
+    T val;
+    memcpy(&val, reinterpret_cast<void*>(mem_start + i), sizeof(T));
+    return val;
+  }
+
   // Zero-initialize the memory.
   void ZeroMemory() { memset(raw_mem_start<byte>(), 0, mem_size); }
 
@@ -1915,6 +1922,29 @@ TEST(Run_Wasm_LoadMemI32_offset) {
   CHECK_EQ(33333333, r.Call(4));
   CHECK_EQ(44444444, r.Call(8));
 
+}
+
+
+TEST(Run_Wasm_LoadMemI32_const_oob) {
+  TestingModule module;
+  const int kMemSize = 12;
+  module.AddMemoryElems<byte>(kMemSize);
+
+  for (int offset = 0; offset < kMemSize + 5; offset++) {
+    for (int index = 0; index < kMemSize + 5; index++) {
+      WasmRunner<int32_t> r;
+      r.env()->module = &module;
+      module.RandomizeMemory();
+      
+      BUILD(r, WASM_LOAD_MEM_OFFSET(kMachInt32, offset, WASM_I8(index)));
+
+      if ((offset + index) <= (kMemSize - sizeof(int32_t))) {
+        CHECK_EQ(module.raw_val_at<int32_t>(offset + index), r.Call());
+      } else {
+        CHECK_TRAP(r.Call());
+      }
+    }
+  }
 }
 
 
