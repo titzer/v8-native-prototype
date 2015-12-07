@@ -2,12 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "src/wasm/ast-decoder.h"
 #include "src/wasm/wasm-wrapper.h"
 #include "src/wasm/wasm-graph-builder.h"
+#include "src/wasm/wasm-module.h"
 
 #include "src/compiler/pipeline.h"
 #include "src/compiler/machine-operator.h"
 #include "src/compiler/change-lowering.h"
+#include "src/compiler/instruction-selector.h"
 #include "src/compiler/js-generic-lowering.h"
 #include "src/compiler/js-operator.h"
 #include "src/compiler/js-graph.h"
@@ -191,6 +194,85 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
   }
   return code;
 }
+
+
+// Helper function to compile a single function.
+Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
+                             ModuleEnv* module_env,
+                             const WasmFunction& function, int index) {
+  if (FLAG_trace_wasm_compiler || FLAG_trace_wasm_decode_time) {
+    // TODO(titzer): clean me up a bit.
+    OFStream os(stdout);
+    os << "Compiling WASM function #" << index << ":";
+    if (function.name_offset > 0) {
+      os << module_env->module->GetName(function.name_offset);
+    }
+    os << std::endl;
+  }
+  // Initialize the function environment for decoding.
+  FunctionEnv env;
+  env.module = module_env;
+  env.sig = function.sig;
+  env.local_int32_count = function.local_int32_count;
+  env.local_int64_count = function.local_int64_count;
+  env.local_float32_count = function.local_float32_count;
+  env.local_float64_count = function.local_float64_count;
+  env.SumLocals();
+
+  // Create a TF graph during decoding.
+  Zone zone;
+  compiler::Graph graph(&zone);
+  compiler::CommonOperatorBuilder common(&zone);
+  compiler::MachineOperatorBuilder machine(
+      &zone, kMachPtr,
+      compiler::InstructionSelector::SupportedMachineOperatorFlags());
+  compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr,
+                            &machine);
+  TreeResult result = BuildTFGraph(
+      &jsgraph, &env,                                                 // --
+      module_env->module->module_start,                               // --
+      module_env->module->module_start + function.code_start_offset,  // --
+      module_env->module->module_start + function.code_end_offset);   // --
+
+  if (result.failed()) {
+    if (FLAG_trace_wasm_compiler) {
+      OFStream os(stdout);
+      os << "Compilation failed: " << result << std::endl;
+    }
+    // Add the function as another context for the exception
+    char buffer[256];
+    snprintf(buffer, 256, "Compiling WASM function #%d:%s failed:", index,
+             module_env->module->GetName(function.name_offset));
+    thrower.Failed(buffer, result);
+    return Handle<Code>::null();
+  }
+
+  // Run the compiler pipeline to generate machine code.
+  compiler::CallDescriptor* descriptor = const_cast<compiler::CallDescriptor*>(
+      module_env->GetWasmCallDescriptor(&zone, function.sig));
+  CompilationInfo info("wasm", isolate, &zone);
+  info.set_output_code_kind(Code::WASM_FUNCTION);
+  Handle<Code> code =
+      compiler::Pipeline::GenerateCodeForTesting(&info, descriptor, &graph);
+
+#ifdef ENABLE_DISASSEMBLER
+  // Disassemble the code for debugging.
+  if (!code.is_null() && FLAG_print_opt_code) {
+    static const int kBufferSize = 128;
+    char buffer[kBufferSize];
+    const char* name = "";
+    if (function.name_offset > 0) {
+      const byte* ptr = module_env->module->module_start + function.name_offset;
+      name = reinterpret_cast<const char*>(ptr);
+    }
+    snprintf(buffer, kBufferSize, "WASM function #%d:%s", index, name);
+    OFStream os(stdout);
+    code->Disassemble(buffer, os);
+  }
+#endif
+  return code;
+}
+
 }
 }
 }

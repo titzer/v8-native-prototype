@@ -12,6 +12,11 @@ namespace v8 {
 namespace internal {
 namespace wasm {
 
+// Compiles a single function, producing a code object.
+Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
+                             ModuleEnv* module_env,
+                             const WasmFunction& function, int index);
+
 // Wraps a JS function, producing a code object that can be called from WASM.
 Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
                                     Handle<JSFunction> function,
