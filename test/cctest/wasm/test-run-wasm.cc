@@ -7,6 +7,7 @@
 
 #include "src/compiler/graph-visualizer.h"
 #include "src/compiler/js-graph.h"
+#include "src/wasm/wasm-compiler.h"
 
 #include "src/wasm/ast-decoder.h"
 #include "src/wasm/wasm-macro-gen.h"
@@ -217,7 +218,8 @@ class WasmFunctionCompiler : public HandleAndZoneScope,
   CallDescriptor* descriptor() { return descriptor_; }
 
   void Build(const byte* start, const byte* end) {
-    TreeResult result = BuildTFGraph(&jsgraph, &env, start, end);
+    compiler::WasmGraphBuilder builder(main_zone(), &jsgraph);
+    TreeResult result = BuildTFGraph(&builder, &env, start, end);
     if (result.failed()) {
       ptrdiff_t pc = result.error_pc - result.start;
       ptrdiff_t pt = result.error_pt - result.start;

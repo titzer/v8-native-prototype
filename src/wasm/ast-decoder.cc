@@ -86,18 +86,17 @@ struct IfEnv {
 // Macros that build nodes only if there is a graph and the current SSA
 // environment is reachable from start. This avoids problems with malformed
 // TF graphs when decoding inputs that have unreachable code.
-#define BUILD(func, ...) (build() ? builder_.func(__VA_ARGS__) : nullptr)
-#define BUILD0(func) (build() ? builder_.func() : nullptr)
+#define BUILD(func, ...) (build() ? builder_->func(__VA_ARGS__) : nullptr)
+#define BUILD0(func) (build() ? builder_->func() : nullptr)
 
 // A shift-reduce-parser strategy for decoding Wasm code that uses an explicit
 // shift-reduce strategy with multiple internal stacks.
 class LR_WasmDecoder : public Decoder {
  public:
-  LR_WasmDecoder(Zone* zone, TFGraph* g)
+  LR_WasmDecoder(Zone* zone, TFBuilder* builder)
       : Decoder(nullptr, nullptr),
         zone_(zone),
-        graph_(g),
-        builder_(zone, g),
+        builder_(builder),
         trees_(zone),
         stack_(zone),
         blocks_(zone),
@@ -160,8 +159,7 @@ class LR_WasmDecoder : public Decoder {
   static const size_t kErrorMsgSize = 128;
 
   Zone* zone_;
-  TFGraph* graph_;
-  compiler::WasmGraphBuilder builder_;
+  TFBuilder* builder_;
   const byte* base_;
   TreeResult result_;
 
@@ -173,7 +171,7 @@ class LR_WasmDecoder : public Decoder {
   ZoneVector<Block> blocks_;
   ZoneVector<IfEnv> ifs_;
 
-  inline bool build() { return graph_ && ssa_env_->go(); }
+  inline bool build() { return builder_ && ssa_env_->go(); }
 
   void InitSsaEnv() {
     FunctionSig* sig = function_env_->sig;
@@ -186,46 +184,46 @@ class LR_WasmDecoder : public Decoder {
         size > 0 ? reinterpret_cast<TFNode**>(zone_->New(size)) : nullptr;
 
     int pos = 0;
-    if (graph_) {
-      start = builder_.Start(param_count + 1);
+    if (builder_) {
+      start = builder_->Start(param_count + 1);
       // Initialize parameters.
       for (int i = 0; i < param_count; i++) {
-        ssa_env->locals[pos++] = builder_.Param(i, sig->GetParam(i));
+        ssa_env->locals[pos++] = builder_->Param(i, sig->GetParam(i));
       }
       // Initialize int32 locals.
       if (function_env_->local_int32_count > 0) {
-        TFNode* zero = builder_.Int32Constant(0);
+        TFNode* zero = builder_->Int32Constant(0);
         for (uint32_t i = 0; i < function_env_->local_int32_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
       // Initialize int64 locals.
       if (function_env_->local_int64_count > 0) {
-        TFNode* zero = builder_.Int64Constant(0);
+        TFNode* zero = builder_->Int64Constant(0);
         for (uint32_t i = 0; i < function_env_->local_int64_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
       // Initialize float32 locals.
       if (function_env_->local_float32_count > 0) {
-        TFNode* zero = builder_.Float32Constant(0);
+        TFNode* zero = builder_->Float32Constant(0);
         for (uint32_t i = 0; i < function_env_->local_float32_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
       // Initialize float64 locals.
       if (function_env_->local_float64_count > 0) {
-        TFNode* zero = builder_.Float64Constant(0);
+        TFNode* zero = builder_->Float64Constant(0);
         for (uint32_t i = 0; i < function_env_->local_float64_count; i++) {
           ssa_env->locals[pos++] = zero;
         }
       }
       DCHECK_EQ(function_env_->total_locals, pos);
       DCHECK_EQ(EnvironmentCount(), pos);
+      builder_->set_module(function_env_->module);
     }
     ssa_env->control = start;
     ssa_env->effect = start;
-    builder_.set_module(function_env_->module);
     SetEnv("initial", ssa_env);
   }
 
@@ -292,7 +290,7 @@ class LR_WasmDecoder : public Decoder {
     TRACE("wasm-decode %p...%p (%d bytes) %s\n",
           reinterpret_cast<const void*>(start_),
           reinterpret_cast<const void*>(limit_),
-          static_cast<int>(limit_ - start_), graph_ ? "graph building" : "");
+          static_cast<int>(limit_ - start_), builder_ ? "graph building" : "");
 
     if (pc_ >= limit_) return;  // Nothing to do.
 
@@ -424,7 +422,7 @@ class LR_WasmDecoder : public Decoder {
         case kExprReturn: {
           int count = static_cast<int>(function_env_->sig->return_count());
           if (count == 0) {
-            BUILD(Return, 0, builder_.Buffer(0));
+            BUILD(Return, 0, builder_->Buffer(0));
             ssa_env_->Kill();
             Leaf(kAstEnd);
           } else {
@@ -534,7 +532,7 @@ class LR_WasmDecoder : public Decoder {
           len = DecodeStoreMem(pc_, kAstF64);
           break;
         case kExprMemorySize:
-          Leaf(kAstI32, builder_.MemSize(0));
+          Leaf(kAstI32, BUILD(MemSize, 0));
           break;
         case kExprGrowMemory:
           Shift(kAstI32, 1);
@@ -614,10 +612,10 @@ class LR_WasmDecoder : public Decoder {
 
     TRACE("wasm-decode implicit return of %d args\n", retcount);
 
-    TFNode** buffer = builder_.Buffer(retcount);
+    TFNode** buffer = BUILD(Buffer, retcount);
     for (int index = 0; index < retcount; index++) {
       Tree* tree = trees_[trees_.size() - 1 - index];
-      buffer[index] = tree->node;
+      if (buffer) buffer[index] = tree->node;
       LocalType expected = function_env_->sig->GetReturn(index);
       if (tree->type != expected) {
         error(limit_, tree->pc,
@@ -649,10 +647,10 @@ class LR_WasmDecoder : public Decoder {
       TypeCheckLast(p, sig->GetParam(p->index - 1));
       if (p->done() && build()) {
         if (sig->parameter_count() == 2) {
-          p->tree->node = builder_.Binop(opcode, p->tree->children[0]->node,
-                                         p->tree->children[1]->node);
+          p->tree->node = builder_->Binop(opcode, p->tree->children[0]->node,
+                                          p->tree->children[1]->node);
         } else if (sig->parameter_count() == 1) {
-          p->tree->node = builder_.Unop(opcode, p->tree->children[0]->node);
+          p->tree->node = builder_->Unop(opcode, p->tree->children[0]->node);
         } else {
           UNREACHABLE();
         }
@@ -756,12 +754,12 @@ class LR_WasmDecoder : public Decoder {
           TypeCheckLast(p, p->tree->type);
           if (build()) {
             TFNode* controls[2];
-            builder_.Branch(p->tree->children[0]->node, &controls[0],
-                            &controls[1]);
-            TFNode* merge = builder_.Merge(2, controls);
+            builder_->Branch(p->tree->children[0]->node, &controls[0],
+                             &controls[1]);
+            TFNode* merge = builder_->Merge(2, controls);
             TFNode* vals[2] = {p->tree->children[1]->node,
                                p->tree->children[2]->node};
-            TFNode* phi = builder_.Phi(p->tree->type, 2, vals, merge);
+            TFNode* phi = builder_->Phi(p->tree->type, 2, vals, merge);
             p->tree->node = phi;
             ssa_env_->control = merge;
           }
@@ -879,12 +877,14 @@ class LR_WasmDecoder : public Decoder {
       case kExprReturn: {
         TypeCheckLast(p, function_env_->sig->GetReturn(p->index - 1));
         if (p->done()) {
-          int count = p->tree->count;
-          TFNode** buffer = builder_.Buffer(count);
-          for (int i = 0; i < count; i++) {
-            buffer[i] = p->tree->children[i]->node;
+          if (build()) {
+            int count = p->tree->count;
+            TFNode** buffer = builder_->Buffer(count);
+            for (int i = 0; i < count; i++) {
+              buffer[i] = p->tree->children[i]->node;
+            }
+            BUILD(Return, count, buffer);
           }
-          BUILD(Return, count, buffer);
           ssa_env_->Kill(SsaEnv::kControlEnd);
         }
         break;
@@ -895,7 +895,7 @@ class LR_WasmDecoder : public Decoder {
         LocalType type = LocalOperand(p->pc(), &index, &unused);
         Tree* val = p->last();
         if (type == val->type) {
-          if (graph_) ssa_env_->locals[index] = val->node;
+          if (builder_) ssa_env_->locals[index] = val->node;
           p->tree->node = val->node;
         } else {
           error(p->pc(), val->pc, "Typecheck failed in SetLocal");
@@ -986,14 +986,14 @@ class LR_WasmDecoder : public Decoder {
         }
         if (p->done() && build()) {
           uint32_t count = p->tree->count + 1;
-          TFNode** buffer = builder_.Buffer(count);
+          TFNode** buffer = builder_->Buffer(count);
           FunctionSig* sig = FunctionSigOperand(p->pc(), &index, &len);
           USE(sig);
           buffer[0] = nullptr;  // reserved for code object.
           for (int i = 1; i < count; i++) {
             buffer[i] = p->tree->children[i - 1]->node;
           }
-          p->tree->node = builder_.CallDirect(index, buffer);
+          p->tree->node = builder_->CallDirect(index, buffer);
         }
         break;
       }
@@ -1008,11 +1008,11 @@ class LR_WasmDecoder : public Decoder {
         }
         if (p->done() && build()) {
           uint32_t count = p->tree->count;
-          TFNode** buffer = builder_.Buffer(count);
+          TFNode** buffer = builder_->Buffer(count);
           for (int i = 0; i < count; i++) {
             buffer[i] = p->tree->children[i]->node;
           }
-          p->tree->node = builder_.CallIndirect(index, buffer);
+          p->tree->node = builder_->CallIndirect(index, buffer);
         }
         break;
       }
@@ -1064,7 +1064,8 @@ class LR_WasmDecoder : public Decoder {
       int length = 0;
       uint32_t offset = 0;
       MemoryAccessOperand(p->pc(), &length, &offset);
-      p->tree->node = builder_.LoadMem(type, mem_type, p->last()->node, offset);
+      p->tree->node =
+          builder_->LoadMem(type, mem_type, p->last()->node, offset);
     }
   }
 
@@ -1079,7 +1080,7 @@ class LR_WasmDecoder : public Decoder {
         uint32_t offset = 0;
         MemoryAccessOperand(p->pc(), &length, &offset);
         TFNode* val = p->tree->children[1]->node;
-        builder_.StoreMem(mem_type, p->tree->children[0]->node, offset, val);
+        builder_->StoreMem(mem_type, p->tree->children[0]->node, offset, val);
         p->tree->node = val;
       }
     }
@@ -1108,8 +1109,10 @@ class LR_WasmDecoder : public Decoder {
     }
     TRACE("\n");
     ssa_env_ = env;
-    builder_.set_control_ptr(&env->control);
-    builder_.set_effect_ptr(&env->effect);
+    if (builder_) {
+      builder_->set_control_ptr(&env->control);
+      builder_->set_effect_ptr(&env->effect);
+    }
   }
 
   void Goto(SsaEnv* from, SsaEnv* to) {
@@ -1125,15 +1128,15 @@ class LR_WasmDecoder : public Decoder {
       }
       case SsaEnv::kReached: {  // Create a new merge.
         to->state = SsaEnv::kMerged;
-        if (!graph_) break;
+        if (!builder_) break;
         // Merge control.
         TFNode* controls[] = {to->control, from->control};
-        TFNode* merge = builder_.Merge(2, controls);
+        TFNode* merge = builder_->Merge(2, controls);
         to->control = merge;
         // Merge effects.
         if (from->effect != to->effect) {
           TFNode* effects[] = {to->effect, from->effect, merge};
-          to->effect = builder_.EffectPhi(2, effects, merge);
+          to->effect = builder_->EffectPhi(2, effects, merge);
         }
         // Merge SSA values.
         for (int i = EnvironmentCount() - 1; i >= 0; i--) {
@@ -1142,39 +1145,39 @@ class LR_WasmDecoder : public Decoder {
           if (a != b) {
             TFNode* vals[] = {a, b};
             to->locals[i] =
-                builder_.Phi(function_env_->GetLocalType(i), 2, vals, merge);
+                builder_->Phi(function_env_->GetLocalType(i), 2, vals, merge);
           }
         }
         break;
       }
       case SsaEnv::kMerged: {
-        if (!graph_) break;
+        if (!builder_) break;
         TFNode* merge = to->control;
         // Extend the existing merge.
-        builder_.AppendToMerge(merge, from->control);
+        builder_->AppendToMerge(merge, from->control);
         // Merge effects.
-        if (builder_.IsPhiWithMerge(to->effect, merge)) {
-          builder_.AppendToPhi(merge, to->effect, from->effect);
+        if (builder_->IsPhiWithMerge(to->effect, merge)) {
+          builder_->AppendToPhi(merge, to->effect, from->effect);
         } else if (to->effect != from->effect) {
-          uint32_t count = builder_.InputCount(merge);
-          TFNode** effects = builder_.Buffer(count);
+          uint32_t count = builder_->InputCount(merge);
+          TFNode** effects = builder_->Buffer(count);
           for (int j = 0; j < count - 1; j++) effects[j] = to->effect;
           effects[count - 1] = from->effect;
-          to->effect = builder_.EffectPhi(count, effects, merge);
+          to->effect = builder_->EffectPhi(count, effects, merge);
         }
         // Merge locals.
         for (int i = EnvironmentCount() - 1; i >= 0; i--) {
           TFNode* tnode = to->locals[i];
           TFNode* fnode = from->locals[i];
-          if (builder_.IsPhiWithMerge(tnode, merge)) {
-            builder_.AppendToPhi(merge, tnode, fnode);
+          if (builder_->IsPhiWithMerge(tnode, merge)) {
+            builder_->AppendToPhi(merge, tnode, fnode);
           } else if (tnode != fnode) {
-            uint32_t count = builder_.InputCount(merge);
-            TFNode** vals = builder_.Buffer(count);
+            uint32_t count = builder_->InputCount(merge);
+            TFNode** vals = builder_->Buffer(count);
             for (int j = 0; j < count - 1; j++) vals[j] = tnode;
             vals[count - 1] = fnode;
-            to->locals[i] = builder_.Phi(function_env_->GetLocalType(i), count,
-                                         vals, merge);
+            to->locals[i] = builder_->Phi(function_env_->GetLocalType(i), count,
+                                          vals, merge);
           }
         }
         break;
@@ -1187,14 +1190,14 @@ class LR_WasmDecoder : public Decoder {
 
   TFNode* CreateOrMergeIntoPhi(LocalType type, TFNode* merge, TFNode* tnode,
                                TFNode* fnode) {
-    if (builder_.IsPhiWithMerge(tnode, merge)) {
-      builder_.AppendToPhi(merge, tnode, fnode);
+    if (builder_->IsPhiWithMerge(tnode, merge)) {
+      builder_->AppendToPhi(merge, tnode, fnode);
     } else if (tnode != fnode) {
-      uint32_t count = builder_.InputCount(merge);
-      TFNode** vals = builder_.Buffer(count);
+      uint32_t count = builder_->InputCount(merge);
+      TFNode** vals = builder_->Buffer(count);
       for (int j = 0; j < count - 1; j++) vals[j] = tnode;
       vals[count - 1] = fnode;
-      return builder_.Phi(type, count, vals, merge);
+      return builder_->Phi(type, count, vals, merge);
     }
     return tnode;
   }
@@ -1212,13 +1215,14 @@ class LR_WasmDecoder : public Decoder {
   void PrepareForLoop(SsaEnv* env) {
     if (env->go()) {
       env->state = SsaEnv::kMerged;
-      if (!graph_) return;
-      env->control = builder_.Loop(env->control);
-      env->effect = builder_.EffectPhi(1, &env->effect, env->control);
-      builder_.Terminate(env->effect, env->control);
-      for (int i = EnvironmentCount() - 1; i >= 0; i--) {
-        env->locals[i] = builder_.Phi(function_env_->GetLocalType(i), 1,
-                                      &env->locals[i], env->control);
+      if (builder_) {
+        env->control = builder_->Loop(env->control);
+        env->effect = builder_->EffectPhi(1, &env->effect, env->control);
+        builder_->Terminate(env->effect, env->control);
+        for (int i = EnvironmentCount() - 1; i >= 0; i--) {
+          env->locals[i] = builder_->Phi(function_env_->GetLocalType(i), 1,
+                                         &env->locals[i], env->control);
+        }
       }
     }
   }
@@ -1295,7 +1299,7 @@ class LR_WasmDecoder : public Decoder {
   }
 
   int EnvironmentCount() {
-    if (graph_) return static_cast<int>(function_env_->GetLocalCount());
+    if (builder_) return static_cast<int>(function_env_->GetLocalCount());
     return 0;  // if we aren't building a graph, don't bother with SSA renaming.
   }
 
@@ -1359,8 +1363,8 @@ class LR_WasmDecoder : public Decoder {
   }
 
   virtual void onFirstError() {
-    limit_ = start_;   // Terminate decoding loop.
-    graph_ = nullptr;  // Don't build any more nodes.
+    limit_ = start_;     // Terminate decoding loop.
+    builder_ = nullptr;  // Don't build any more nodes.
 #if DEBUG
     PrintStackForDebugging();
 #endif
@@ -1400,10 +1404,10 @@ TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
   return result;
 }
 
-TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
+TreeResult BuildTFGraph(TFBuilder* builder, FunctionEnv* env, const byte* base,
                         const byte* start, const byte* end) {
   Zone zone;
-  LR_WasmDecoder decoder(&zone, graph);
+  LR_WasmDecoder decoder(&zone, builder);
   TreeResult result = decoder.Decode(env, base, start, end);
   return result;
 }

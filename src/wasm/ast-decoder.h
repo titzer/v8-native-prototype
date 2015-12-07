@@ -19,14 +19,12 @@ namespace v8 {
 namespace internal {
 
 namespace compiler {  // external declarations from compiler.
-class JSGraph;
+class WasmGraphBuilder;
 }
 
 namespace wasm {
 
-typedef compiler::JSGraph TFGraph;
-typedef Signature<LocalType> FunctionSig;
-
+typedef compiler::WasmGraphBuilder TFBuilder;
 struct ModuleEnv;  // forward declaration of module interface.
 
 // Interface the function environment during decoding, include the signature
@@ -92,7 +90,7 @@ std::ostream& operator<<(std::ostream& os, const Tree& tree);
 
 TreeResult VerifyWasmCode(FunctionEnv* env, const byte* base, const byte* start,
                           const byte* end);
-TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env, const byte* base,
+TreeResult BuildTFGraph(TFBuilder* builder, FunctionEnv* env, const byte* base,
                         const byte* start, const byte* end);
 
 inline TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
@@ -100,9 +98,9 @@ inline TreeResult VerifyWasmCode(FunctionEnv* env, const byte* start,
   return VerifyWasmCode(env, nullptr, start, end);
 }
 
-inline TreeResult BuildTFGraph(TFGraph* graph, FunctionEnv* env,
+inline TreeResult BuildTFGraph(TFBuilder* builder, FunctionEnv* env,
                                const byte* start, const byte* end) {
-  return BuildTFGraph(graph, env, nullptr, start, end);
+  return BuildTFGraph(builder, env, nullptr, start, end);
 }
 
 enum ReadUnsignedLEB128ErrorCode { kNoError, kInvalidLEB128, kMissingLEB128 };

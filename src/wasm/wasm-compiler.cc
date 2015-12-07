@@ -1779,8 +1779,9 @@ Handle<Code> CompileWasmFunction(wasm::ErrorThrower& thrower, Isolate* isolate,
   MachineOperatorBuilder machine(
       &zone, kMachPtr, InstructionSelector::SupportedMachineOperatorFlags());
   JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr, &machine);
+  WasmGraphBuilder builder(&zone, &jsgraph);
   wasm::TreeResult result = wasm::BuildTFGraph(
-      &jsgraph, &env,                                                 // --
+      &builder, &env,                                                 // --
       module_env->module->module_start,                               // --
       module_env->module->module_start + function.code_start_offset,  // --
       module_env->module->module_start + function.code_end_offset);   // --
