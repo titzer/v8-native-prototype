@@ -9,11 +9,10 @@
 #include "src/simulator.h"
 
 #include "src/wasm/ast-decoder.h"
-#include "src/wasm/wasm-graph-builder.h"
+#include "src/wasm/wasm-compiler.h"
 #include "src/wasm/module-decoder.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-result.h"
-#include "src/wasm/wasm-wrapper.h"
 
 namespace v8 {
 namespace internal {

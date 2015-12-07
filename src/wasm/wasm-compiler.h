@@ -23,11 +23,29 @@ typedef compiler::Node TFNode;
 typedef compiler::JSGraph TFGraph;
 
 struct ModuleEnv;
+struct WasmFunction;
+class ErrorThrower;
 
-class WasmTrapHelper;
+// Compiles a single function, producing a code object.
+Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
+                             ModuleEnv* module_env,
+                             const WasmFunction& function, int index);
+
+// Wraps a JS function, producing a code object that can be called from WASM.
+Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
+                                    Handle<JSFunction> function,
+                                    uint32_t index);
+
+// Wraps a given wasm code object, producing a JSFunction that can be called
+// from JavaScript.
+Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
+                                          Handle<String> name,
+                                          Handle<Code> wasm_code,
+                                          uint32_t index);
 
 // Abstracts details of building TurboFan graph nodes for WASM to separate
 // the WASM decoder from the internal details of TurboFan.
+class WasmTrapHelper;
 class WasmGraphBuilder {
  public:
   WasmGraphBuilder(Zone* z, TFGraph* g);
