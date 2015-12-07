@@ -12,33 +12,38 @@
 namespace v8 {
 namespace internal {
 
-namespace compiler {  // external declarations from compiler.
+namespace compiler {
+// Forward declarations for some compiler data structures.
 class Node;
 class JSGraph;
 }
 
 namespace wasm {
-
-typedef compiler::Node TFNode;
-typedef compiler::JSGraph TFGraph;
-
+// Forward declarations for some WASM data structures.
 struct ModuleEnv;
 struct WasmFunction;
 class ErrorThrower;
 
+// Expose {Node} and {Graph} opaquely as {wasm::TFNode} and {wasm::TFGraph}.
+typedef compiler::Node TFNode;
+typedef compiler::JSGraph TFGraph;
+}
+
+namespace compiler {
 // Compiles a single function, producing a code object.
-Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
-                             ModuleEnv* module_env,
-                             const WasmFunction& function, int index);
+Handle<Code> CompileWasmFunction(wasm::ErrorThrower& thrower, Isolate* isolate,
+                                 wasm::ModuleEnv* module_env,
+                                 const wasm::WasmFunction& function, int index);
 
 // Wraps a JS function, producing a code object that can be called from WASM.
-Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
+Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, wasm::ModuleEnv* module,
                                     Handle<JSFunction> function,
                                     uint32_t index);
 
 // Wraps a given wasm code object, producing a JSFunction that can be called
 // from JavaScript.
-Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
+Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
+                                          wasm::ModuleEnv* module,
                                           Handle<String> name,
                                           Handle<Code> wasm_code,
                                           uint32_t index);
@@ -48,13 +53,13 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
 class WasmTrapHelper;
 class WasmGraphBuilder {
  public:
-  WasmGraphBuilder(Zone* z, TFGraph* g);
+  WasmGraphBuilder(Zone* z, JSGraph* g);
 
-  TFNode** Buffer(size_t count) {
+  Node** Buffer(size_t count) {
     if (count > cur_bufsize) {
       size_t new_size = count + cur_bufsize + 5;
       cur_buffer =
-          reinterpret_cast<TFNode**>(zone->New(new_size * sizeof(TFNode*)));
+          reinterpret_cast<Node**>(zone->New(new_size * sizeof(Node*)));
       cur_bufsize = new_size;
     }
     return cur_buffer;
@@ -63,102 +68,102 @@ class WasmGraphBuilder {
   //-----------------------------------------------------------------------
   // Operations independent of {control} or {effect}.
   //-----------------------------------------------------------------------
-  TFNode* Error();
-  TFNode* Start(unsigned params);
-  TFNode* Param(unsigned index, LocalType type);
-  TFNode* Loop(TFNode* entry);
-  TFNode* Terminate(TFNode* effect, TFNode* control);
-  TFNode* Merge(unsigned count, TFNode** controls);
-  TFNode* Phi(LocalType type, unsigned count, TFNode** vals, TFNode* control);
-  TFNode* EffectPhi(unsigned count, TFNode** effects, TFNode* control);
-  TFNode* Int32Constant(int32_t value);
-  TFNode* Int64Constant(int64_t value);
-  TFNode* Float32Constant(float value);
-  TFNode* Float64Constant(double value);
-  TFNode* Constant(Handle<Object> value);
-  TFNode* Binop(WasmOpcode opcode, TFNode* left, TFNode* right);
-  TFNode* Unop(WasmOpcode opcode, TFNode* input);
-  unsigned InputCount(TFNode* node);
-  bool IsPhiWithMerge(TFNode* phi, TFNode* merge);
-  void AppendToMerge(TFNode* merge, TFNode* from);
-  void AppendToPhi(TFNode* merge, TFNode* phi, TFNode* from);
+  Node* Error();
+  Node* Start(unsigned params);
+  Node* Param(unsigned index, wasm::LocalType type);
+  Node* Loop(Node* entry);
+  Node* Terminate(Node* effect, Node* control);
+  Node* Merge(unsigned count, Node** controls);
+  Node* Phi(wasm::LocalType type, unsigned count, Node** vals, Node* control);
+  Node* EffectPhi(unsigned count, Node** effects, Node* control);
+  Node* Int32Constant(int32_t value);
+  Node* Int64Constant(int64_t value);
+  Node* Float32Constant(float value);
+  Node* Float64Constant(double value);
+  Node* Constant(Handle<Object> value);
+  Node* Binop(wasm::WasmOpcode opcode, Node* left, Node* right);
+  Node* Unop(wasm::WasmOpcode opcode, Node* input);
+  unsigned InputCount(Node* node);
+  bool IsPhiWithMerge(Node* phi, Node* merge);
+  void AppendToMerge(Node* merge, Node* from);
+  void AppendToPhi(Node* merge, Node* phi, Node* from);
 
   //-----------------------------------------------------------------------
   // Operations that read and/or write {control} and {effect}.
   //-----------------------------------------------------------------------
-  TFNode* Branch(TFNode* cond, TFNode** true_node, TFNode** false_node);
-  TFNode* Switch(unsigned count, TFNode* key);
-  TFNode* IfValue(int32_t value, TFNode* sw);
-  TFNode* IfDefault(TFNode* sw);
-  TFNode* Return(unsigned count, TFNode** vals);
-  TFNode* ReturnVoid();
-  TFNode* Unreachable();
+  Node* Branch(Node* cond, Node** true_node, Node** false_node);
+  Node* Switch(unsigned count, Node* key);
+  Node* IfValue(int32_t value, Node* sw);
+  Node* IfDefault(Node* sw);
+  Node* Return(unsigned count, Node** vals);
+  Node* ReturnVoid();
+  Node* Unreachable();
 
-  TFNode* CallDirect(uint32_t index, TFNode** args);
-  TFNode* CallIndirect(uint32_t index, TFNode** args);
-  void BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig* sig);
-  void BuildWasmToJSWrapper(Handle<JSFunction> function, FunctionSig* sig);
-  TFNode* ToJS(TFNode* node, TFNode* context, LocalType type);
-  TFNode* FromJS(TFNode* node, TFNode* context, LocalType type);
-  TFNode* Invert(TFNode* node);
-  TFNode* FunctionTable();
+  Node* CallDirect(uint32_t index, Node** args);
+  Node* CallIndirect(uint32_t index, Node** args);
+  void BuildJSToWasmWrapper(Handle<Code> wasm_code, wasm::FunctionSig* sig);
+  void BuildWasmToJSWrapper(Handle<JSFunction> function, wasm::FunctionSig* sig);
+  Node* ToJS(Node* node, Node* context, wasm::LocalType type);
+  Node* FromJS(Node* node, Node* context, wasm::LocalType type);
+  Node* Invert(Node* node);
+  Node* FunctionTable();
 
   //-----------------------------------------------------------------------
   // Operations that concern the linear memory.
   //-----------------------------------------------------------------------
-  TFNode* MemSize(uint32_t offset);
-  TFNode* LoadGlobal(uint32_t index);
-  TFNode* StoreGlobal(uint32_t index, TFNode* val);
-  TFNode* LoadMem(LocalType type, MachineType memtype, TFNode* index,
+  Node* MemSize(uint32_t offset);
+  Node* LoadGlobal(uint32_t index);
+  Node* StoreGlobal(uint32_t index, Node* val);
+  Node* LoadMem(wasm::LocalType type, MachineType memtype, Node* index,
                   uint32_t offset);
-  TFNode* StoreMem(MachineType type, TFNode* index, uint32_t offset,
-                   TFNode* val);
+  Node* StoreMem(MachineType type, Node* index, uint32_t offset,
+                   Node* val);
 
-  static void PrintDebugName(TFNode* node);
+  static void PrintDebugName(Node* node);
 
-  TFNode* Control() { return *control; }
-  TFNode* Effect() { return *effect; }
+  Node* Control() { return *control; }
+  Node* Effect() { return *effect; }
 
-  void set_module(ModuleEnv* env) { this->module = env; }
+  void set_module(wasm::ModuleEnv* env) { this->module = env; }
 
-  void set_control_ptr(TFNode** control) { this->control = control; }
+  void set_control_ptr(Node** control) { this->control = control; }
 
-  void set_effect_ptr(TFNode** effect) { this->effect = effect; }
+  void set_effect_ptr(Node** effect) { this->effect = effect; }
 
  private:
   static const int kDefaultBufferSize = 16;
   friend class WasmTrapHelper;
 
   Zone* zone;
-  TFGraph* graph;
-  ModuleEnv* module;
-  TFNode* mem_buffer;
-  TFNode* mem_size;
-  TFNode* function_table;
-  TFNode** control;
-  TFNode** effect;
-  TFNode** cur_buffer;
+  JSGraph* graph;
+  wasm::ModuleEnv* module;
+  Node* mem_buffer;
+  Node* mem_size;
+  Node* function_table;
+  Node** control;
+  Node** effect;
+  Node** cur_buffer;
   size_t cur_bufsize;
-  TFNode* def_buffer[kDefaultBufferSize];
+  Node* def_buffer[kDefaultBufferSize];
 
   WasmTrapHelper* trap;
 
   // Internal helper methods.
-  TFNode* String(const char* string);
-  TFNode* MemBuffer(uint32_t offset);
-  void BoundsCheckMem(MachineType memtype, TFNode* index, uint32_t offset);
+  Node* String(const char* string);
+  Node* MemBuffer(uint32_t offset);
+  void BoundsCheckMem(MachineType memtype, Node* index, uint32_t offset);
 
-  TFNode* BuildWasmCall(FunctionSig* sig, TFNode** args);
-  TFNode* BuildF32CopySign(TFNode* left, TFNode* right);
-  TFNode* BuildF64CopySign(TFNode* left, TFNode* right);
-  TFNode* BuildI32Ctz(TFNode* input);
-  TFNode* BuildI32Popcnt(TFNode* input);
-  TFNode* BuildI64Ctz(TFNode* input);
-  TFNode* BuildI64Popcnt(TFNode* input);
+  Node* BuildWasmCall(wasm::FunctionSig* sig, Node** args);
+  Node* BuildF32CopySign(Node* left, Node* right);
+  Node* BuildF64CopySign(Node* left, Node* right);
+  Node* BuildI32Ctz(Node* input);
+  Node* BuildI32Popcnt(Node* input);
+  Node* BuildI64Ctz(Node* input);
+  Node* BuildI64Popcnt(Node* input);
 
-  TFNode** Realloc(TFNode** buffer, size_t count) {
-    TFNode** buf = Buffer(count);
-    if (buf != buffer) memcpy(buf, buffer, count * sizeof(TFNode*));
+  Node** Realloc(Node** buffer, size_t count) {
+    Node** buf = Buffer(count);
+    if (buf != buffer) memcpy(buf, buffer, count * sizeof(Node*));
     return buf;
   }
 };

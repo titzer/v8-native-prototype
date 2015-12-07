@@ -41,17 +41,18 @@
 
 namespace v8 {
 namespace internal {
-namespace wasm {
+namespace compiler {
 
 namespace {
-void MergeControlToEnd(TFGraph* graph, TFNode* node) {
-  compiler::Graph* g = graph->graph();
+void MergeControlToEnd(JSGraph* graph, Node* node) {
+  Graph* g = graph->graph();
   if (g->end()) {
-    compiler::NodeProperties::MergeControlToEnd(g, graph->common(), node);
+    NodeProperties::MergeControlToEnd(g, graph->common(), node);
   } else {
     g->SetEnd(g->NewNode(graph->common()->End(1), node));
   }
 }
+
 
 enum TrapReason {
   kTrapUnreachable,
@@ -65,12 +66,12 @@ enum TrapReason {
   kTrapCount
 };
 
+
 static const char* kTrapMessages[] = {
     "unreachable",       "memory access out of bounds",
     "divide by zero",    "divide result unrepresentable",
     "remainder by zero", "integer result unrepresentable",
     "invalid function",  "function signature mismatch"};
-
 }  // namespace
 
 
@@ -88,8 +89,8 @@ class WasmTrapHelper : public ZoneObject {
   // Make the current control path trap to unreachable.
   void Unreachable() { ConnectTrap(kTrapUnreachable); }
   // Add a check that traps if {node} is equal to {val}.
-  TFNode* TrapIfEq32(TrapReason reason, TFNode* node, int32_t val) {
-    compiler::Int32Matcher m(node);
+  Node* TrapIfEq32(TrapReason reason, Node* node, int32_t val) {
+    Int32Matcher m(node);
     if (m.HasValue() && !m.Is(val)) return g->start();
     if (val == 0) {
       AddTrapIfFalse(reason, node);
@@ -100,41 +101,41 @@ class WasmTrapHelper : public ZoneObject {
     return *(builder->control);
   }
   // Add a check that traps if {node} is zero.
-  TFNode* ZeroCheck32(TrapReason reason, TFNode* node) {
+  Node* ZeroCheck32(TrapReason reason, Node* node) {
     return TrapIfEq32(reason, node, 0);
   }
   // Add a check that traps if {node} is equal to {val}.
-  TFNode* TrapIfEq64(TrapReason reason, TFNode* node, int64_t val) {
-    compiler::Int64Matcher m(node);
+  Node* TrapIfEq64(TrapReason reason, Node* node, int64_t val) {
+    Int64Matcher m(node);
     if (m.HasValue() && !m.Is(val)) return g->start();
     AddTrapIfTrue(reason, g->NewNode(graph->machine()->Word64Equal(), node,
                                      graph->Int64Constant(val)));
     return *(builder->control);
   }
   // Add a check that traps if {node} is zero.
-  TFNode* ZeroCheck64(TrapReason reason, TFNode* node) {
+  Node* ZeroCheck64(TrapReason reason, Node* node) {
     return TrapIfEq64(reason, node, 0);
   }
   // Add a trap if {cond} is true.
-  void AddTrapIfTrue(TrapReason reason, TFNode* cond) {
+  void AddTrapIfTrue(TrapReason reason, Node* cond) {
     AddTrapIf(reason, cond, true);
   }
   // Add a trap if {cond} is false.
-  void AddTrapIfFalse(TrapReason reason, TFNode* cond) {
+  void AddTrapIfFalse(TrapReason reason, Node* cond) {
     AddTrapIf(reason, cond, false);
   }
   // Add a trap if {cond} is true or false according to {iftrue}.
-  void AddTrapIf(TrapReason reason, TFNode* cond, bool iftrue) {
+  void AddTrapIf(TrapReason reason, Node* cond, bool iftrue) {
     DCHECK_NOT_NULL(graph);
-    TFNode** effect = builder->effect;
-    TFNode** control = builder->control;
-    TFNode* before = *effect;
-    compiler::BranchHint hint =
-        iftrue ? compiler::BranchHint::kFalse : compiler::BranchHint::kTrue;
-    TFNode* branch =
+    Node** effect = builder->effect;
+    Node** control = builder->control;
+    Node* before = *effect;
+    BranchHint hint =
+        iftrue ? BranchHint::kFalse : BranchHint::kTrue;
+    Node* branch =
         g->NewNode(graph->common()->Branch(hint), cond, *(builder->control));
-    TFNode* if_true = g->NewNode(graph->common()->IfTrue(), branch);
-    TFNode* if_false = g->NewNode(graph->common()->IfFalse(), branch);
+    Node* if_true = g->NewNode(graph->common()->IfTrue(), branch);
+    Node* if_false = g->NewNode(graph->common()->IfFalse(), branch);
 
     *control = iftrue ? if_true : if_false;
     ConnectTrap(reason);
@@ -144,10 +145,10 @@ class WasmTrapHelper : public ZoneObject {
 
  private:
   WasmGraphBuilder* builder;
-  TFGraph* graph;
-  compiler::Graph* g;
-  TFNode* traps[kTrapCount];
-  TFNode* effects[kTrapCount];
+  JSGraph* graph;
+  Graph* g;
+  Node* traps[kTrapCount];
+  Node* effects[kTrapCount];
 
   void ConnectTrap(TrapReason reason) {
     if (traps[reason] == nullptr) {
@@ -160,11 +161,11 @@ class WasmTrapHelper : public ZoneObject {
   }
 
   void BuildTrapCode(TrapReason reason) {
-    TFNode* exception = builder->String(kTrapMessages[reason]);
-    TFNode* end;
-    TFNode** control = builder->control;
-    TFNode** effect = builder->effect;
-    ModuleEnv* module = builder->module;
+    Node* exception = builder->String(kTrapMessages[reason]);
+    Node* end;
+    Node** control = builder->control;
+    Node** effect = builder->effect;
+    wasm::ModuleEnv* module = builder->module;
     *control = traps[reason] = g->NewNode(graph->common()->Merge(1), *control);
     *effect = effects[reason] =
         g->NewNode(graph->common()->EffectPhi(1), *effect, *control);
@@ -173,11 +174,11 @@ class WasmTrapHelper : public ZoneObject {
       // Use the module context to call the runtime to throw an exception.
       Runtime::FunctionId f = Runtime::kThrow;
       const Runtime::Function* fun = Runtime::FunctionForId(f);
-      compiler::CallDescriptor* desc =
-          compiler::Linkage::GetRuntimeCallDescriptor(
-              graph->zone(), f, fun->nargs, compiler::Operator::kNoProperties,
-              compiler::CallDescriptor::kNoFlags);
-      TFNode* inputs[] = {
+      CallDescriptor* desc =
+          Linkage::GetRuntimeCallDescriptor(
+              graph->zone(), f, fun->nargs, Operator::kNoProperties,
+              CallDescriptor::kNoFlags);
+      Node* inputs[] = {
           graph->CEntryStubConstant(fun->result_size),  // C entry
           exception,                                    // exception
           graph->ExternalConstant(
@@ -187,19 +188,19 @@ class WasmTrapHelper : public ZoneObject {
           *effect,
           *control};
 
-      TFNode* node = g->NewNode(graph->common()->Call(desc),
+      Node* node = g->NewNode(graph->common()->Call(desc),
                                 static_cast<int>(arraysize(inputs)), inputs);
       *control = node;
       *effect = node;
     }
     if (false) {
       // End the control flow with a throw
-      TFNode* thrw = g->NewNode(graph->common()->Throw(), graph->ZeroConstant(),
+      Node* thrw = g->NewNode(graph->common()->Throw(), graph->ZeroConstant(),
                                 *effect, *control);
       end = thrw;
     } else {
       // End the control flow with returning 0xdeadbeef
-      TFNode* ret_dead =
+      Node* ret_dead =
           g->NewNode(graph->common()->Return(),
                      graph->Int32Constant(0xdeadbeef), *effect, *control);
       end = ret_dead;
@@ -210,7 +211,7 @@ class WasmTrapHelper : public ZoneObject {
 };
 
 
-WasmGraphBuilder::WasmGraphBuilder(Zone* z, TFGraph* g)
+WasmGraphBuilder::WasmGraphBuilder(Zone* z, JSGraph* g)
     : zone(z),
       graph(g),
       module(nullptr),
@@ -223,133 +224,133 @@ WasmGraphBuilder::WasmGraphBuilder(Zone* z, TFGraph* g)
       cur_bufsize(kDefaultBufferSize),
       trap(new (z) WasmTrapHelper(this)) {}
 
-TFNode* WasmGraphBuilder::Error() {
+Node* WasmGraphBuilder::Error() {
   DCHECK_NOT_NULL(graph);
   return graph->Dead();
 }
 
-TFNode* WasmGraphBuilder::Start(unsigned params) {
+Node* WasmGraphBuilder::Start(unsigned params) {
   DCHECK_NOT_NULL(graph);
-  compiler::Graph* g = graph->graph();
-  TFNode* start = g->NewNode(graph->common()->Start(params));
+  Graph* g = graph->graph();
+  Node* start = g->NewNode(graph->common()->Start(params));
   g->SetStart(start);
   return start;
 }
 
-TFNode* WasmGraphBuilder::Param(unsigned index, LocalType type) {
+Node* WasmGraphBuilder::Param(unsigned index, wasm::LocalType type) {
   DCHECK_NOT_NULL(graph);
-  compiler::Graph* g = graph->graph();
-  // TODO(titzer): use LocalType for parameters
+  Graph* g = graph->graph();
+  // TODO(titzer): use wasm::LocalType for parameters
   return g->NewNode(graph->common()->Parameter(index), g->start());
 }
 
-TFNode* WasmGraphBuilder::Loop(TFNode* entry) {
+Node* WasmGraphBuilder::Loop(Node* entry) {
   DCHECK_NOT_NULL(graph);
   return graph->graph()->NewNode(graph->common()->Loop(1), entry);
 }
 
-TFNode* WasmGraphBuilder::Terminate(TFNode* effect, TFNode* control) {
+Node* WasmGraphBuilder::Terminate(Node* effect, Node* control) {
   DCHECK_NOT_NULL(graph);
-  TFNode* terminate =
+  Node* terminate =
       graph->graph()->NewNode(graph->common()->Terminate(), effect, control);
   MergeControlToEnd(graph, terminate);
   return terminate;
 }
 
-unsigned WasmGraphBuilder::InputCount(TFNode* node) {
+unsigned WasmGraphBuilder::InputCount(Node* node) {
   return static_cast<unsigned>(node->InputCount());
 }
 
-bool WasmGraphBuilder::IsPhiWithMerge(TFNode* phi, TFNode* merge) {
-  return phi && compiler::IrOpcode::IsPhiOpcode(phi->opcode()) &&
-         compiler::NodeProperties::GetControlInput(phi) == merge;
+bool WasmGraphBuilder::IsPhiWithMerge(Node* phi, Node* merge) {
+  return phi && IrOpcode::IsPhiOpcode(phi->opcode()) &&
+         NodeProperties::GetControlInput(phi) == merge;
 }
 
-void WasmGraphBuilder::AppendToMerge(TFNode* merge, TFNode* from) {
+void WasmGraphBuilder::AppendToMerge(Node* merge, Node* from) {
   DCHECK_NOT_NULL(graph);
-  DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
+  DCHECK(IrOpcode::IsMergeOpcode(merge->opcode()));
   merge->AppendInput(graph->zone(), from);
   int new_size = merge->InputCount();
-  compiler::NodeProperties::ChangeOp(
+  NodeProperties::ChangeOp(
       merge, graph->common()->ResizeMergeOrPhi(merge->op(), new_size));
 }
 
-void WasmGraphBuilder::AppendToPhi(TFNode* merge, TFNode* phi, TFNode* from) {
+void WasmGraphBuilder::AppendToPhi(Node* merge, Node* phi, Node* from) {
   DCHECK_NOT_NULL(graph);
-  DCHECK(compiler::IrOpcode::IsPhiOpcode(phi->opcode()));
-  DCHECK(compiler::IrOpcode::IsMergeOpcode(merge->opcode()));
+  DCHECK(IrOpcode::IsPhiOpcode(phi->opcode()));
+  DCHECK(IrOpcode::IsMergeOpcode(merge->opcode()));
   int new_size = phi->InputCount();
   phi->InsertInput(graph->zone(), phi->InputCount() - 1, from);
-  compiler::NodeProperties::ChangeOp(
+  NodeProperties::ChangeOp(
       phi, graph->common()->ResizeMergeOrPhi(phi->op(), new_size));
 }
 
-TFNode* WasmGraphBuilder::Merge(unsigned count, TFNode** controls) {
+Node* WasmGraphBuilder::Merge(unsigned count, Node** controls) {
   DCHECK_NOT_NULL(graph);
   return graph->graph()->NewNode(graph->common()->Merge(count), count,
                                  controls);
 }
 
-TFNode* WasmGraphBuilder::Phi(LocalType type, unsigned count, TFNode** vals,
-                       TFNode* control) {
-  DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
-  TFNode** buf = Realloc(vals, count + 1);
+Node* WasmGraphBuilder::Phi(wasm::LocalType type, unsigned count, Node** vals,
+                       Node* control) {
+  DCHECK(IrOpcode::IsMergeOpcode(control->opcode()));
+  Node** buf = Realloc(vals, count + 1);
   buf[count] = control;
   return graph->graph()->NewNode(graph->common()->Phi(type, count), count + 1,
                                  buf);
 }
 
-TFNode* WasmGraphBuilder::EffectPhi(unsigned count, TFNode** effects,
-                             TFNode* control) {
+Node* WasmGraphBuilder::EffectPhi(unsigned count, Node** effects,
+                             Node* control) {
   DCHECK_NOT_NULL(graph);
-  DCHECK(compiler::IrOpcode::IsMergeOpcode(control->opcode()));
-  TFNode** buf = Realloc(effects, count + 1);
+  DCHECK(IrOpcode::IsMergeOpcode(control->opcode()));
+  Node** buf = Realloc(effects, count + 1);
   buf[count] = control;
   return graph->graph()->NewNode(graph->common()->EffectPhi(count), count + 1,
                                  buf);
 }
 
-TFNode* WasmGraphBuilder::Int32Constant(int32_t value) {
+Node* WasmGraphBuilder::Int32Constant(int32_t value) {
   DCHECK_NOT_NULL(graph);
   return graph->Int32Constant(value);
 }
 
-TFNode* WasmGraphBuilder::Int64Constant(int64_t value) {
+Node* WasmGraphBuilder::Int64Constant(int64_t value) {
   DCHECK_NOT_NULL(graph);
   return graph->Int64Constant(value);
 }
 
-static const compiler::Operator* UnsupportedOpcode(WasmOpcode opcode) {
-  if (WasmOpcodes::IsSupported(opcode)) {
+static const Operator* UnsupportedOpcode(wasm::WasmOpcode opcode) {
+  if (wasm::WasmOpcodes::IsSupported(opcode)) {
     V8_Fatal(__FILE__, __LINE__,
              "Unsupported opcode #%d:%s reported as supported", opcode,
-             WasmOpcodes::OpcodeName(opcode));
+             wasm::WasmOpcodes::OpcodeName(opcode));
   }
   V8_Fatal(__FILE__, __LINE__, "Unsupported opcode #%d:%s", opcode,
-           WasmOpcodes::OpcodeName(opcode));
+           wasm::WasmOpcodes::OpcodeName(opcode));
   return nullptr;
 }
 
-TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) {
+Node* WasmGraphBuilder::Binop(wasm::WasmOpcode opcode, Node* left, Node* right) {
   // TODO(titzer): insert manual divide-by-zero checks.
   DCHECK_NOT_NULL(graph);
-  const compiler::Operator* op;
-  compiler::MachineOperatorBuilder* m = graph->machine();
+  const Operator* op;
+  MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
-    case kExprI32Add:
+    case wasm::kExprI32Add:
       op = m->Int32Add();
       break;
-    case kExprI32Sub:
+    case wasm::kExprI32Sub:
       op = m->Int32Sub();
       break;
-    case kExprI32Mul:
+    case wasm::kExprI32Mul:
       op = m->Int32Mul();
       break;
-    case kExprI32DivS: {
+    case wasm::kExprI32DivS: {
       trap->ZeroCheck32(kTrapDivByZero, right);
-      TFNode* before = *control;
-      TFNode* denom_is_m1;
-      TFNode* denom_is_not_m1;
+      Node* before = *control;
+      Node* denom_is_m1;
+      Node* denom_is_not_m1;
       Branch(graph->graph()->NewNode(graph->machine()->Word32Equal(), right,
                                      graph->Int32Constant(-1)),
              &denom_is_m1, &denom_is_not_m1);
@@ -363,94 +364,94 @@ TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) 
       }
       return graph->graph()->NewNode(m->Int32Div(), left, right, *control);
     }
-    case kExprI32DivU:
+    case wasm::kExprI32DivU:
       op = m->Uint32Div();
       return graph->graph()->NewNode(op, left, right,
                                      trap->ZeroCheck32(kTrapDivByZero, right));
-    case kExprI32RemS: {
+    case wasm::kExprI32RemS: {
       trap->ZeroCheck32(kTrapRemByZero, right);
-      compiler::Diamond d(
+      Diamond d(
           graph->graph(), graph->common(),
           graph->graph()->NewNode(graph->machine()->Word32Equal(), right,
                                   graph->Int32Constant(-1)));
 
-      TFNode* rem =
+      Node* rem =
           graph->graph()->NewNode(m->Int32Mod(), left, right, d.if_false);
 
       return d.Phi(kMachInt32, graph->Int32Constant(0), rem);
     }
-    case kExprI32RemU:
+    case wasm::kExprI32RemU:
       op = m->Uint32Mod();
       return graph->graph()->NewNode(op, left, right,
                                      trap->ZeroCheck32(kTrapRemByZero, right));
-    case kExprI32And:
+    case wasm::kExprI32And:
       op = m->Word32And();
       break;
-    case kExprI32Ior:
+    case wasm::kExprI32Ior:
       op = m->Word32Or();
       break;
-    case kExprI32Xor:
+    case wasm::kExprI32Xor:
       op = m->Word32Xor();
       break;
-    case kExprI32Shl:
+    case wasm::kExprI32Shl:
       op = m->Word32Shl();
       break;
-    case kExprI32ShrU:
+    case wasm::kExprI32ShrU:
       op = m->Word32Shr();
       break;
-    case kExprI32ShrS:
+    case wasm::kExprI32ShrS:
       op = m->Word32Sar();
       break;
-    case kExprI32Eq:
+    case wasm::kExprI32Eq:
       op = m->Word32Equal();
       break;
-    case kExprI32Ne:
-      return Invert(Binop(kExprI32Eq, left, right));
-    case kExprI32LtS:
+    case wasm::kExprI32Ne:
+      return Invert(Binop(wasm::kExprI32Eq, left, right));
+    case wasm::kExprI32LtS:
       op = m->Int32LessThan();
       break;
-    case kExprI32LeS:
+    case wasm::kExprI32LeS:
       op = m->Int32LessThanOrEqual();
       break;
-    case kExprI32LtU:
+    case wasm::kExprI32LtU:
       op = m->Uint32LessThan();
       break;
-    case kExprI32LeU:
+    case wasm::kExprI32LeU:
       op = m->Uint32LessThanOrEqual();
       break;
-    case kExprI32GtS:
+    case wasm::kExprI32GtS:
       op = m->Int32LessThan();
       std::swap(left, right);
       break;
-    case kExprI32GeS:
+    case wasm::kExprI32GeS:
       op = m->Int32LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprI32GtU:
+    case wasm::kExprI32GtU:
       op = m->Uint32LessThan();
       std::swap(left, right);
       break;
-    case kExprI32GeU:
+    case wasm::kExprI32GeU:
       op = m->Uint32LessThanOrEqual();
       std::swap(left, right);
       break;
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
-    case kExprI64Add:
+    case wasm::kExprI64Add:
       op = m->Int64Add();
       break;
-    case kExprI64Sub:
+    case wasm::kExprI64Sub:
       op = m->Int64Sub();
       break;
-    case kExprI64Mul:
+    case wasm::kExprI64Mul:
       op = m->Int64Mul();
       break;
-    case kExprI64DivS: {
+    case wasm::kExprI64DivS: {
       trap->ZeroCheck64(kTrapDivByZero, right);
-      TFNode* before = *control;
-      TFNode* denom_is_m1;
-      TFNode* denom_is_not_m1;
+      Node* before = *control;
+      Node* denom_is_m1;
+      Node* denom_is_not_m1;
       Branch(graph->graph()->NewNode(graph->machine()->Word64Equal(), right,
                                      graph->Int64Constant(-1)),
              &denom_is_m1, &denom_is_not_m1);
@@ -465,146 +466,146 @@ TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) 
       }
       return graph->graph()->NewNode(m->Int64Div(), left, right, *control);
     }
-    case kExprI64DivU:
+    case wasm::kExprI64DivU:
       op = m->Uint64Div();
       return graph->graph()->NewNode(op, left, right,
                                      trap->ZeroCheck64(kTrapDivByZero, right));
-    case kExprI64RemS: {
+    case wasm::kExprI64RemS: {
       trap->ZeroCheck64(kTrapRemByZero, right);
-      compiler::Diamond d(
+      Diamond d(
           graph->graph(), graph->common(),
           graph->graph()->NewNode(graph->machine()->Word64Equal(), right,
                                   graph->Int64Constant(-1)));
 
-      TFNode* rem =
+      Node* rem =
           graph->graph()->NewNode(m->Int64Mod(), left, right, d.if_false);
 
       return d.Phi(kMachInt64, graph->Int64Constant(0), rem);
     }
-    case kExprI64RemU:
+    case wasm::kExprI64RemU:
       op = m->Uint64Mod();
       return graph->graph()->NewNode(op, left, right,
                                      trap->ZeroCheck64(kTrapRemByZero, right));
-    case kExprI64And:
+    case wasm::kExprI64And:
       op = m->Word64And();
       break;
-    case kExprI64Ior:
+    case wasm::kExprI64Ior:
       op = m->Word64Or();
       break;
-    case kExprI64Xor:
+    case wasm::kExprI64Xor:
       op = m->Word64Xor();
       break;
-    case kExprI64Shl:
+    case wasm::kExprI64Shl:
       op = m->Word64Shl();
       break;
-    case kExprI64ShrU:
+    case wasm::kExprI64ShrU:
       op = m->Word64Shr();
       break;
-    case kExprI64ShrS:
+    case wasm::kExprI64ShrS:
       op = m->Word64Sar();
       break;
-    case kExprI64Eq:
+    case wasm::kExprI64Eq:
       op = m->Word64Equal();
       break;
-    case kExprI64Ne:
-      return Invert(Binop(kExprI64Eq, left, right));
-    case kExprI64LtS:
+    case wasm::kExprI64Ne:
+      return Invert(Binop(wasm::kExprI64Eq, left, right));
+    case wasm::kExprI64LtS:
       op = m->Int64LessThan();
       break;
-    case kExprI64LeS:
+    case wasm::kExprI64LeS:
       op = m->Int64LessThanOrEqual();
       break;
-    case kExprI64LtU:
+    case wasm::kExprI64LtU:
       op = m->Uint64LessThan();
       break;
-    case kExprI64LeU:
+    case wasm::kExprI64LeU:
       op = m->Uint64LessThanOrEqual();
       break;
-    case kExprI64GtS:
+    case wasm::kExprI64GtS:
       op = m->Int64LessThan();
       std::swap(left, right);
       break;
-    case kExprI64GeS:
+    case wasm::kExprI64GeS:
       op = m->Int64LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprI64GtU:
+    case wasm::kExprI64GtU:
       op = m->Uint64LessThan();
       std::swap(left, right);
       break;
-    case kExprI64GeU:
+    case wasm::kExprI64GeU:
       op = m->Uint64LessThanOrEqual();
       std::swap(left, right);
       break;
 #endif
 
-    case kExprF32CopySign:
+    case wasm::kExprF32CopySign:
       return BuildF32CopySign(left, right);
-    case kExprF64CopySign:
+    case wasm::kExprF64CopySign:
       return BuildF64CopySign(left, right);
-    case kExprF32Add:
+    case wasm::kExprF32Add:
       op = m->Float32Add();
       break;
-    case kExprF32Sub:
+    case wasm::kExprF32Sub:
       op = m->Float32Sub();
       break;
-    case kExprF32Mul:
+    case wasm::kExprF32Mul:
       op = m->Float32Mul();
       break;
-    case kExprF32Div:
+    case wasm::kExprF32Div:
       op = m->Float32Div();
       break;
-    case kExprF32Eq:
+    case wasm::kExprF32Eq:
       op = m->Float32Equal();
       break;
-    case kExprF32Ne:
-      return Invert(Binop(kExprF32Eq, left, right));
-    case kExprF32Lt:
+    case wasm::kExprF32Ne:
+      return Invert(Binop(wasm::kExprF32Eq, left, right));
+    case wasm::kExprF32Lt:
       op = m->Float32LessThan();
       break;
-    case kExprF32Ge:
+    case wasm::kExprF32Ge:
       op = m->Float32LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprF32Gt:
+    case wasm::kExprF32Gt:
       op = m->Float32LessThan();
       std::swap(left, right);
       break;
-    case kExprF32Le:
+    case wasm::kExprF32Le:
       op = m->Float32LessThanOrEqual();
       break;
-    case kExprF64Add:
+    case wasm::kExprF64Add:
       op = m->Float64Add();
       break;
-    case kExprF64Sub:
+    case wasm::kExprF64Sub:
       op = m->Float64Sub();
       break;
-    case kExprF64Mul:
+    case wasm::kExprF64Mul:
       op = m->Float64Mul();
       break;
-    case kExprF64Div:
+    case wasm::kExprF64Div:
       op = m->Float64Div();
       break;
-    case kExprF64Eq:
+    case wasm::kExprF64Eq:
       op = m->Float64Equal();
       break;
-    case kExprF64Ne:
-      return Invert(Binop(kExprF64Eq, left, right));
-    case kExprF64Lt:
+    case wasm::kExprF64Ne:
+      return Invert(Binop(wasm::kExprF64Eq, left, right));
+    case wasm::kExprF64Lt:
       op = m->Float64LessThan();
       break;
-    case kExprF64Le:
+    case wasm::kExprF64Le:
       op = m->Float64LessThanOrEqual();
       break;
-    case kExprF64Gt:
+    case wasm::kExprF64Gt:
       op = m->Float64LessThan();
       std::swap(left, right);
       break;
-    case kExprF64Ge:
+    case wasm::kExprF64Ge:
       op = m->Float64LessThanOrEqual();
       std::swap(left, right);
       break;
-    case kExprF32Min: {
+    case wasm::kExprF32Min: {
       if (m->Float32Min().IsSupported()) {
         op = m->Float32Min().op();
         break;
@@ -613,7 +614,7 @@ TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) 
         break;
       }
     }
-    case kExprF64Min: {
+    case wasm::kExprF64Min: {
       if (m->Float64Min().IsSupported()) {
         op = m->Float64Min().op();
         break;
@@ -622,7 +623,7 @@ TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) 
         break;
       }
     }
-    case kExprF32Max: {
+    case wasm::kExprF32Max: {
       if (m->Float32Max().IsSupported()) {
         op = m->Float32Max().op();
         break;
@@ -631,7 +632,7 @@ TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) 
         break;
       }
     }
-    case kExprF64Max: {
+    case wasm::kExprF64Max: {
       if (m->Float64Max().IsSupported()) {
         op = m->Float64Max().op();
         break;
@@ -646,80 +647,80 @@ TFNode* WasmGraphBuilder::Binop(WasmOpcode opcode, TFNode* left, TFNode* right) 
   return graph->graph()->NewNode(op, left, right);
 }
 
-TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
+Node* WasmGraphBuilder::Unop(wasm::WasmOpcode opcode, Node* input) {
   DCHECK_NOT_NULL(graph);
-  const compiler::Operator* op;
-  compiler::MachineOperatorBuilder* m = graph->machine();
+  const Operator* op;
+  MachineOperatorBuilder* m = graph->machine();
   switch (opcode) {
-    case kExprBoolNot:
+    case wasm::kExprBoolNot:
       op = m->Word32Equal();
       return graph->graph()->NewNode(op, input, graph->Int32Constant(0));
-    case kExprF32Abs:
+    case wasm::kExprF32Abs:
       op = m->Float32Abs();
       break;
-    case kExprF32Neg:
+    case wasm::kExprF32Neg:
       op = m->Float32Sub();
       return graph->graph()->NewNode(op, graph->Float32Constant(0), input);
-    case kExprF32Sqrt:
+    case wasm::kExprF32Sqrt:
       op = m->Float32Sqrt();
       break;
-    case kExprF64Abs:
+    case wasm::kExprF64Abs:
       op = m->Float64Abs();
       break;
-    case kExprF64Neg:
+    case wasm::kExprF64Neg:
       op = m->Float64Sub();
       return graph->graph()->NewNode(op, graph->Float64Constant(0), input);
-    case kExprF64Sqrt:
+    case wasm::kExprF64Sqrt:
       op = m->Float64Sqrt();
       break;
-    case kExprI32SConvertF64:
+    case wasm::kExprI32SConvertF64:
       op = m->ChangeFloat64ToInt32();
       break;
-    case kExprI32UConvertF64:
+    case wasm::kExprI32UConvertF64:
       op = m->ChangeFloat64ToUint32();
       break;
-    case kExprF32ConvertF64:
+    case wasm::kExprF32ConvertF64:
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprF64SConvertI32:
+    case wasm::kExprF64SConvertI32:
       op = m->ChangeInt32ToFloat64();
       break;
-    case kExprF64UConvertI32:
+    case wasm::kExprF64UConvertI32:
       op = m->ChangeUint32ToFloat64();
       break;
-    case kExprF32SConvertI32:
+    case wasm::kExprF32SConvertI32:
       op = m->ChangeInt32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprF32UConvertI32:
+    case wasm::kExprF32UConvertI32:
       op = m->ChangeUint32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->TruncateFloat64ToFloat32();
       break;
-    case kExprI32SConvertF32:
+    case wasm::kExprI32SConvertF32:
       op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->ChangeFloat64ToInt32();
       break;
-    case kExprI32UConvertF32:
+    case wasm::kExprI32UConvertF32:
       op = m->ChangeFloat32ToFloat64();  // TODO(titzer): two conversions
       input = graph->graph()->NewNode(op, input);
       op = m->ChangeFloat64ToUint32();
       break;
-    case kExprF64ConvertF32:
+    case wasm::kExprF64ConvertF32:
       op = m->ChangeFloat32ToFloat64();
       break;
-    case kExprF32ReinterpretI32:
+    case wasm::kExprF32ReinterpretI32:
       op = m->BitcastInt32ToFloat32();
       break;
-    case kExprI32ReinterpretF32:
+    case wasm::kExprI32ReinterpretF32:
       op = m->BitcastFloat32ToInt32();
       break;
-    case kExprI32Clz:
+    case wasm::kExprI32Clz:
       op = m->Word32Clz();
       break;
-    case kExprI32Ctz: {
+    case wasm::kExprI32Ctz: {
       if (m->Word32Ctz().IsSupported()) {
         op = m->Word32Ctz().op();
         break;
@@ -727,7 +728,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         return BuildI32Ctz(input);
       }
     }
-    case kExprI32Popcnt: {
+    case wasm::kExprI32Popcnt: {
       if (m->Word32Popcnt().IsSupported()) {
         op = m->Word32Popcnt().op();
         break;
@@ -735,7 +736,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         return BuildI32Popcnt(input);
       }
     }
-    case kExprF32Floor: {
+    case wasm::kExprF32Floor: {
       if (m->Float32RoundDown().IsSupported()) {
         op = m->Float32RoundDown().op();
         break;
@@ -744,7 +745,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF32Ceil: {
+    case wasm::kExprF32Ceil: {
       if (m->Float32RoundUp().IsSupported()) {
         op = m->Float32RoundUp().op();
         break;
@@ -753,7 +754,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF32Trunc: {
+    case wasm::kExprF32Trunc: {
       if (m->Float32RoundTruncate().IsSupported()) {
         op = m->Float32RoundTruncate().op();
         break;
@@ -762,7 +763,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF32NearestInt: {
+    case wasm::kExprF32NearestInt: {
       if (m->Float32RoundTiesEven().IsSupported()) {
         op = m->Float32RoundTiesEven().op();
         break;
@@ -771,7 +772,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF64Floor: {
+    case wasm::kExprF64Floor: {
       if (m->Float64RoundDown().IsSupported()) {
         op = m->Float64RoundDown().op();
         break;
@@ -780,7 +781,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF64Ceil: {
+    case wasm::kExprF64Ceil: {
       if (m->Float64RoundUp().IsSupported()) {
         op = m->Float64RoundUp().op();
         break;
@@ -789,7 +790,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF64Trunc: {
+    case wasm::kExprF64Trunc: {
       if (m->Float64RoundTruncate().IsSupported()) {
         op = m->Float64RoundTruncate().op();
         break;
@@ -798,7 +799,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         break;
       }
     }
-    case kExprF64NearestInt: {
+    case wasm::kExprF64NearestInt: {
       if (m->Float64RoundTiesEven().IsSupported()) {
         op = m->Float64RoundTiesEven().op();
         break;
@@ -811,37 +812,37 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
 #if WASM_64
     // Opcodes only supported on 64-bit platforms.
     // TODO(titzer): query the machine operator builder here instead of #ifdef.
-    case kExprI32ConvertI64:
+    case wasm::kExprI32ConvertI64:
       op = m->TruncateInt64ToInt32();
       break;
-    case kExprI64SConvertI32:
+    case wasm::kExprI64SConvertI32:
       op = m->ChangeInt32ToInt64();
       break;
-    case kExprI64UConvertI32:
+    case wasm::kExprI64UConvertI32:
       op = m->ChangeUint32ToUint64();
       break;
-    case kExprF32SConvertI64:
+    case wasm::kExprF32SConvertI64:
       op = m->RoundInt64ToFloat32();
       break;
-    case kExprF32UConvertI64:
+    case wasm::kExprF32UConvertI64:
       op = m->RoundUint64ToFloat32();
       break;
-    case kExprF64SConvertI64:
+    case wasm::kExprF64SConvertI64:
       op = m->RoundInt64ToFloat64();
       break;
-    case kExprF64UConvertI64:
+    case wasm::kExprF64UConvertI64:
       op = m->RoundUint64ToFloat64();
       break;
-    case kExprF64ReinterpretI64:
+    case wasm::kExprF64ReinterpretI64:
       op = m->BitcastInt64ToFloat64();
       break;
-    case kExprI64ReinterpretF64:
+    case wasm::kExprI64ReinterpretF64:
       op = m->BitcastFloat64ToInt64();
       break;
-    case kExprI64Clz:
+    case wasm::kExprI64Clz:
       op = m->Word64Clz();
       break;
-    case kExprI64Ctz: {
+    case wasm::kExprI64Ctz: {
       if (m->Word64Ctz().IsSupported()) {
         op = m->Word64Ctz().op();
         break;
@@ -849,7 +850,7 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
         return BuildI64Ctz(input);
       }
     }
-    case kExprI64Popcnt: {
+    case wasm::kExprI64Popcnt: {
       if (m->Word64Popcnt().IsSupported()) {
         op = m->Word64Popcnt().op();
         break;
@@ -864,27 +865,27 @@ TFNode* WasmGraphBuilder::Unop(WasmOpcode opcode, TFNode* input) {
   return graph->graph()->NewNode(op, input);
 }
 
-TFNode* WasmGraphBuilder::Float32Constant(float value) {
+Node* WasmGraphBuilder::Float32Constant(float value) {
   DCHECK_NOT_NULL(graph);
   return graph->Float32Constant(value);
 }
 
-TFNode* WasmGraphBuilder::Float64Constant(double value) {
+Node* WasmGraphBuilder::Float64Constant(double value) {
   DCHECK_NOT_NULL(graph);
   return graph->Float64Constant(value);
 }
 
-TFNode* WasmGraphBuilder::Constant(Handle<Object> value) {
+Node* WasmGraphBuilder::Constant(Handle<Object> value) {
   DCHECK_NOT_NULL(graph);
   return graph->Constant(value);
 }
 
-TFNode* WasmGraphBuilder::Branch(TFNode* cond, TFNode** true_node,
-                          TFNode** false_node) {
+Node* WasmGraphBuilder::Branch(Node* cond, Node** true_node,
+                          Node** false_node) {
   DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(cond);
   DCHECK_NOT_NULL(*control);
-  TFNode* branch =
+  Node* branch =
       graph->graph()->NewNode(graph->common()->Branch(), cond, *control);
   *true_node = graph->graph()->NewNode(graph->common()->IfTrue(), branch);
   *false_node = graph->graph()->NewNode(graph->common()->IfFalse(), branch);
@@ -892,27 +893,27 @@ TFNode* WasmGraphBuilder::Branch(TFNode* cond, TFNode** true_node,
 }
 
 
-TFNode* WasmGraphBuilder::Switch(unsigned count, TFNode* key) {
+Node* WasmGraphBuilder::Switch(unsigned count, Node* key) {
   DCHECK_NOT_NULL(graph);
   return graph->graph()->NewNode(graph->common()->Switch(count), key, *control);
 }
 
 
-TFNode* WasmGraphBuilder::IfValue(int32_t value, TFNode* sw) {
+Node* WasmGraphBuilder::IfValue(int32_t value, Node* sw) {
   DCHECK_NOT_NULL(graph);
-  DCHECK_EQ(compiler::IrOpcode::kSwitch, sw->opcode());
+  DCHECK_EQ(IrOpcode::kSwitch, sw->opcode());
   return graph->graph()->NewNode(graph->common()->IfValue(value), sw);
 }
 
 
-TFNode* WasmGraphBuilder::IfDefault(TFNode* sw) {
+Node* WasmGraphBuilder::IfDefault(Node* sw) {
   DCHECK_NOT_NULL(graph);
-  DCHECK_EQ(compiler::IrOpcode::kSwitch, sw->opcode());
+  DCHECK_EQ(IrOpcode::kSwitch, sw->opcode());
   return graph->graph()->NewNode(graph->common()->IfDefault(), sw);
 }
 
 
-TFNode* WasmGraphBuilder::Return(unsigned count, TFNode** vals) {
+Node* WasmGraphBuilder::Return(unsigned count, Node** vals) {
   DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(*control);
   DCHECK_NOT_NULL(*effect);
@@ -923,60 +924,60 @@ TFNode* WasmGraphBuilder::Return(unsigned count, TFNode** vals) {
     count = 1;
   }
 
-  compiler::Graph* g = graph->graph();
-  TFNode** buf = Realloc(vals, count + 2);
+  Graph* g = graph->graph();
+  Node** buf = Realloc(vals, count + 2);
   buf[count] = *effect;
   buf[count + 1] = *control;
-  TFNode* ret = g->NewNode(graph->common()->Return(), count + 2, vals);
+  Node* ret = g->NewNode(graph->common()->Return(), count + 2, vals);
 
   MergeControlToEnd(graph, ret);
   return ret;
 }
 
 
-TFNode* WasmGraphBuilder::ReturnVoid() { return Return(0, Buffer(0)); }
+Node* WasmGraphBuilder::ReturnVoid() { return Return(0, Buffer(0)); }
 
-TFNode* WasmGraphBuilder::Unreachable() {
+Node* WasmGraphBuilder::Unreachable() {
   DCHECK_NOT_NULL(graph);
   trap->Unreachable();
   return nullptr;
 }
 
 
-TFNode* WasmGraphBuilder::BuildF32CopySign(TFNode* left, TFNode* right) {
-  TFNode* result = Unop(
-      kExprF32ReinterpretI32,
-      Binop(kExprI32Ior, Binop(kExprI32And, Unop(kExprI32ReinterpretF32, left),
+Node* WasmGraphBuilder::BuildF32CopySign(Node* left, Node* right) {
+  Node* result = Unop(
+      wasm::kExprF32ReinterpretI32,
+      Binop(wasm::kExprI32Ior, Binop(wasm::kExprI32And, Unop(wasm::kExprI32ReinterpretF32, left),
                                graph->Int32Constant(0x7fffffff)),
-            Binop(kExprI32And, Unop(kExprI32ReinterpretF32, right),
+            Binop(wasm::kExprI32And, Unop(wasm::kExprI32ReinterpretF32, right),
                   graph->Int32Constant(0x80000000))));
 
   return result;
 }
 
 
-TFNode* WasmGraphBuilder::BuildF64CopySign(TFNode* left, TFNode* right) {
+Node* WasmGraphBuilder::BuildF64CopySign(Node* left, Node* right) {
 #if WASM_64
-  TFNode* result = Unop(
-      kExprF64ReinterpretI64,
-      Binop(kExprI64Ior, Binop(kExprI64And, Unop(kExprI64ReinterpretF64, left),
+  Node* result = Unop(
+      wasm::kExprF64ReinterpretI64,
+      Binop(wasm::kExprI64Ior, Binop(wasm::kExprI64And, Unop(wasm::kExprI64ReinterpretF64, left),
                                graph->Int64Constant(0x7fffffffffffffff)),
-            Binop(kExprI64And, Unop(kExprI64ReinterpretF64, right),
+            Binop(wasm::kExprI64And, Unop(wasm::kExprI64ReinterpretF64, right),
                   graph->Int64Constant(0x8000000000000000))));
 
   return result;
 #else
-  compiler::MachineOperatorBuilder* m = graph->machine();
+  MachineOperatorBuilder* m = graph->machine();
 
-  TFNode* high_word_left =
+  Node* high_word_left =
       graph->graph()->NewNode(m->Float64ExtractHighWord32(), left);
-  TFNode* high_word_right =
+  Node* high_word_right =
       graph->graph()->NewNode(m->Float64ExtractHighWord32(), right);
 
-  TFNode* new_high_word = Binop(
-      kExprI32Ior,
-      Binop(kExprI32And, high_word_left, graph->Int32Constant(0x7fffffff)),
-      Binop(kExprI32And, high_word_right, graph->Int32Constant(0x80000000)));
+  Node* new_high_word = Binop(
+      wasm::kExprI32Ior,
+      Binop(wasm::kExprI32And, high_word_left, graph->Int32Constant(0x7fffffff)),
+      Binop(wasm::kExprI32And, high_word_right, graph->Int32Constant(0x80000000)));
 
   return graph->graph()->NewNode(m->Float64InsertHighWord32(), left,
                                  new_high_word);
@@ -984,7 +985,7 @@ TFNode* WasmGraphBuilder::BuildF64CopySign(TFNode* left, TFNode* right) {
 }
 
 
-TFNode* WasmGraphBuilder::BuildI32Ctz(TFNode* input) {
+Node* WasmGraphBuilder::BuildI32Ctz(Node* input) {
   DCHECK_NOT_NULL(graph);
   //// Implement the following code as TF graph.
   // value = value | (value << 1);
@@ -994,29 +995,29 @@ TFNode* WasmGraphBuilder::BuildI32Ctz(TFNode* input) {
   // value = value | (value << 16);
   // return CountPopulation32(0xffffffff XOR value);
 
-  TFNode* result = Binop(kExprI32Ior, input,
-                         Binop(kExprI32Shl, input, graph->Int32Constant(1)));
+  Node* result = Binop(wasm::kExprI32Ior, input,
+                         Binop(wasm::kExprI32Shl, input, graph->Int32Constant(1)));
 
-  result = Binop(kExprI32Ior, result,
-                 Binop(kExprI32Shl, result, graph->Int32Constant(2)));
+  result = Binop(wasm::kExprI32Ior, result,
+                 Binop(wasm::kExprI32Shl, result, graph->Int32Constant(2)));
 
-  result = Binop(kExprI32Ior, result,
-                 Binop(kExprI32Shl, result, graph->Int32Constant(4)));
+  result = Binop(wasm::kExprI32Ior, result,
+                 Binop(wasm::kExprI32Shl, result, graph->Int32Constant(4)));
 
-  result = Binop(kExprI32Ior, result,
-                 Binop(kExprI32Shl, result, graph->Int32Constant(8)));
+  result = Binop(wasm::kExprI32Ior, result,
+                 Binop(wasm::kExprI32Shl, result, graph->Int32Constant(8)));
 
-  result = Binop(kExprI32Ior, result,
-                 Binop(kExprI32Shl, result, graph->Int32Constant(16)));
+  result = Binop(wasm::kExprI32Ior, result,
+                 Binop(wasm::kExprI32Shl, result, graph->Int32Constant(16)));
 
   result = BuildI32Popcnt(
-      Binop(kExprI32Xor, graph->Int32Constant(0xffffffff), result));
+      Binop(wasm::kExprI32Xor, graph->Int32Constant(0xffffffff), result));
 
   return result;
 }
 
 
-TFNode* WasmGraphBuilder::BuildI64Ctz(TFNode* input) {
+Node* WasmGraphBuilder::BuildI64Ctz(Node* input) {
   //// Implement the following code as TF graph.
   // value = value | (value << 1);
   // value = value | (value << 2);
@@ -1026,31 +1027,31 @@ TFNode* WasmGraphBuilder::BuildI64Ctz(TFNode* input) {
   // value = value | (value << 32);
   // return CountPopulation64(0xffffffffffffffff XOR value);
 
-  TFNode* result = Binop(kExprI64Ior, input,
-                         Binop(kExprI64Shl, input, graph->Int64Constant(1)));
+  Node* result = Binop(wasm::kExprI64Ior, input,
+                         Binop(wasm::kExprI64Shl, input, graph->Int64Constant(1)));
 
-  result = Binop(kExprI64Ior, result,
-                 Binop(kExprI64Shl, result, graph->Int64Constant(2)));
+  result = Binop(wasm::kExprI64Ior, result,
+                 Binop(wasm::kExprI64Shl, result, graph->Int64Constant(2)));
 
-  result = Binop(kExprI64Ior, result,
-                 Binop(kExprI64Shl, result, graph->Int64Constant(4)));
+  result = Binop(wasm::kExprI64Ior, result,
+                 Binop(wasm::kExprI64Shl, result, graph->Int64Constant(4)));
 
-  result = Binop(kExprI64Ior, result,
-                 Binop(kExprI64Shl, result, graph->Int64Constant(8)));
+  result = Binop(wasm::kExprI64Ior, result,
+                 Binop(wasm::kExprI64Shl, result, graph->Int64Constant(8)));
 
-  result = Binop(kExprI64Ior, result,
-                 Binop(kExprI64Shl, result, graph->Int64Constant(16)));
+  result = Binop(wasm::kExprI64Ior, result,
+                 Binop(wasm::kExprI64Shl, result, graph->Int64Constant(16)));
 
-  result = Binop(kExprI64Ior, result,
-                 Binop(kExprI64Shl, result, graph->Int64Constant(32)));
+  result = Binop(wasm::kExprI64Ior, result,
+                 Binop(wasm::kExprI64Shl, result, graph->Int64Constant(32)));
 
   result = BuildI64Popcnt(
-      Binop(kExprI64Xor, graph->Int64Constant(0xffffffffffffffff), result));
+      Binop(wasm::kExprI64Xor, graph->Int64Constant(0xffffffffffffffff), result));
 
   return result;
 }
 
-TFNode* WasmGraphBuilder::BuildI32Popcnt(TFNode* input) {
+Node* WasmGraphBuilder::BuildI32Popcnt(Node* input) {
   DCHECK_NOT_NULL(graph);
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x55555555) + (value & 0x55555555);
@@ -1059,38 +1060,38 @@ TFNode* WasmGraphBuilder::BuildI32Popcnt(TFNode* input) {
   // value = ((value >> 8) & 0x00ff00ff) + (value & 0x00ff00ff);
   // value = ((value >> 16) & 0x0000ffff) + (value & 0x0000ffff);
 
-  TFNode* result = Binop(
-      kExprI32Add,
-      Binop(kExprI32And, Binop(kExprI32ShrU, input, graph->Int32Constant(1)),
+  Node* result = Binop(
+      wasm::kExprI32Add,
+      Binop(wasm::kExprI32And, Binop(wasm::kExprI32ShrU, input, graph->Int32Constant(1)),
             graph->Int32Constant(0x55555555)),
-      Binop(kExprI32And, input, graph->Int32Constant(0x55555555)));
+      Binop(wasm::kExprI32And, input, graph->Int32Constant(0x55555555)));
 
-  result = Binop(kExprI32Add, Binop(kExprI32And, Binop(kExprI32ShrU, result,
+  result = Binop(wasm::kExprI32Add, Binop(wasm::kExprI32And, Binop(wasm::kExprI32ShrU, result,
                                                        graph->Int32Constant(2)),
                                     graph->Int32Constant(0x33333333)),
-                 Binop(kExprI32And, result, graph->Int32Constant(0x33333333)));
+                 Binop(wasm::kExprI32And, result, graph->Int32Constant(0x33333333)));
 
-  result = Binop(kExprI32Add, Binop(kExprI32And, Binop(kExprI32ShrU, result,
+  result = Binop(wasm::kExprI32Add, Binop(wasm::kExprI32And, Binop(wasm::kExprI32ShrU, result,
                                                        graph->Int32Constant(4)),
                                     graph->Int32Constant(0x0f0f0f0f)),
-                 Binop(kExprI32And, result, graph->Int32Constant(0x0f0f0f0f)));
+                 Binop(wasm::kExprI32And, result, graph->Int32Constant(0x0f0f0f0f)));
 
-  result = Binop(kExprI32Add, Binop(kExprI32And, Binop(kExprI32ShrU, result,
+  result = Binop(wasm::kExprI32Add, Binop(wasm::kExprI32And, Binop(wasm::kExprI32ShrU, result,
                                                        graph->Int32Constant(8)),
                                     graph->Int32Constant(0x00ff00ff)),
-                 Binop(kExprI32And, result, graph->Int32Constant(0x00ff00ff)));
+                 Binop(wasm::kExprI32And, result, graph->Int32Constant(0x00ff00ff)));
 
   result = Binop(
-      kExprI32Add,
-      Binop(kExprI32And, Binop(kExprI32ShrU, result, graph->Int32Constant(16)),
+      wasm::kExprI32Add,
+      Binop(wasm::kExprI32And, Binop(wasm::kExprI32ShrU, result, graph->Int32Constant(16)),
             graph->Int32Constant(0x0000ffff)),
-      Binop(kExprI32And, result, graph->Int32Constant(0x0000ffff)));
+      Binop(wasm::kExprI32And, result, graph->Int32Constant(0x0000ffff)));
 
   return result;
 }
 
 
-TFNode* WasmGraphBuilder::BuildI64Popcnt(TFNode* input) {
+Node* WasmGraphBuilder::BuildI64Popcnt(Node* input) {
   DCHECK_NOT_NULL(graph);
   //// Implement the following code as a TF graph.
   // value = ((value >> 1) & 0x5555555555555555) + (value & 0x5555555555555555);
@@ -1102,47 +1103,47 @@ TFNode* WasmGraphBuilder::BuildI64Popcnt(TFNode* input) {
   // value = ((value >> 32) & 0x00000000ffffffff) + (value &
   // 0x00000000ffffffff);
 
-  TFNode* result = Binop(
-      kExprI64Add,
-      Binop(kExprI64And, Binop(kExprI64ShrU, input, graph->Int64Constant(1)),
+  Node* result = Binop(
+      wasm::kExprI64Add,
+      Binop(wasm::kExprI64And, Binop(wasm::kExprI64ShrU, input, graph->Int64Constant(1)),
             graph->Int64Constant(0x5555555555555555)),
-      Binop(kExprI64And, input, graph->Int64Constant(0x5555555555555555)));
+      Binop(wasm::kExprI64And, input, graph->Int64Constant(0x5555555555555555)));
 
   result = Binop(
-      kExprI64Add,
-      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(2)),
+      wasm::kExprI64Add,
+      Binop(wasm::kExprI64And, Binop(wasm::kExprI64ShrU, result, graph->Int64Constant(2)),
             graph->Int64Constant(0x3333333333333333)),
-      Binop(kExprI64And, result, graph->Int64Constant(0x3333333333333333)));
+      Binop(wasm::kExprI64And, result, graph->Int64Constant(0x3333333333333333)));
 
   result = Binop(
-      kExprI64Add,
-      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(4)),
+      wasm::kExprI64Add,
+      Binop(wasm::kExprI64And, Binop(wasm::kExprI64ShrU, result, graph->Int64Constant(4)),
             graph->Int64Constant(0x0f0f0f0f0f0f0f0f)),
-      Binop(kExprI64And, result, graph->Int64Constant(0x0f0f0f0f0f0f0f0f)));
+      Binop(wasm::kExprI64And, result, graph->Int64Constant(0x0f0f0f0f0f0f0f0f)));
 
   result = Binop(
-      kExprI64Add,
-      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(8)),
+      wasm::kExprI64Add,
+      Binop(wasm::kExprI64And, Binop(wasm::kExprI64ShrU, result, graph->Int64Constant(8)),
             graph->Int64Constant(0x00ff00ff00ff00ff)),
-      Binop(kExprI64And, result, graph->Int64Constant(0x00ff00ff00ff00ff)));
+      Binop(wasm::kExprI64And, result, graph->Int64Constant(0x00ff00ff00ff00ff)));
 
   result = Binop(
-      kExprI64Add,
-      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(16)),
+      wasm::kExprI64Add,
+      Binop(wasm::kExprI64And, Binop(wasm::kExprI64ShrU, result, graph->Int64Constant(16)),
             graph->Int64Constant(0x0000ffff0000ffff)),
-      Binop(kExprI64And, result, graph->Int64Constant(0x0000ffff0000ffff)));
+      Binop(wasm::kExprI64And, result, graph->Int64Constant(0x0000ffff0000ffff)));
 
   result = Binop(
-      kExprI64Add,
-      Binop(kExprI64And, Binop(kExprI64ShrU, result, graph->Int64Constant(32)),
+      wasm::kExprI64Add,
+      Binop(wasm::kExprI64And, Binop(wasm::kExprI64ShrU, result, graph->Int64Constant(32)),
             graph->Int64Constant(0x00000000ffffffff)),
-      Binop(kExprI64And, result, graph->Int64Constant(0x00000000ffffffff)));
+      Binop(wasm::kExprI64And, result, graph->Int64Constant(0x00000000ffffffff)));
 
   return result;
 }
 
 
-TFNode* WasmGraphBuilder::BuildWasmCall(FunctionSig* sig, TFNode** args) {
+Node* WasmGraphBuilder::BuildWasmCall(wasm::FunctionSig* sig, Node** args) {
   const size_t params = sig->parameter_count();
   const size_t extra = 2;  // effect and control inputs.
   const size_t count = 1 + params + extra;
@@ -1154,66 +1155,66 @@ TFNode* WasmGraphBuilder::BuildWasmCall(FunctionSig* sig, TFNode** args) {
   args[params + 1] = *effect;
   args[params + 2] = *control;
 
-  const compiler::Operator* op =
+  const Operator* op =
       graph->common()->Call(module->GetWasmCallDescriptor(graph->zone(), sig));
-  TFNode* call = graph->graph()->NewNode(op, static_cast<int>(count), args);
+  Node* call = graph->graph()->NewNode(op, static_cast<int>(count), args);
 
   *effect = call;
   return call;
 }
 
-TFNode* WasmGraphBuilder::CallDirect(uint32_t index, TFNode** args) {
+Node* WasmGraphBuilder::CallDirect(uint32_t index, Node** args) {
   DCHECK_NOT_NULL(graph);
   DCHECK_NULL(args[0]);
 
   // Add code object as constant.
   args[0] = Constant(module->GetFunctionCode(index));
-  FunctionSig* sig = module->GetFunctionSignature(index);
+  wasm::FunctionSig* sig = module->GetFunctionSignature(index);
 
   return BuildWasmCall(sig, args);
 }
 
-TFNode* WasmGraphBuilder::CallIndirect(uint32_t index, TFNode** args) {
+Node* WasmGraphBuilder::CallIndirect(uint32_t index, Node** args) {
   DCHECK_NOT_NULL(graph);
   DCHECK_NOT_NULL(args[0]);
 
-  compiler::Graph* g = graph->graph();
-  compiler::MachineOperatorBuilder* machine = graph->machine();
+  Graph* g = graph->graph();
+  MachineOperatorBuilder* machine = graph->machine();
 
   // Compute the code object by loading it from the function table.
-  TFNode* key = args[0];
-  TFNode* table = FunctionTable();
+  Node* key = args[0];
+  Node* table = FunctionTable();
 
   // Bounds check the index.
   int table_size = static_cast<int>(module->FunctionTableSize());
   {
-    TFNode* size = Int32Constant(static_cast<int>(table_size));
-    TFNode* in_bounds = g->NewNode(machine->Uint32LessThan(), key, size);
+    Node* size = Int32Constant(static_cast<int>(table_size));
+    Node* in_bounds = g->NewNode(machine->Uint32LessThan(), key, size);
     trap->AddTrapIfFalse(kTrapFuncInvalid, in_bounds);
   }
 
   // Load signature from the table and check.
   // The table is a FixedArray; signatures are encoded as SMIs.
   // [sig1, sig2, sig3, ...., code1, code2, code3 ...]
-  compiler::ElementAccess access =
-      compiler::AccessBuilder::ForFixedArrayElement();
+  ElementAccess access =
+      AccessBuilder::ForFixedArrayElement();
   const int fixed_offset = access.header_size - access.tag();
   {
-    TFNode* load_sig =
+    Node* load_sig =
         g->NewNode(machine->Load(kMachAnyTagged), table,
                    g->NewNode(machine->Int32Add(),
                               g->NewNode(machine->Word32Shl(), key,
                                          Int32Constant(kPointerSizeLog2)),
                               Int32Constant(fixed_offset)),
                    *effect, *control);
-    TFNode* sig_match =
+    Node* sig_match =
         g->NewNode(machine->WordEqual(), load_sig, graph->SmiConstant(index));
     trap->AddTrapIfFalse(kTrapFuncSigMismatch, sig_match);
   }
 
   // Load code object from the table.
   int offset = fixed_offset + kPointerSize * table_size;
-  TFNode* load_code =
+  Node* load_code =
       g->NewNode(machine->Load(kMachAnyTagged), table,
                  g->NewNode(machine->Int32Add(),
                             g->NewNode(machine->Word32Shl(), key,
@@ -1222,28 +1223,28 @@ TFNode* WasmGraphBuilder::CallIndirect(uint32_t index, TFNode** args) {
                  *effect, *control);
 
   args[0] = load_code;
-  FunctionSig* sig = module->GetSignature(index);
+  wasm::FunctionSig* sig = module->GetSignature(index);
   return BuildWasmCall(sig, args);
 }
 
-TFNode* WasmGraphBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
+Node* WasmGraphBuilder::ToJS(Node* node, Node* context, wasm::LocalType type) {
   DCHECK_NOT_NULL(graph);
-  compiler::Graph* g = graph->graph();
-  compiler::SimplifiedOperatorBuilder simplified(graph->zone());
+  Graph* g = graph->graph();
+  SimplifiedOperatorBuilder simplified(graph->zone());
   switch (type) {
-    case kAstI32:
+    case wasm::kAstI32:
       return g->NewNode(simplified.ChangeInt32ToTagged(), node);
-    case kAstI64:
+    case wasm::kAstI64:
       // TODO(titzer): i64->JS has no good solution right now. Using lower 32
       // bits.
       node = g->NewNode(graph->machine()->TruncateInt64ToInt32(), node);
       return g->NewNode(simplified.ChangeInt32ToTagged(), node);
-    case kAstF32:
+    case wasm::kAstF32:
       node = g->NewNode(graph->machine()->ChangeFloat32ToFloat64(), node);
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
-    case kAstF64:
+    case wasm::kAstF64:
       return g->NewNode(simplified.ChangeFloat64ToTagged(), node);
-    case kAstStmt:
+    case wasm::kAstStmt:
       return graph->UndefinedConstant();
     default:
       UNREACHABLE();
@@ -1251,39 +1252,39 @@ TFNode* WasmGraphBuilder::ToJS(TFNode* node, TFNode* context, LocalType type) {
   }
 }
 
-TFNode* WasmGraphBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) {
+Node* WasmGraphBuilder::FromJS(Node* node, Node* context, wasm::LocalType type) {
   DCHECK_NOT_NULL(graph);
-  compiler::Graph* g = graph->graph();
+  Graph* g = graph->graph();
   // Do a JavaScript ToNumber.
-  TFNode* num = g->NewNode(graph->javascript()->ToNumber(), node, context,
+  Node* num = g->NewNode(graph->javascript()->ToNumber(), node, context,
                            graph->EmptyFrameState(), *effect, *control);
   *control = num;
   *effect = num;
 
   // Change representation.
-  compiler::SimplifiedOperatorBuilder simplified(graph->zone());
+  SimplifiedOperatorBuilder simplified(graph->zone());
   num = g->NewNode(simplified.ChangeTaggedToFloat64(), num);
 
   switch (type) {
-    case kAstI32: {
+    case wasm::kAstI32: {
       num = g->NewNode(graph->machine()->TruncateFloat64ToInt32(
-                           compiler::TruncationMode::kJavaScript),
+                           TruncationMode::kJavaScript),
                        num);
       break;
     }
-    case kAstI64:
+    case wasm::kAstI64:
       // TODO(titzer): JS->i64 has no good solution right now. Using 32 bits.
       num = g->NewNode(graph->machine()->TruncateFloat64ToInt32(
-                           compiler::TruncationMode::kJavaScript),
+                           TruncationMode::kJavaScript),
                        num);
       num = g->NewNode(graph->machine()->ChangeInt32ToInt64(), num);
       break;
-    case kAstF32:
+    case wasm::kAstF32:
       num = g->NewNode(graph->machine()->TruncateFloat64ToFloat32(), num);
       break;
-    case kAstF64:
+    case wasm::kAstF64:
       break;
-    case kAstStmt:
+    case wasm::kAstStmt:
       num = graph->Int32Constant(0);
       break;
     default:
@@ -1293,25 +1294,25 @@ TFNode* WasmGraphBuilder::FromJS(TFNode* node, TFNode* context, LocalType type) 
   return num;
 }
 
-TFNode* WasmGraphBuilder::Invert(TFNode* node) {
+Node* WasmGraphBuilder::Invert(Node* node) {
   DCHECK_NOT_NULL(graph);
-  return Unop(kExprBoolNot, node);
+  return Unop(wasm::kExprBoolNot, node);
 }
 
-void WasmGraphBuilder::BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig* sig) {
+void WasmGraphBuilder::BuildJSToWasmWrapper(Handle<Code> wasm_code, wasm::FunctionSig* sig) {
   DCHECK_NOT_NULL(graph);
 
   int params = static_cast<int>(sig->parameter_count());
-  compiler::Graph* g = graph->graph();
+  Graph* g = graph->graph();
   int count = params + 3;
-  TFNode** args = Buffer(count);
+  Node** args = Buffer(count);
 
   // Build the start and the JS parameter nodes.
-  TFNode* start = Start(params + 3);
+  Node* start = Start(params + 3);
   *control = start;
   *effect = start;
   // JS context is the last parameter.
-  TFNode* context =
+  Node* context =
       g->NewNode(graph->common()->Parameter(params + 1, "context"), start);
 
   int pos = 0;
@@ -1319,7 +1320,7 @@ void WasmGraphBuilder::BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig*
 
   // Convert JS parameters to WASM numbers.
   for (int i = 0; i < params; i++) {
-    TFNode* param = g->NewNode(graph->common()->Parameter(i), start);
+    Node* param = g->NewNode(graph->common()->Parameter(i), start);
     args[pos++] = FromJS(param, context, sig->GetParam(i));
   }
 
@@ -1327,18 +1328,18 @@ void WasmGraphBuilder::BuildJSToWasmWrapper(Handle<Code> wasm_code, FunctionSig*
   args[pos++] = *control;
 
   // Call the WASM code.
-  compiler::CallDescriptor* desc =
+  CallDescriptor* desc =
       module->GetWasmCallDescriptor(graph->zone(), sig);
-  TFNode* call = g->NewNode(graph->common()->Call(desc), count, args);
-  TFNode* jsval = ToJS(call, context,
-                       sig->return_count() == 0 ? kAstStmt : sig->GetReturn());
-  TFNode* ret = g->NewNode(graph->common()->Return(), jsval, call, start);
+  Node* call = g->NewNode(graph->common()->Call(desc), count, args);
+  Node* jsval = ToJS(call, context,
+                       sig->return_count() == 0 ? wasm::kAstStmt : sig->GetReturn());
+  Node* ret = g->NewNode(graph->common()->Return(), jsval, call, start);
 
   MergeControlToEnd(graph, ret);
 }
 
 void WasmGraphBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
-                                     FunctionSig* sig) {
+                                     wasm::FunctionSig* sig) {
   DCHECK_NOT_NULL(graph);
   CHECK_NOT_NULL(graph);
   int js_count = function->shared()->internal_formal_parameter_count();
@@ -1346,14 +1347,14 @@ void WasmGraphBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
 
   // Build the start and the parameter nodes.
   Isolate* isolate = graph->isolate();
-  compiler::Graph* g = graph->graph();
-  compiler::CallDescriptor* desc;
-  TFNode* start = Start(wasm_count + 3);
+  Graph* g = graph->graph();
+  CallDescriptor* desc;
+  Node* start = Start(wasm_count + 3);
   *effect = start;
   *control = start;
   // JS context is the last parameter.
-  TFNode* context = Constant(Handle<Context>(function->context(), isolate));
-  TFNode** args = Buffer(wasm_count + 7);
+  Node* context = Constant(Handle<Context>(function->context(), isolate));
+  Node** args = Buffer(wasm_count + 7);
 
   bool arg_count_before_args = false;
   bool add_new_target_undefined = false;
@@ -1361,17 +1362,17 @@ void WasmGraphBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   int pos = 0;
   if (js_count == wasm_count) {
     // exact arity match, just call the function directly.
-    desc = compiler::Linkage::GetJSCallDescriptor(
-        g->zone(), false, wasm_count + 1, compiler::CallDescriptor::kNoFlags);
+    desc = Linkage::GetJSCallDescriptor(
+        g->zone(), false, wasm_count + 1, CallDescriptor::kNoFlags);
     arg_count_before_args = false;
     add_new_target_undefined = true;
   } else {
     // Use the Call builtin.
     Callable callable = CodeFactory::Call(isolate);
     args[pos++] = graph->HeapConstant(callable.code());
-    desc = compiler::Linkage::GetStubCallDescriptor(
+    desc = Linkage::GetStubCallDescriptor(
         isolate, g->zone(), callable.descriptor(), wasm_count + 1,
-        compiler::CallDescriptor::kNoFlags);
+        CallDescriptor::kNoFlags);
     arg_count_before_args = true;
   }
 
@@ -1383,7 +1384,7 @@ void WasmGraphBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
 
   // Convert WASM numbers to JS values.
   for (int i = 0; i < wasm_count; i++) {
-    TFNode* param = g->NewNode(graph->common()->Parameter(i), start);
+    Node* param = g->NewNode(graph->common()->Parameter(i), start);
     args[pos++] = ToJS(param, context, sig->GetParam(i));
   }
 
@@ -1398,17 +1399,17 @@ void WasmGraphBuilder::BuildWasmToJSWrapper(Handle<JSFunction> function,
   args[pos++] = *effect;
   args[pos++] = *control;
 
-  TFNode* call = g->NewNode(graph->common()->Call(desc), pos, args);
+  Node* call = g->NewNode(graph->common()->Call(desc), pos, args);
 
   // Convert the return value back.
-  TFNode* val = FromJS(call, context,
-                       sig->return_count() == 0 ? kAstStmt : sig->GetReturn());
-  TFNode* ret = g->NewNode(graph->common()->Return(), val, call, start);
+  Node* val = FromJS(call, context,
+                       sig->return_count() == 0 ? wasm::kAstStmt : sig->GetReturn());
+  Node* ret = g->NewNode(graph->common()->Return(), val, call, start);
 
   MergeControlToEnd(graph, ret);
 }
 
-TFNode* WasmGraphBuilder::MemBuffer(uint32_t offset) {
+Node* WasmGraphBuilder::MemBuffer(uint32_t offset) {
   if (!graph) return nullptr;
   if (offset == 0) {
     if (!mem_buffer) mem_buffer = graph->IntPtrConstant(module->mem_start);
@@ -1418,7 +1419,7 @@ TFNode* WasmGraphBuilder::MemBuffer(uint32_t offset) {
   }
 }
 
-TFNode* WasmGraphBuilder::MemSize(uint32_t offset) {
+Node* WasmGraphBuilder::MemSize(uint32_t offset) {
   if (!graph) return nullptr;
   int32_t size = static_cast<int>(module->mem_end - module->mem_start);
   if (offset == 0) {
@@ -1430,7 +1431,7 @@ TFNode* WasmGraphBuilder::MemSize(uint32_t offset) {
 }
 
 
-TFNode* WasmGraphBuilder::FunctionTable() {
+Node* WasmGraphBuilder::FunctionTable() {
   if (!graph) return nullptr;
   if (!function_table) {
     DCHECK(!module->function_table.is_null());
@@ -1440,40 +1441,40 @@ TFNode* WasmGraphBuilder::FunctionTable() {
 }
 
 
-TFNode* WasmGraphBuilder::LoadGlobal(uint32_t index) {
+Node* WasmGraphBuilder::LoadGlobal(uint32_t index) {
   DCHECK_NOT_NULL(graph);
   MachineType mem_type = module->GetGlobalType(index);
-  TFNode* addr = graph->IntPtrConstant(
+  Node* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
-  const compiler::Operator* op = graph->machine()->Load(mem_type);
-  TFNode* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0),
+  const Operator* op = graph->machine()->Load(mem_type);
+  Node* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0),
                                          *effect, *control);
   *effect = node;
   return node;
 }
 
 
-TFNode* WasmGraphBuilder::StoreGlobal(uint32_t index, TFNode* val) {
+Node* WasmGraphBuilder::StoreGlobal(uint32_t index, Node* val) {
   DCHECK_NOT_NULL(graph);
   MachineType mem_type = module->GetGlobalType(index);
-  TFNode* addr = graph->IntPtrConstant(
+  Node* addr = graph->IntPtrConstant(
       module->globals_area + module->module->globals->at(index).offset);
-  const compiler::Operator* op = graph->machine()->Store(
-      compiler::StoreRepresentation(mem_type, compiler::kNoWriteBarrier));
-  TFNode* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0), val,
+  const Operator* op = graph->machine()->Store(
+      StoreRepresentation(mem_type, kNoWriteBarrier));
+  Node* node = graph->graph()->NewNode(op, addr, graph->Int32Constant(0), val,
                                          *effect, *control);
   *effect = node;
   return node;
 }
 
-void WasmGraphBuilder::BoundsCheckMem(MachineType memtype, TFNode* index,
+void WasmGraphBuilder::BoundsCheckMem(MachineType memtype, Node* index,
                                uint32_t offset) {
   // TODO(turbofan): fold bounds checks for constant indexes.
-  compiler::Graph* g = graph->graph();
+  Graph* g = graph->graph();
   CHECK_GE(module->mem_end, module->mem_start);
   ptrdiff_t size = module->mem_end - module->mem_start;
-  byte memsize = WasmOpcodes::MemSize(memtype);
-  TFNode* cond;
+  byte memsize = wasm::WasmOpcodes::MemSize(memtype);
+  Node* cond;
   if (offset >= size || (offset + memsize) > size) {
     // The access will always throw.
     cond = graph->Int32Constant(0);
@@ -1489,17 +1490,17 @@ void WasmGraphBuilder::BoundsCheckMem(MachineType memtype, TFNode* index,
 }
 
 
-TFNode* WasmGraphBuilder::LoadMem(LocalType type, MachineType memtype, TFNode* index,
+Node* WasmGraphBuilder::LoadMem(wasm::LocalType type, MachineType memtype, Node* index,
                            uint32_t offset) {
   if (!graph) return nullptr;
 
-  compiler::Graph* g = graph->graph();
-  TFNode* load;
+  Graph* g = graph->graph();
+  Node* load;
 
   if (module && module->asm_js) {
     // asm.js semantics use CheckedLoad (i.e. OOB reads return 0ish).
     DCHECK_EQ(0, offset);
-    const compiler::Operator* op = graph->machine()->CheckedLoad(memtype);
+    const Operator* op = graph->machine()->CheckedLoad(memtype);
     load = g->NewNode(op, MemBuffer(0), index, MemSize(0), *effect, *control);
   } else {
     // WASM semantics throw on OOB. Introduce explicit bounds check.
@@ -1510,7 +1511,7 @@ TFNode* WasmGraphBuilder::LoadMem(LocalType type, MachineType memtype, TFNode* i
 
   *effect = load;
 
-  if (type == kAstI64 && ElementSizeLog2Of(memtype) < 3) {
+  if (type == wasm::kAstI64 && ElementSizeLog2Of(memtype) < 3) {
     // TODO(titzer): TF zeroes the upper bits of 64-bit loads for subword sizes.
     if (TypeOf(memtype) == kTypeInt32) {
       // sign extend
@@ -1525,21 +1526,21 @@ TFNode* WasmGraphBuilder::LoadMem(LocalType type, MachineType memtype, TFNode* i
 }
 
 
-TFNode* WasmGraphBuilder::StoreMem(MachineType memtype, TFNode* index, uint32_t offset,
-                            TFNode* val) {
+Node* WasmGraphBuilder::StoreMem(MachineType memtype, Node* index, uint32_t offset,
+                            Node* val) {
   if (!graph) return nullptr;
 
-  TFNode* store;
+  Node* store;
   if (module && module->asm_js) {
     // asm.js semantics use CheckedStore (i.e. ignore OOB writes).
     DCHECK_EQ(0, offset);
-    const compiler::Operator* op = graph->machine()->CheckedStore(memtype);
+    const Operator* op = graph->machine()->CheckedStore(memtype);
     store = graph->graph()->NewNode(op, MemBuffer(0), index, MemSize(0), val,
                                     *effect, *control);
   } else {
     // WASM semantics throw on OOB. Introduce explicit bounds check.
     BoundsCheckMem(memtype, index, offset);
-    compiler::StoreRepresentation rep(memtype, compiler::kNoWriteBarrier);
+    StoreRepresentation rep(memtype, kNoWriteBarrier);
     store =
         graph->graph()->NewNode(graph->machine()->Store(rep), MemBuffer(offset),
                                 index, val, *effect, *control);
@@ -1549,23 +1550,24 @@ TFNode* WasmGraphBuilder::StoreMem(MachineType memtype, TFNode* index, uint32_t 
 }
 
 
-void WasmGraphBuilder::PrintDebugName(TFNode* node) {
+void WasmGraphBuilder::PrintDebugName(Node* node) {
   PrintF("#%d:%s", node->id(), node->op()->mnemonic());
 }
 
 
-TFNode* WasmGraphBuilder::String(const char* string) {
+Node* WasmGraphBuilder::String(const char* string) {
   DCHECK_NOT_NULL(graph);
   return graph->Constant(
       graph->isolate()->factory()->NewStringFromAsciiChecked(string));
 }
 
 
-Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
+Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate,
+                                          wasm::ModuleEnv* module,
                                           Handle<String> name,
                                           Handle<Code> wasm_code,
                                           uint32_t index) {
-  WasmFunction* func = &module->module->functions->at(index);
+  wasm::WasmFunction* func = &module->module->functions->at(index);
 
   //----------------------------------------------------------------------------
   // Create the JSFunction object.
@@ -1579,18 +1581,18 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
   function->set_shared(*shared);
 
   //----------------------------------------------------------------------------
-  // Create the TFGraph
+  // Create the Graph
   //----------------------------------------------------------------------------
   Zone zone;
-  compiler::Graph graph(&zone);
-  compiler::CommonOperatorBuilder common(&zone);
-  compiler::JSOperatorBuilder javascript(&zone);
-  compiler::MachineOperatorBuilder machine(&zone);
-  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, nullptr,
+  Graph graph(&zone);
+  CommonOperatorBuilder common(&zone);
+  JSOperatorBuilder javascript(&zone);
+  MachineOperatorBuilder machine(&zone);
+  JSGraph jsgraph(isolate, &graph, &common, &javascript, nullptr,
                             &machine);
 
-  TFNode* control = nullptr;
-  TFNode* effect = nullptr;
+  Node* control = nullptr;
+  Node* effect = nullptr;
 
   WasmGraphBuilder builder(&zone, &jsgraph);
   builder.set_control_ptr(&control);
@@ -1603,15 +1605,15 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
   //----------------------------------------------------------------------------
   {
     // Changes lowering requires types.
-    compiler::Typer typer(isolate, &graph);
-    compiler::NodeVector roots(&zone);
+    Typer typer(isolate, &graph);
+    NodeVector roots(&zone);
     jsgraph.GetCachedNodes(&roots);
     typer.Run(roots);
 
     // Run generic and change lowering.
-    compiler::JSGenericLowering generic(true, &jsgraph);
-    compiler::ChangeLowering changes(&jsgraph);
-    compiler::GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
+    JSGenericLowering generic(true, &jsgraph);
+    ChangeLowering changes(&jsgraph);
+    GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
     graph_reducer.AddReducer(&changes);
     graph_reducer.AddReducer(&generic);
     graph_reducer.ReduceGraph();
@@ -1619,18 +1621,18 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
     if (FLAG_trace_turbo_graph) {  // Simple textual RPO.
       OFStream os(stdout);
       os << "-- Graph after change lowering -- " << std::endl;
-      os << compiler::AsRPO(graph);
+      os << AsRPO(graph);
     }
 
     // Schedule and compile to machine code.
     int params = static_cast<int>(
         module->GetFunctionSignature(index)->parameter_count());
-    compiler::CallDescriptor* incoming = compiler::Linkage::GetJSCallDescriptor(
-        &zone, false, params + 1, compiler::CallDescriptor::kNoFlags);
+    CallDescriptor* incoming = Linkage::GetJSCallDescriptor(
+        &zone, false, params + 1, CallDescriptor::kNoFlags);
     CompilationInfo info("js-to-wasm", isolate, &zone);
     // TODO(titzer): this is technically a WASM wrapper, not a wasm function.
     info.set_output_code_kind(Code::WASM_FUNCTION);
-    Handle<Code> code = compiler::Pipeline::GenerateCodeForTesting(
+    Handle<Code> code = Pipeline::GenerateCodeForTesting(
         &info, incoming, &graph, nullptr);
 
 #ifdef ENABLE_DISASSEMBLER
@@ -1655,24 +1657,25 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
   return function;
 }
 
-Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
+
+Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, wasm::ModuleEnv* module,
                                     Handle<JSFunction> function,
                                     uint32_t index) {
-  WasmFunction* func = &module->module->functions->at(index);
+  wasm::WasmFunction* func = &module->module->functions->at(index);
 
   //----------------------------------------------------------------------------
-  // Create the TFGraph
+  // Create the Graph
   //----------------------------------------------------------------------------
   Zone zone;
-  compiler::Graph graph(&zone);
-  compiler::CommonOperatorBuilder common(&zone);
-  compiler::JSOperatorBuilder javascript(&zone);
-  compiler::MachineOperatorBuilder machine(&zone);
-  compiler::JSGraph jsgraph(isolate, &graph, &common, &javascript, nullptr,
+  Graph graph(&zone);
+  CommonOperatorBuilder common(&zone);
+  JSOperatorBuilder javascript(&zone);
+  MachineOperatorBuilder machine(&zone);
+  JSGraph jsgraph(isolate, &graph, &common, &javascript, nullptr,
                             &machine);
 
-  TFNode* control = nullptr;
-  TFNode* effect = nullptr;
+  Node* control = nullptr;
+  Node* effect = nullptr;
 
   WasmGraphBuilder builder(&zone, &jsgraph);
   builder.set_control_ptr(&control);
@@ -1683,15 +1686,15 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
   Handle<Code> code = Handle<Code>::null();
   {
     // Changes lowering requires types.
-    compiler::Typer typer(isolate, &graph);
-    compiler::NodeVector roots(&zone);
+    Typer typer(isolate, &graph);
+    NodeVector roots(&zone);
     jsgraph.GetCachedNodes(&roots);
     typer.Run(roots);
 
     // Run generic and change lowering.
-    compiler::JSGenericLowering generic(true, &jsgraph);
-    compiler::ChangeLowering changes(&jsgraph);
-    compiler::GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
+    JSGenericLowering generic(true, &jsgraph);
+    ChangeLowering changes(&jsgraph);
+    GraphReducer graph_reducer(&zone, &graph, jsgraph.Dead());
     graph_reducer.AddReducer(&changes);
     graph_reducer.AddReducer(&generic);
     graph_reducer.ReduceGraph();
@@ -1699,16 +1702,16 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
     if (FLAG_trace_turbo_graph) {  // Simple textual RPO.
       OFStream os(stdout);
       os << "-- Graph after change lowering -- " << std::endl;
-      os << compiler::AsRPO(graph);
+      os << AsRPO(graph);
     }
 
     // Schedule and compile to machine code.
-    compiler::CallDescriptor* incoming =
+    CallDescriptor* incoming =
         module->GetWasmCallDescriptor(&zone, func->sig);
     CompilationInfo info("wasm-to-js", isolate, &zone);
     // TODO(titzer): this is technically a WASM wrapper, not a wasm function.
     info.set_output_code_kind(Code::WASM_FUNCTION);
-    code = compiler::Pipeline::GenerateCodeForTesting(&info, incoming, &graph,
+    code = Pipeline::GenerateCodeForTesting(&info, incoming, &graph,
                                                       nullptr);
 
 #ifdef ENABLE_DISASSEMBLER
@@ -1733,9 +1736,9 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
 
 
 // Helper function to compile a single function.
-Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
-                             ModuleEnv* module_env,
-                             const WasmFunction& function, int index) {
+Handle<Code> CompileWasmFunction(wasm::ErrorThrower& thrower, Isolate* isolate,
+                                 wasm::ModuleEnv* module_env,
+                                 const wasm::WasmFunction& function, int index) {
   if (FLAG_trace_wasm_compiler || FLAG_trace_wasm_decode_time) {
     // TODO(titzer): clean me up a bit.
     OFStream os(stdout);
@@ -1746,7 +1749,7 @@ Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
     os << std::endl;
   }
   // Initialize the function environment for decoding.
-  FunctionEnv env;
+  wasm::FunctionEnv env;
   env.module = module_env;
   env.sig = function.sig;
   env.local_int32_count = function.local_int32_count;
@@ -1757,14 +1760,14 @@ Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
 
   // Create a TF graph during decoding.
   Zone zone;
-  compiler::Graph graph(&zone);
-  compiler::CommonOperatorBuilder common(&zone);
-  compiler::MachineOperatorBuilder machine(
+  Graph graph(&zone);
+  CommonOperatorBuilder common(&zone);
+  MachineOperatorBuilder machine(
       &zone, kMachPtr,
-      compiler::InstructionSelector::SupportedMachineOperatorFlags());
-  compiler::JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr,
+      InstructionSelector::SupportedMachineOperatorFlags());
+  JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr,
                             &machine);
-  TreeResult result = BuildTFGraph(
+  wasm::TreeResult result = wasm::BuildTFGraph(
       &jsgraph, &env,                                                 // --
       module_env->module->module_start,                               // --
       module_env->module->module_start + function.code_start_offset,  // --
@@ -1784,12 +1787,12 @@ Handle<Code> CompileFunction(ErrorThrower& thrower, Isolate* isolate,
   }
 
   // Run the compiler pipeline to generate machine code.
-  compiler::CallDescriptor* descriptor = const_cast<compiler::CallDescriptor*>(
+  CallDescriptor* descriptor = const_cast<CallDescriptor*>(
       module_env->GetWasmCallDescriptor(&zone, function.sig));
   CompilationInfo info("wasm", isolate, &zone);
   info.set_output_code_kind(Code::WASM_FUNCTION);
   Handle<Code> code =
-      compiler::Pipeline::GenerateCodeForTesting(&info, descriptor, &graph);
+      Pipeline::GenerateCodeForTesting(&info, descriptor, &graph);
 
 #ifdef ENABLE_DISASSEMBLER
   // Disassemble the code for debugging.
