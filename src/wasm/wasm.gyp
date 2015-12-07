@@ -17,6 +17,7 @@
           'asm-wasm-builder.h',
           'ast-decoder.cc',
           'ast-decoder.h',
+          'decoder.h',
           'encoder.cc',
           'encoder.h',
 	  'module-decoder.cc',

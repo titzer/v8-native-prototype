@@ -10,6 +10,7 @@
 #include "src/handles.h"
 
 #include "src/wasm/ast-decoder.h"
+#include "src/wasm/decoder.h"
 #include "src/wasm/wasm-compiler.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"

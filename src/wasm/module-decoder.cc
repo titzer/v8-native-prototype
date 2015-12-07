@@ -6,6 +6,7 @@
 #include "src/macro-assembler.h"
 #include "src/objects.h"
 
+#include "src/wasm/decoder.h"
 #include "src/wasm/module-decoder.h"
 
 namespace v8 {
