@@ -24,13 +24,13 @@ typedef compiler::JSGraph TFGraph;
 
 struct ModuleEnv;
 
-class TFTrapHelper;
+class WasmTrapHelper;
 
 // Abstracts details of building TurboFan graph nodes for WASM to separate
 // the WASM decoder from the internal details of TurboFan.
-class TFBuilder {
+class WasmGraphBuilder {
  public:
-  TFBuilder(Zone* z, TFGraph* g);
+  WasmGraphBuilder(Zone* z, TFGraph* g);
 
   TFNode** Buffer(size_t count) {
     if (count > cur_bufsize) {
@@ -109,7 +109,7 @@ class TFBuilder {
 
  private:
   static const int kDefaultBufferSize = 16;
-  friend class TFTrapHelper;
+  friend class WasmTrapHelper;
 
   Zone* zone;
   TFGraph* graph;
@@ -123,7 +123,7 @@ class TFBuilder {
   size_t cur_bufsize;
   TFNode* def_buffer[kDefaultBufferSize];
 
-  TFTrapHelper* trap;
+  WasmTrapHelper* trap;
 
   // Internal helper methods.
   TFNode* String(const char* string);

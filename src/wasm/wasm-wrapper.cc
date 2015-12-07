@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "src/wasm/wasm-wrapper.h"
-#include "src/wasm/tf-builder.h"
+#include "src/wasm/wasm-graph-builder.h"
 
 #include "src/compiler/pipeline.h"
 #include "src/compiler/machine-operator.h"
@@ -53,7 +53,7 @@ Handle<JSFunction> CompileJSToWasmWrapper(Isolate* isolate, ModuleEnv* module,
   TFNode* control = nullptr;
   TFNode* effect = nullptr;
 
-  TFBuilder builder(&zone, &jsgraph);
+  WasmGraphBuilder builder(&zone, &jsgraph);
   builder.set_control_ptr(&control);
   builder.set_effect_ptr(&effect);
   builder.set_module(module);
@@ -135,7 +135,7 @@ Handle<Code> CompileWasmToJSWrapper(Isolate* isolate, ModuleEnv* module,
   TFNode* control = nullptr;
   TFNode* effect = nullptr;
 
-  TFBuilder builder(&zone, &jsgraph);
+  WasmGraphBuilder builder(&zone, &jsgraph);
   builder.set_control_ptr(&control);
   builder.set_effect_ptr(&effect);
   builder.set_module(module);

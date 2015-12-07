@@ -16,7 +16,7 @@
 #include "src/compiler/machine-operator.h"
 
 #include "src/wasm/ast-decoder.h"
-#include "src/wasm/tf-builder.h"
+#include "src/wasm/wasm-graph-builder.h"
 #include "src/wasm/module-decoder.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-result.h"

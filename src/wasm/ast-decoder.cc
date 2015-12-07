@@ -10,7 +10,7 @@
 #include "src/handles.h"
 
 #include "src/wasm/ast-decoder.h"
-#include "src/wasm/tf-builder.h"
+#include "src/wasm/wasm-graph-builder.h"
 #include "src/wasm/wasm-module.h"
 #include "src/wasm/wasm-opcodes.h"
 
@@ -161,7 +161,7 @@ class LR_WasmDecoder : public Decoder {
 
   Zone* zone_;
   TFGraph* graph_;
-  TFBuilder builder_;
+  WasmGraphBuilder builder_;
   const byte* base_;
   TreeResult result_;
 
@@ -1104,7 +1104,7 @@ class LR_WasmDecoder : public Decoder {
           static_cast<int>(blocks_.size()), reason);
     if (env->control != nullptr && FLAG_trace_wasm_decoder) {
       TRACE(", control = ");
-      TFBuilder::PrintDebugName(env->control);
+      WasmGraphBuilder::PrintDebugName(env->control);
     }
     TRACE("\n");
     ssa_env_ = env;
@@ -1383,7 +1383,7 @@ class LR_WasmDecoder : public Decoder {
              WasmOpcodes::OpcodeName(child->opcode()), child->count);
       if (child->node) {
         PrintF(" => TF");
-        TFBuilder::PrintDebugName(child->node);
+        WasmGraphBuilder::PrintDebugName(child->node);
       }
       PrintF("\n");
     }
