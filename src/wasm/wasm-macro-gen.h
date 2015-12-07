@@ -84,19 +84,23 @@
 #define WASM_LOAD_GLOBAL(index) kExprLoadGlobal, static_cast<byte>(index)
 #define WASM_STORE_GLOBAL(index, val) \
   kExprStoreGlobal, static_cast<byte>(index), val
-#define WASM_LOAD_MEM(type, index)                                 \
-  v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, false), \
+#define WASM_LOAD_MEM(type, index)                                      \
+  static_cast<byte>(                                                    \
+      v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, false)), \
       v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(false), index
-#define WASM_STORE_MEM(type, index, val)                          \
-  v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, true), \
+#define WASM_STORE_MEM(type, index, val)                               \
+  static_cast<byte>(                                                   \
+      v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, true)), \
       v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(false), index, val
-#define WASM_LOAD_MEM_OFFSET(type, offset, index)                  \
-  v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, false), \
-      v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(true),    \
+#define WASM_LOAD_MEM_OFFSET(type, offset, index)                       \
+  static_cast<byte>(                                                    \
+      v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, false)), \
+      v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(true),         \
       static_cast<byte>(offset), index
-#define WASM_STORE_MEM_OFFSET(type, offset, index, val)           \
-  v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, true), \
-      v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(true),   \
+#define WASM_STORE_MEM_OFFSET(type, offset, index, val)                \
+  static_cast<byte>(                                                   \
+      v8::internal::wasm::WasmOpcodes::LoadStoreOpcodeOf(type, true)), \
+      v8::internal::wasm::WasmOpcodes::LoadStoreAccessOf(true),        \
       static_cast<byte>(offset), index, val
 #define WASM_CALL_FUNCTION(index, ...) \
   kExprCallFunction, static_cast<byte>(index), __VA_ARGS__

@@ -51,12 +51,14 @@ class WasmFunctionBuilder : public ZoneObject {
   uint16_t AddParam(LocalType type);
   uint16_t AddLocal(LocalType type);
   void ReturnType(LocalType type);
-  void AddBody(const byte* code, uint32_t code_size);
-  void AddBody(const byte* code, uint32_t code_size,
-               const uint32_t* local_indices, uint32_t indices_size);
-  void AppendCode(const byte opcode, bool add_local_operand);
-  uint32_t AppendEditableImmediate(const byte immediate);
-  void EditImmediate(uint32_t index, const byte immediate);
+  void EmitCode(const byte* code, uint32_t code_size);
+  void EmitCode(const byte* code, uint32_t code_size,
+                const uint32_t* local_indices, uint32_t indices_size);
+  void Emit(WasmOpcode opcode);
+  void EmitWithU8(WasmOpcode opcode, const byte immediate);
+  void EmitWithLocal(WasmOpcode opcode);
+  uint32_t EmitEditableImmediate(const byte immediate);
+  void EditImmediate(uint32_t offset, const byte immediate);
   void Exported(uint8_t flag);
   void External(uint8_t flag);
   WasmFunctionEncoder* Build(Zone* zone, WasmModuleBuilder* mb) const;

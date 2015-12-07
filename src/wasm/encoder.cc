@@ -81,13 +81,13 @@ uint16_t WasmFunctionBuilder::AddVar(LocalType type, bool param) {
 
 void WasmFunctionBuilder::ReturnType(LocalType type) { return_type_ = type; }
 
-void WasmFunctionBuilder::AddBody(const byte* code, uint32_t code_size) {
-  AddBody(code, code_size, NULL, 0);
+void WasmFunctionBuilder::EmitCode(const byte* code, uint32_t code_size) {
+  EmitCode(code, code_size, NULL, 0);
 }
 
-void WasmFunctionBuilder::AddBody(const byte* code, uint32_t code_size,
-                                  const uint32_t* local_indices,
-                                  uint32_t indices_size) {
+void WasmFunctionBuilder::EmitCode(const byte* code, uint32_t code_size,
+                                   const uint32_t* local_indices,
+                                   uint32_t indices_size) {
   size_t size = body_.size();
   for (size_t i = 0; i < code_size; i++) {
     body_.push_back(code[i]);
@@ -97,22 +97,28 @@ void WasmFunctionBuilder::AddBody(const byte* code, uint32_t code_size,
   }
 }
 
-void WasmFunctionBuilder::AppendCode(const byte opcode,
-                                     bool add_local_operand) {
-  body_.push_back(opcode);
-  if (add_local_operand) {
-    local_indices_.push_back(static_cast<uint32_t>(body_.size()) - 1);
-  }
+void WasmFunctionBuilder::Emit(WasmOpcode opcode) {
+  body_.push_back(static_cast<byte>(opcode));
 }
 
-uint32_t WasmFunctionBuilder::AppendEditableImmediate(const byte immediate) {
+void WasmFunctionBuilder::EmitWithU8(WasmOpcode opcode, const byte immediate) {
+  body_.push_back(static_cast<byte>(opcode));
+  body_.push_back(immediate);
+}
+
+void WasmFunctionBuilder::EmitWithLocal(WasmOpcode opcode) {
+  body_.push_back(static_cast<byte>(opcode));
+  local_indices_.push_back(static_cast<uint32_t>(body_.size()) - 1);
+}
+
+uint32_t WasmFunctionBuilder::EmitEditableImmediate(const byte immediate) {
   body_.push_back(immediate);
   return static_cast<uint32_t>(body_.size()) - 1;
 }
 
-void WasmFunctionBuilder::EditImmediate(uint32_t index, const byte immediate) {
-  DCHECK(index < body_.size());
-  body_[index] = immediate;
+void WasmFunctionBuilder::EditImmediate(uint32_t offset, const byte immediate) {
+  DCHECK(offset < body_.size());
+  body_[offset] = immediate;
 }
 
 void WasmFunctionBuilder::Exported(uint8_t flag) { exported_ = flag; }

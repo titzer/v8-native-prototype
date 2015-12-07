@@ -24,7 +24,7 @@ class EncoderTest : public TestWithZone {
       code.push_back(out_index.at(i));
     }
     uint32_t local_indices[] = {1};
-    f->AddBody(code.data(), static_cast<uint32_t>(code.size()), local_indices, 1);
+    f->EmitCode(code.data(), static_cast<uint32_t>(code.size()), local_indices, 1);
   }
 
   void CheckReadValue(
@@ -67,19 +67,19 @@ TEST_F(EncoderTest, Function_Builder_Variable_Indexing) {
 
   byte code[] = {kExprGetLocal, static_cast<uint8_t>(param_float32)};
   uint32_t local_indices[] = {1};
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
   code[1] = static_cast<uint8_t>(param_int32);
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
   code[1] = static_cast<uint8_t>(local_int32);
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
   code[1] = static_cast<uint8_t>(local_int32_2);
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
   code[1] = static_cast<uint8_t>(local_int64);
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
   code[1] = static_cast<uint8_t>(local_float32);
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
   code[1] = static_cast<uint8_t>(local_float64);
-  function->AddBody(code, sizeof(code), local_indices, 1);
+  function->EmitCode(code, sizeof(code), local_indices, 1);
 
   WasmFunctionEncoder* f = function->Build(&zone, builder);
   ZoneVector<uint8_t> buffer_vector(f->HeaderSize() + f->BodySize(), &zone);

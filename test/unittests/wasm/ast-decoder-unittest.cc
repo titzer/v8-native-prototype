@@ -1098,7 +1098,7 @@ TEST_F(WasmDecoderTest, AllLoadMemCombinations) {
     for (size_t j = 0; j < arraysize(kMachineTypes); j++) {
       MachineType mem_type = kMachineTypes[j];
       byte code[] = {
-          WasmOpcodes::LoadStoreOpcodeOf(mem_type, false),
+          static_cast<byte>(WasmOpcodes::LoadStoreOpcodeOf(mem_type, false)),
           WasmOpcodes::LoadStoreAccessOf(false), kExprI8Const, 0};
       FunctionEnv env;
       FunctionSig sig(1, 0, &local_type);
@@ -1118,7 +1118,7 @@ TEST_F(WasmDecoderTest, AllStoreMemCombinations) {
     LocalType local_type = kLocalTypes[i];
     for (size_t j = 0; j < arraysize(kMachineTypes); j++) {
       MachineType mem_type = kMachineTypes[j];
-      byte code[] = {WasmOpcodes::LoadStoreOpcodeOf(mem_type, true),
+      byte code[] = {static_cast<byte>(WasmOpcodes::LoadStoreOpcodeOf(mem_type, true)),
                      WasmOpcodes::LoadStoreAccessOf(false), kExprI8Const,
                      0, kExprGetLocal, 0};
       FunctionEnv env;

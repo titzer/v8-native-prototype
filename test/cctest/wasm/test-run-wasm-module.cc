@@ -68,7 +68,7 @@ TEST(Run_WasmModule_Return114) {
   f->ReturnType(kAstI32);
   f->Exported(1);
   byte code[] = {WASM_I8(kReturnValue)};
-  f->AddBody(code, sizeof(code));
+  f->EmitCode(code, sizeof(code));
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), kReturnValue);
 }
@@ -85,14 +85,14 @@ TEST(Run_WasmModule_CallAdd) {
   byte code1[] = {
           WASM_I32_ADD(WASM_GET_LOCAL(param1), WASM_GET_LOCAL(param2))};
   uint32_t local_indices1[] = {2, 4};
-  f->AddBody(code1, sizeof(code1), local_indices1, sizeof(local_indices1)/4);
+  f->EmitCode(code1, sizeof(code1), local_indices1, sizeof(local_indices1)/4);
   uint16_t f2_index = builder->AddFunction();
   f = builder->FunctionAt(f2_index);
   f->ReturnType(kAstI32);
   f->Exported(1);
   byte code2[] = {
       WASM_CALL_FUNCTION(f1_index, WASM_I8(77), WASM_I8(22))};
-  f->AddBody(code2, sizeof(code2));
+  f->EmitCode(code2, sizeof(code2));
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), 99);
 }
@@ -108,7 +108,7 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   f->Exported(1);
   byte code[] = {
       WASM_LOAD_MEM(kMachInt32, WASM_I8(kDataSegmentDest0))};
-  f->AddBody(code, sizeof(code));
+  f->EmitCode(code, sizeof(code));
   byte data[] = {0xaa, 0xbb, 0xcc, 0xdd};
   builder->AddDataSegment(
       new(&zone) WasmDataSegmentEncoder(
@@ -136,7 +136,7 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
 				       WASM_INC_LOCAL_BY(localIndex, 4))),
 	       WASM_I8(11))};
   uint32_t local_indices[] = {7, 19, 25, 28};
-  f->AddBody(code, sizeof(code), local_indices, sizeof(local_indices)/4);
+  f->EmitCode(code, sizeof(code), local_indices, sizeof(local_indices)/4);
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), 11);
 }
@@ -162,7 +162,7 @@ TEST(Run_WasmModule_CallMain_recursive) {
                        WASM_BRV(0, WASM_I8(55))))
   };
   uint32_t local_indices[] = {3, 11, 21, 24};
-  f->AddBody(code, sizeof(code), local_indices, sizeof(local_indices)/4);
+  f->EmitCode(code, sizeof(code), local_indices, sizeof(local_indices)/4);
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), 55);
 }
@@ -178,7 +178,7 @@ TEST(Run_WasmModule_Global) {
   f->ReturnType(kAstI32);
   byte code1[] = {
       WASM_I32_ADD(WASM_LOAD_GLOBAL(global1), WASM_LOAD_GLOBAL(global2))};
-  f->AddBody(code1, sizeof(code1));
+  f->EmitCode(code1, sizeof(code1));
   uint16_t f2_index = builder->AddFunction();
   f = builder->FunctionAt(f2_index);
   f->ReturnType(kAstI32);
@@ -187,7 +187,7 @@ TEST(Run_WasmModule_Global) {
       WASM_STORE_GLOBAL(global1, WASM_I32(56)),
       WASM_STORE_GLOBAL(global2, WASM_I32(41)),
       WASM_RETURN(WASM_CALL_FUNCTION0(f1_index))};
-  f->AddBody(code2, sizeof(code2));
+  f->EmitCode(code2, sizeof(code2));
   WasmModuleWriter* writer = builder->Build(&zone);
   TestModule(writer->WriteTo(&zone), 97);
 }

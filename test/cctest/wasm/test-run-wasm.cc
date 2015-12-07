@@ -2887,7 +2887,8 @@ void Run_WasmMixedCall_N(int start) {
 
     {
       std::vector<byte> code;
-      ADD_CODE(code, WasmOpcodes::LoadStoreOpcodeOf(result, true),
+      ADD_CODE(code, 
+               static_cast<byte>(WasmOpcodes::LoadStoreOpcodeOf(result, true)),
                WasmOpcodes::LoadStoreAccessOf(false));
       ADD_CODE(code, WASM_ZERO);
       ADD_CODE(code, kExprCallFunction, static_cast<byte>(index));

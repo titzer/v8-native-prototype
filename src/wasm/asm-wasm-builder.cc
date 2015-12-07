@@ -82,8 +82,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     if (in_function_) {
       breakable_blocks_.push_back(
           std::make_pair(stmt->AsBreakableStatement(), false));
-      current_function_builder_->AppendCode(kExprBlock, false);
-      uint32_t index = current_function_builder_->AppendEditableImmediate(0);
+      current_function_builder_->Emit(kExprBlock);
+      uint32_t index = current_function_builder_->EmitEditableImmediate(0);
       int prev_block_size = block_size_;
       block_size_ = static_cast<byte>(stmt->statements()->length());
       RECURSE(VisitStatements(stmt->statements()));
@@ -107,15 +107,15 @@ class AsmWasmBuilderImpl : public AstVisitor {
   void VisitIfStatement(IfStatement* stmt) {
     DCHECK(in_function_);
     if (stmt->HasElseStatement()) {
-      current_function_builder_->AppendCode(kExprIfElse, false);
+      current_function_builder_->Emit(kExprIfElse);
     } else {
-      current_function_builder_->AppendCode(kExprIf, false);
+      current_function_builder_->Emit(kExprIf);
     }
     RECURSE(Visit(stmt->condition()));
     if (stmt->HasThenStatement()) {
       RECURSE(Visit(stmt->then_statement()));
     } else {
-      current_function_builder_->AppendCode(kExprNop, false);
+      current_function_builder_->Emit(kExprNop);
     }
     if (stmt->HasElseStatement()) {
       RECURSE(Visit(stmt->else_statement()));
@@ -138,9 +138,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
       }
     }
     DCHECK(i >= 0);
-    current_function_builder_->AppendCode(kExprBr, false);
-    current_function_builder_->AppendCode(block_distance, false);
-    current_function_builder_->AppendCode(kExprNop, false);
+    current_function_builder_->EmitWithU8(kExprBr, block_distance);
+    current_function_builder_->Emit(kExprNop);
   }
 
   void VisitBreakStatement(BreakStatement* stmt) {
@@ -161,14 +160,13 @@ class AsmWasmBuilderImpl : public AstVisitor {
       }
     }
     DCHECK(i >= 0);
-    current_function_builder_->AppendCode(kExprBr, false);
-    current_function_builder_->AppendCode(block_distance, false);
-    current_function_builder_->AppendCode(kExprNop, false);
+    current_function_builder_->EmitWithU8(kExprBr, block_distance);
+    current_function_builder_->Emit(kExprNop);
   }
 
   void VisitReturnStatement(ReturnStatement* stmt) {
     if (in_function_) {
-      current_function_builder_->AppendCode(kExprReturn, false);
+      current_function_builder_->Emit(kExprReturn);
     } else {
       marking_exported = true;
     }
@@ -208,14 +206,12 @@ class AsmWasmBuilderImpl : public AstVisitor {
 
   void VisitWhileStatement(WhileStatement* stmt) {
     DCHECK(in_function_);
-    current_function_builder_->AppendCode(kExprLoop, false);
-    current_function_builder_->AppendCode(1, false);
+    current_function_builder_->EmitWithU8(kExprLoop, 1);
     breakable_blocks_.push_back(
         std::make_pair(stmt->AsBreakableStatement(), true));
-    current_function_builder_->AppendCode(kExprIf, false);
+    current_function_builder_->Emit(kExprIf);
     RECURSE(Visit(stmt->cond()));
-    current_function_builder_->AppendCode(kExprBr, false);
-    current_function_builder_->AppendCode(0, false);
+    current_function_builder_->EmitWithU8(kExprBr, 0);
     RECURSE(Visit(stmt->body()));
     breakable_blocks_.pop_back();
   }
@@ -290,21 +286,21 @@ class AsmWasmBuilderImpl : public AstVisitor {
         DCHECK(!is_set_op_);
         std::vector<uint8_t> index =
             UnsignedLEB128From(LookupOrInsertFunction(var));
-        current_function_builder_->AddBody(index.data(),
-                                           static_cast<uint32_t>(index.size()));
+        current_function_builder_->EmitCode(
+            index.data(), static_cast<uint32_t>(index.size()));
       } else {
         if (is_set_op_) {
           if (var->IsContextSlot()) {
-            current_function_builder_->AppendCode(kExprStoreGlobal, false);
+            current_function_builder_->Emit(kExprStoreGlobal);
           } else {
-            current_function_builder_->AppendCode(kExprSetLocal, false);
+            current_function_builder_->Emit(kExprSetLocal);
           }
           is_set_op_ = false;
         } else {
           if (var->IsContextSlot()) {
-            current_function_builder_->AppendCode(kExprLoadGlobal, false);
+            current_function_builder_->Emit(kExprLoadGlobal);
           } else {
-            current_function_builder_->AppendCode(kExprGetLocal, false);
+            current_function_builder_->Emit(kExprGetLocal);
           }
         }
         LocalType var_type = TypeOf(expr);
@@ -332,19 +328,19 @@ class AsmWasmBuilderImpl : public AstVisitor {
           case kAstI32: {
             int val = static_cast<int>(expr->raw_value()->AsNumber());
             byte code[] = {WASM_I32(val)};
-            current_function_builder_->AddBody(code, sizeof(code));
+            current_function_builder_->EmitCode(code, sizeof(code));
             break;
           }
           case kAstF32: {
             float val = static_cast<float>(expr->raw_value()->AsNumber());
             byte code[] = {WASM_F32(val)};
-            current_function_builder_->AddBody(code, sizeof(code));
+            current_function_builder_->EmitCode(code, sizeof(code));
             break;
           }
           case kAstF64: {
             double val = static_cast<double>(expr->raw_value()->AsNumber());
             byte code[] = {WASM_F64(val)};
-            current_function_builder_->AddBody(code, sizeof(code));
+            current_function_builder_->EmitCode(code, sizeof(code));
             break;
           }
           default:
@@ -436,18 +432,17 @@ class AsmWasmBuilderImpl : public AstVisitor {
     } else {
       UNREACHABLE();
     }
-    current_function_builder_->AppendCode(
-        WasmOpcodes::LoadStoreOpcodeOf(mtype, is_set_op_), false);
+    current_function_builder_->EmitWithU8(
+        WasmOpcodes::LoadStoreOpcodeOf(mtype, is_set_op_),
+        WasmOpcodes::LoadStoreAccessOf(false));
     is_set_op_ = false;
-    current_function_builder_->AppendCode(WasmOpcodes::LoadStoreAccessOf(false),
-                                          false);
     Literal* value = expr->key()->AsLiteral();
     if (value) {
       DCHECK(value->raw_value()->IsNumber());
       DCHECK(kAstI32 == TypeOf(value));
       int val = static_cast<int>(value->raw_value()->AsNumber());
       byte code[] = {WASM_I32(val * size)};
-      current_function_builder_->AddBody(code, sizeof(code));
+      current_function_builder_->EmitCode(code, sizeof(code));
       return;
     }
     BinaryOperation* binop = expr->key()->AsBinaryOperation();
@@ -459,9 +454,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
              1 << static_cast<int>(
                  binop->right()->AsLiteral()->raw_value()->AsNumber()));
       // Mask bottom bits to match asm.js behavior.
-      current_function_builder_->AppendCode(kExprI32And, false);
+      current_function_builder_->Emit(kExprI32And);
       byte code[] = {WASM_I8(~(size - 1))};
-      current_function_builder_->AddBody(code, sizeof(code));
+      current_function_builder_->EmitCode(code, sizeof(code));
       RECURSE(Visit(binop->left()));
       return;
     }
@@ -473,7 +468,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     switch (call_type) {
       case Call::OTHER_CALL: {
         DCHECK(in_function_);
-        current_function_builder_->AppendCode(kExprCallFunction, false);
+        current_function_builder_->Emit(kExprCallFunction);
         RECURSE(Visit(expr->expression()));
         ZoneList<Expression*>* args = expr->arguments();
         for (int i = 0; i < args->length(); ++i) {
@@ -495,7 +490,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     switch (expr->op()) {
       case Token::NOT: {
         DCHECK(TypeOf(expr->expression()) == kAstI32);
-        current_function_builder_->AppendCode(kExprBoolNot, false);
+        current_function_builder_->Emit(kExprBoolNot);
         break;
       }
       default:
@@ -628,7 +623,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
   case token: {                                                       \
     V(op);                                                            \
     int type = TypeIndexOf(expr->left(), expr->right(), ignore_sign); \
-    current_function_builder_->AppendCode(opcodes[type], false);      \
+    current_function_builder_->Emit(opcodes[type]);                   \
     break;                                                            \
   }
 
@@ -645,11 +640,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
     if (convertOperation == kToDouble) {
       TypeIndex type = TypeIndexOf(expr->left());
       if (type == kInt32 || type == kFixnum) {
-        current_function_builder_->AppendCode(kExprF64SConvertI32, false);
+        current_function_builder_->Emit(kExprF64SConvertI32);
       } else if (type == kUint32) {
-        current_function_builder_->AppendCode(kExprF64UConvertI32, false);
+        current_function_builder_->Emit(kExprF64UConvertI32);
       } else if (type == kFloat32) {
-        current_function_builder_->AppendCode(kExprF64ConvertF32, false);
+        current_function_builder_->Emit(kExprF64ConvertF32);
       } else {
         UNREACHABLE();
       }
@@ -657,9 +652,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
     } else if (convertOperation == kToInt) {
       TypeIndex type = TypeIndexOf(GetLeft(expr));
       if (type == kFloat32) {
-        current_function_builder_->AppendCode(kExprI32SConvertF32, false);
+        current_function_builder_->Emit(kExprI32SConvertF32);
       } else if (type == kFloat64) {
-        current_function_builder_->AppendCode(kExprI32SConvertF64, false);
+        current_function_builder_->Emit(kExprI32SConvertF64);
       } else {
         UNREACHABLE();
       }
@@ -680,9 +675,9 @@ class AsmWasmBuilderImpl : public AstVisitor {
         case Token::MOD: {
           TypeIndex type = TypeIndexOf(expr->left(), expr->right(), false);
           if (type == kInt32) {
-            current_function_builder_->AppendCode(kExprI32RemS, false);
+            current_function_builder_->Emit(kExprI32RemS);
           } else if (type == kUint32) {
-            current_function_builder_->AppendCode(kExprI32RemU, false);
+            current_function_builder_->Emit(kExprI32RemU);
           } else if (type == kFloat64) {
             ModF64(expr);
             return;
@@ -700,29 +695,28 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void ModF64(BinaryOperation* expr) {
-    current_function_builder_->AppendCode(kExprBlock, false);
-    current_function_builder_->AppendCode(3, false);
+    current_function_builder_->EmitWithU8(kExprBlock, 3);
     uint16_t index_0 = current_function_builder_->AddLocal(kAstF64);
     uint16_t index_1 = current_function_builder_->AddLocal(kAstF64);
-    current_function_builder_->AppendCode(kExprSetLocal, false);
+    current_function_builder_->Emit(kExprSetLocal);
     AddLeb128(index_0, true);
     RECURSE(Visit(expr->left()));
-    current_function_builder_->AppendCode(kExprSetLocal, false);
+    current_function_builder_->Emit(kExprSetLocal);
     AddLeb128(index_1, true);
     RECURSE(Visit(expr->right()));
-    current_function_builder_->AppendCode(kExprF64Sub, false);
-    current_function_builder_->AppendCode(kExprGetLocal, false);
+    current_function_builder_->Emit(kExprF64Sub);
+    current_function_builder_->Emit(kExprGetLocal);
     AddLeb128(index_0, true);
-    current_function_builder_->AppendCode(kExprF64Mul, false);
-    current_function_builder_->AppendCode(kExprGetLocal, false);
+    current_function_builder_->Emit(kExprF64Mul);
+    current_function_builder_->Emit(kExprGetLocal);
     AddLeb128(index_1, true);
     // Use trunc instead of two casts
-    current_function_builder_->AppendCode(kExprF64SConvertI32, false);
-    current_function_builder_->AppendCode(kExprI32SConvertF64, false);
-    current_function_builder_->AppendCode(kExprF64Div, false);
-    current_function_builder_->AppendCode(kExprGetLocal, false);
+    current_function_builder_->Emit(kExprF64SConvertI32);
+    current_function_builder_->Emit(kExprI32SConvertF64);
+    current_function_builder_->Emit(kExprF64Div);
+    current_function_builder_->Emit(kExprGetLocal);
     AddLeb128(index_0, true);
-    current_function_builder_->AppendCode(kExprGetLocal, false);
+    current_function_builder_->Emit(kExprGetLocal);
     AddLeb128(index_1, true);
   }
 
@@ -730,11 +724,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
     std::vector<uint8_t> index_vec = UnsignedLEB128From(index);
     if (is_local) {
       uint32_t pos_of_index[1] = {0};
-      current_function_builder_->AddBody(
+      current_function_builder_->EmitCode(
           index_vec.data(), static_cast<uint32_t>(index_vec.size()),
           pos_of_index, 1);
     } else {
-      current_function_builder_->AddBody(
+      current_function_builder_->EmitCode(
           index_vec.data(), static_cast<uint32_t>(index_vec.size()));
     }
   }

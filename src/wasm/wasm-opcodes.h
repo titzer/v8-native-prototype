@@ -374,7 +374,7 @@ class WasmOpcodes {
   }
 
   // TODO(titzer): remove this method
-  static byte LoadStoreOpcodeOf(MachineType type, bool store) {
+  static WasmOpcode LoadStoreOpcodeOf(MachineType type, bool store) {
     switch (type) {
       case kMachInt8:
         return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;

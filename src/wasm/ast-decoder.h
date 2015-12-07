@@ -107,7 +107,6 @@ int OpcodeLength(const byte* pc);
 
 // Computes the arity (number of sub-nodes) of the opcode at the given address.
 int OpcodeArity(FunctionEnv* env, const byte* pc);
-
 }
 }
 }
