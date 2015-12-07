@@ -377,7 +377,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
       BinaryOperation* value_op = expr->value()->AsBinaryOperation();
       if (value_op != NULL && MatchBinaryOperation(value_op) == kAsIs) {
         VariableProxy* target_var = expr->target()->AsVariableProxy();
-        VariableProxy* effective_value_var = 
+        VariableProxy* effective_value_var =
             GetLeft(value_op)->AsVariableProxy();
         // TODO (aseemgarg): simplify block_size_ or replace with a kNop
         if (target_var != NULL && effective_value_var != NULL &&
@@ -735,8 +735,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
           pos_of_index, 1);
     } else {
       current_function_builder_->AddBody(
-          index_vec.data(),
-          static_cast<uint32_t>(index_vec.size()));
+          index_vec.data(), static_cast<uint32_t>(index_vec.size()));
     }
   }
 
@@ -866,7 +865,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
       entry = global_variables_.LookupOrInsert(v, ComputePointerHash(v),
-                                              ZoneAllocationPolicy(zone()));
+                                               ZoneAllocationPolicy(zone()));
       entry->value = container;
     }
     return (reinterpret_cast<IndexContainer*>(entry->value))->index;

@@ -320,8 +320,8 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
           Handle<Object> obj = result.ToHandleChecked();
           if (obj->IsJSFunction()) {
             function = Handle<JSFunction>::cast(obj);
-            code =
-              compiler::CompileWasmToJSWrapper(isolate, &module_env, function, index);
+            code = compiler::CompileWasmToJSWrapper(isolate, &module_env,
+                                                    function, index);
           } else {
             thrower.Error("FFI function #%d:%s is not a JSFunction.", index,
                           cstr);
@@ -337,14 +337,15 @@ MaybeHandle<JSObject> WasmModule::Instantiate(Isolate* isolate,
       }
     } else {
       // Compile the function.
-      code = compiler::CompileWasmFunction(thrower, isolate, &module_env, func, index);
+      code = compiler::CompileWasmFunction(thrower, isolate, &module_env, func,
+                                           index);
       if (code.is_null()) {
         thrower.Error("Compilation of #%d:%s failed.", index, cstr);
         return MaybeHandle<JSObject>();
       }
       if (func.exported) {
-        function =
-          compiler::CompileJSToWasmWrapper(isolate, &module_env, name, code, index);
+        function = compiler::CompileJSToWasmWrapper(isolate, &module_env, name,
+                                                    code, index);
       }
     }
     if (!code.is_null()) {
@@ -441,8 +442,8 @@ int32_t CompileAndRunWasmModule(Isolate* isolate, WasmModule* module) {
   for (const WasmFunction& func : *module->functions) {
     if (!func.external) {
       // Compile the function and install it in the code table.
-      Handle<Code> code =
-          compiler::CompileWasmFunction(thrower, isolate, &module_env, func, index);
+      Handle<Code> code = compiler::CompileWasmFunction(
+          thrower, isolate, &module_env, func, index);
       if (!code.is_null()) {
         if (func.exported) main_code = code;
         linker.Finish(index, code);

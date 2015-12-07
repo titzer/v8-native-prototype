@@ -102,7 +102,8 @@ class WasmGraphBuilder {
   Node* CallDirect(uint32_t index, Node** args);
   Node* CallIndirect(uint32_t index, Node** args);
   void BuildJSToWasmWrapper(Handle<Code> wasm_code, wasm::FunctionSig* sig);
-  void BuildWasmToJSWrapper(Handle<JSFunction> function, wasm::FunctionSig* sig);
+  void BuildWasmToJSWrapper(Handle<JSFunction> function,
+                            wasm::FunctionSig* sig);
   Node* ToJS(Node* node, Node* context, wasm::LocalType type);
   Node* FromJS(Node* node, Node* context, wasm::LocalType type);
   Node* Invert(Node* node);
@@ -115,9 +116,8 @@ class WasmGraphBuilder {
   Node* LoadGlobal(uint32_t index);
   Node* StoreGlobal(uint32_t index, Node* val);
   Node* LoadMem(wasm::LocalType type, MachineType memtype, Node* index,
-                  uint32_t offset);
-  Node* StoreMem(MachineType type, Node* index, uint32_t offset,
-                   Node* val);
+                uint32_t offset);
+  Node* StoreMem(MachineType type, Node* index, uint32_t offset, Node* val);
 
   static void PrintDebugName(Node* node);
 
