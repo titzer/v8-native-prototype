@@ -58,13 +58,19 @@ struct WasmFunctionBuilder::Type {
   LocalType type_;
 };
 
-WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone)
+WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone, const std::string& name)
     : return_type_(kAstI32),
       locals_(zone),
       exported_(0),
       external_(0),
       body_(zone),
-      local_indices_(zone) {}
+      local_indices_(zone),
+      name_(zone) {
+  if (name.size() > 0) {
+    name_.insert(name_.begin(), name.begin(), name.end());
+    name_.push_back('\0');
+  }
+}
 
 uint16_t WasmFunctionBuilder::AddParam(LocalType type) {
   return AddVar(type, true);
@@ -162,6 +168,7 @@ WasmFunctionEncoder* WasmFunctionBuilder::Build(Zone* zone,
   }
   e->signature_index_ = mb->AddSignature(sig.Build());
   delete[] var_index;
+  e->name_.insert(e->name_.begin(), name_.begin(), name_.end());
   return e;
 }
 
@@ -212,12 +219,14 @@ void WasmFunctionBuilder::IndexVars(WasmFunctionEncoder* e,
 
 WasmFunctionEncoder::WasmFunctionEncoder(Zone* zone, LocalType return_type,
                                          bool exported, bool external)
-    : params_(zone), exported_(exported), external_(external), body_(zone) {}
+    : params_(zone), exported_(exported), external_(external), body_(zone),
+      name_(zone) {}
 
 uint32_t WasmFunctionEncoder::HeaderSize() const {
   uint32_t size = 3;
   if (HasLocals()) size += 8;
   if (!external_) size += 2;
+  if (HasName()) size += 4;
   return size;
 }
 
@@ -225,14 +234,26 @@ uint32_t WasmFunctionEncoder::BodySize(void) const {
   return external_ ? 0 : static_cast<uint32_t>(body_.size());
 }
 
+uint32_t WasmFunctionEncoder::NameSize() const {
+  return exported_ ? static_cast<uint32_t>(name_.size()) : 0;
+}
+
 void WasmFunctionEncoder::Serialize(byte* buffer, byte** header,
                                     byte** body) const {
   uint8_t decl_bits = (exported_ ? kDeclFunctionExport : 0) |
                       (external_ ? kDeclFunctionImport : 0) |
-                      (HasLocals() ? kDeclFunctionLocals : 0);
+                      (HasLocals() ? kDeclFunctionLocals : 0) |
+                      (HasName() ? kDeclFunctionName : 0);
 
   EmitUint8(header, decl_bits);
   EmitUint16(header, signature_index_);
+
+  if (HasName()) {
+    uint32_t name_offset =  static_cast<uint32_t>(*body - buffer);
+    EmitUint32(header, name_offset);
+    std::memcpy(*body, name_.data(), name_.size());
+    (*body) += name_.size();
+  }
 
   if (HasLocals()) {
     EmitUint16(header, local_int32_count_);
@@ -286,8 +307,8 @@ WasmModuleBuilder::WasmModuleBuilder(Zone* zone)
       globals_(zone),
       signature_map_(zone) {}
 
-uint16_t WasmModuleBuilder::AddFunction() {
-  functions_.push_back(new (zone_) WasmFunctionBuilder(zone_));
+uint16_t WasmModuleBuilder::AddFunction(const std::string& name) {
+  functions_.push_back(new (zone_) WasmFunctionBuilder(zone_, name));
   return static_cast<uint16_t>(functions_.size() - 1);
 }
 
@@ -408,7 +429,8 @@ WasmModuleIndex* WasmModuleWriter::WriteTo(Zone* zone) const {
 
   sizes.AddSection(functions_.size());
   for (auto function : functions_) {
-    sizes.Add(function->HeaderSize() + function->BodySize(), 0);
+    sizes.Add(function->HeaderSize() + function->BodySize(),
+              function->NameSize());
   }
 
   sizes.AddSection(data_segments_.size());
