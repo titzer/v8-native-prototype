@@ -70,7 +70,7 @@ class WasmFunctionBuilder : public ZoneObject {
   WasmFunctionEncoder* Build(Zone* zone, WasmModuleBuilder* mb) const;
 
  private:
-  WasmFunctionBuilder(Zone* zone, const std::string& name);
+  WasmFunctionBuilder(Zone* zone, const unsigned char* name, int name_length);
   friend class WasmModuleBuilder;
   LocalType return_type_;
   struct Type;
@@ -127,7 +127,7 @@ class WasmModuleWriter : public ZoneObject {
 class WasmModuleBuilder : public ZoneObject {
  public:
   WasmModuleBuilder(Zone* zone);
-  uint16_t AddFunction(const std::string& name = "");
+  uint16_t AddFunction(const unsigned char* name = NULL, int name_length = 0);
   uint32_t AddGlobal(MachineType type, bool exported);
   WasmFunctionBuilder* FunctionAt(size_t index);
   void AddDataSegment(WasmDataSegmentEncoder* data);

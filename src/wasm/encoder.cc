@@ -58,7 +58,9 @@ struct WasmFunctionBuilder::Type {
   LocalType type_;
 };
 
-WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone, const std::string& name)
+WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone,
+                                         const unsigned char* name,
+                                         int name_length)
     : return_type_(kAstI32),
       locals_(zone),
       exported_(0),
@@ -66,8 +68,10 @@ WasmFunctionBuilder::WasmFunctionBuilder(Zone* zone, const std::string& name)
       body_(zone),
       local_indices_(zone),
       name_(zone) {
-  if (name.size() > 0) {
-    name_.insert(name_.begin(), name.begin(), name.end());
+  if (name_length > 0) {
+    for (int i = 0; i < name_length; i++) {
+      name_.push_back(*(name + i));
+    }
     name_.push_back('\0');
   }
 }
@@ -307,8 +311,10 @@ WasmModuleBuilder::WasmModuleBuilder(Zone* zone)
       globals_(zone),
       signature_map_(zone) {}
 
-uint16_t WasmModuleBuilder::AddFunction(const std::string& name) {
-  functions_.push_back(new (zone_) WasmFunctionBuilder(zone_, name));
+uint16_t WasmModuleBuilder::AddFunction(const unsigned char* name,
+                                        int name_length) {
+  functions_.push_back(new (zone_) WasmFunctionBuilder(zone_, name,
+                                                       name_length));
   return static_cast<uint16_t>(functions_.size() - 1);
 }
 

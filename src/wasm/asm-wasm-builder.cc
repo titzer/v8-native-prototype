@@ -869,12 +869,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     DCHECK(builder_ != NULL);
     ZoneHashMap::Entry* entry = functions_.Lookup(v, ComputePointerHash(v));
     if (entry == NULL) {
-      std::string name;
-      const unsigned char* raw_name = v->raw_name()->raw_data();
-      for (size_t i = 0; i < v->raw_name()->length(); i++) {
-        name.push_back(raw_name[i]);
-      }
-      uint16_t index = builder_->AddFunction(name);
+      uint16_t index = builder_->AddFunction(v->raw_name()->raw_data(),
+                                             v->raw_name()->length());
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
       entry = functions_.LookupOrInsert(v, ComputePointerHash(v),
