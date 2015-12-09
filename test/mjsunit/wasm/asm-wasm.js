@@ -534,3 +534,26 @@ function TestGlobals() {
 }
 
 assertEquals(31, WASM.asmCompileRun(TestGlobals.toString()));
+
+function TestGlobalsWithInit() {
+  "use asm";
+
+  var a = 0.0;
+  var b = 0.0;
+
+  function add() {
+    return +(a + b);
+  }
+
+  function init() {
+    a = 43.25;
+    b = 34.25;
+  }
+
+  return {init:init,
+          add:add};
+}
+
+var module = WASM.instantiateModuleFromAsm(TestGlobalsWithInit.toString());
+module.init();
+assertEquals(77.5, module.add());

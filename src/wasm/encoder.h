@@ -24,6 +24,7 @@ class WasmFunctionEncoder : public ZoneObject {
  public:
   uint32_t HeaderSize() const;
   uint32_t BodySize() const;
+  uint32_t NameSize() const;
   void Serialize(byte* buffer, byte** header, byte** body) const;
 
  private:
@@ -39,10 +40,15 @@ class WasmFunctionEncoder : public ZoneObject {
   bool exported_;
   bool external_;
   ZoneVector<uint8_t> body_;
+  ZoneVector<char> name_;
 
   bool HasLocals() const {
     return (local_int32_count_ + local_int64_count_ + local_float32_count_ +
             local_float64_count_) > 0;
+  }
+
+  bool HasName() const {
+    return exported_ && name_.size() > 0;
   }
 };
 
@@ -64,7 +70,7 @@ class WasmFunctionBuilder : public ZoneObject {
   WasmFunctionEncoder* Build(Zone* zone, WasmModuleBuilder* mb) const;
 
  private:
-  WasmFunctionBuilder(Zone* zone);
+  WasmFunctionBuilder(Zone* zone, const std::string& name);
   friend class WasmModuleBuilder;
   LocalType return_type_;
   struct Type;
@@ -73,6 +79,7 @@ class WasmFunctionBuilder : public ZoneObject {
   uint8_t external_;
   ZoneVector<uint8_t> body_;
   ZoneVector<uint32_t> local_indices_;
+  ZoneVector<char> name_;
   uint16_t AddVar(LocalType type, bool param);
   void IndexVars(WasmFunctionEncoder* e, uint16_t* var_index) const;
 };
@@ -120,7 +127,7 @@ class WasmModuleWriter : public ZoneObject {
 class WasmModuleBuilder : public ZoneObject {
  public:
   WasmModuleBuilder(Zone* zone);
-  uint16_t AddFunction();
+  uint16_t AddFunction(const std::string& name = "");
   uint32_t AddGlobal(MachineType type, bool exported);
   WasmFunctionBuilder* FunctionAt(size_t index);
   void AddDataSegment(WasmDataSegmentEncoder* data);
