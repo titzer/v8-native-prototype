@@ -1009,7 +1009,7 @@ TEST(Run_WASM_Int32DivU_byzero_const) {
   for (uint32_t denom = 0xfffffffe; denom < 8; denom++) {
     WasmRunner<uint32_t> r(MachineType::Uint32());
     BUILD(r, WASM_I32_DIVU(WASM_GET_LOCAL(0), WASM_I32(denom)));
-    
+
     for (uint32_t val = 0xfffffff0; val < 8; val++) {
       if (denom == 0) {
         CHECK_TRAP(r.Call(val));
@@ -1026,12 +1026,12 @@ TEST(Run_WASM_Int32DivS_trap_effect) {
   TestingModule module;
   module.AddMemoryElems<int32_t>(8);
   r.env()->module = &module;
-  
+
   BUILD(r, WASM_IF_ELSE(WASM_GET_LOCAL(0),
                         WASM_I32_DIVS(WASM_STORE_MEM(MachineType::Int8(),
                                         WASM_ZERO, WASM_GET_LOCAL(0)),
                                       WASM_GET_LOCAL(1)),
-                        WASM_I32_DIVS(WASM_STORE_MEM(MachineType::Int8(), 
+                        WASM_I32_DIVS(WASM_STORE_MEM(MachineType::Int8(),
                                         WASM_ZERO, WASM_GET_LOCAL(0)),
                                       WASM_GET_LOCAL(1))));
   CHECK_EQ(0, r.Call(0, 100));
@@ -1107,7 +1107,7 @@ TEST(Run_WASM_Int64DivU_byzero_const) {
   for (uint64_t denom = 0xfffffffffffffffe; denom < 8; denom++) {
     WasmRunner<uint64_t> r(MachineType::Uint64());
     BUILD(r, WASM_I64_DIVU(WASM_GET_LOCAL(0), WASM_I64(denom)));
-    
+
     for (uint64_t val = 0xfffffffffffffff0; val < 8; val++) {
       if (denom == 0) {
         CHECK_TRAP(r.Call(val));
@@ -1375,7 +1375,7 @@ TEST(Run_Wasm_BrIf_strict) {
 
 TEST(Run_Wasm_TableSwitch1) {
   WasmRunner<int32_t> r(MachineType::Int32());
-  BUILD(r, 
+  BUILD(r,
         WASM_TABLESWITCH_OP(1, 1, WASM_CASE(0)),
         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
                               WASM_RETURN(WASM_I8(93))));
@@ -1387,7 +1387,7 @@ TEST(Run_Wasm_TableSwitch1) {
 
 TEST(Run_Wasm_TableSwitch_br) {
   WasmRunner<int32_t> r(MachineType::Int32());
-  BUILD(r, 
+  BUILD(r,
         WASM_TABLESWITCH_OP(1, 2, WASM_CASE_BR(0), WASM_CASE(0)),
         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
                               WASM_RETURN(WASM_I8(91))),
@@ -1401,7 +1401,7 @@ TEST(Run_Wasm_TableSwitch_br) {
 
 TEST(Run_Wasm_TableSwitch_br2) {
   WasmRunner<int32_t> r(MachineType::Int32());
-  BUILD(r, 
+  BUILD(r,
         WASM_BLOCK(2,
                    WASM_BLOCK(2,
                               WASM_TABLESWITCH_OP(1, 4,
@@ -1425,7 +1425,7 @@ TEST(Run_Wasm_TableSwitch_br2) {
 
 TEST(Run_Wasm_TableSwitch2) {
   WasmRunner<int32_t> r(MachineType::Int32());
-  BUILD(r, 
+  BUILD(r,
         WASM_TABLESWITCH_OP(2, 2, WASM_CASE(0), WASM_CASE(1)),
         WASM_TABLESWITCH_BODY(WASM_GET_LOCAL(0),
                               WASM_RETURN(WASM_I8(91)),
@@ -1462,7 +1462,7 @@ TEST(Run_Wasm_TableSwitch4) {
       i == 3 ? br : c++
     };
     byte code[] = {
-      WASM_BLOCK(1, 
+      WASM_BLOCK(1,
                  WASM_TABLESWITCH_OP(3, 4,
                                      WASM_CASE(cases[0]),
                                      WASM_CASE(cases[1]),
@@ -1628,7 +1628,7 @@ TEST(Run_Wasm_ReturnStore) {
   int32_t* memory = module.AddMemoryElems<int32_t>(8);
   r.env()->module = &module;
 
-  BUILD(r, WASM_STORE_MEM(MachineType::Int32(), WASM_ZERO, 
+  BUILD(r, WASM_STORE_MEM(MachineType::Int32(), WASM_ZERO,
            WASM_LOAD_MEM(MachineType::Int32(), WASM_ZERO)));
 
   FOR_INT32_INPUTS(i) {
@@ -1906,7 +1906,7 @@ TEST(Run_Wasm_LoadMem_offset_oob) {
     WasmRunner<int32_t> r(MachineType::Uint32());
     r.env()->module = &module;
     uint32_t boundary = 24 - WasmOpcodes::MemSize(machineTypes[m]);
-    
+
     BUILD(r, WASM_LOAD_MEM_OFFSET(machineTypes[m], 8, WASM_GET_LOCAL(0)), WASM_ZERO);
 
     CHECK_EQ(0, r.Call(boundary));      // in bounds.
@@ -1956,7 +1956,7 @@ TEST(Run_Wasm_LoadMemI32_const_oob) {
       WasmRunner<int32_t> r;
       r.env()->module = &module;
       module.RandomizeMemory();
-      
+
       BUILD(r, WASM_LOAD_MEM_OFFSET(MachineType::Int32(), offset, WASM_I8(index)));
 
       if ((offset + index) <= (kMemSize - sizeof(int32_t))) {
@@ -2914,7 +2914,7 @@ void Run_WasmMixedCall_N(int start) {
 
     {
       std::vector<byte> code;
-      ADD_CODE(code, 
+      ADD_CODE(code,
                static_cast<byte>(WasmOpcodes::LoadStoreOpcodeOf(result, true)),
                WasmOpcodes::LoadStoreAccessOf(false));
       ADD_CODE(code, WASM_ZERO);
@@ -3254,11 +3254,11 @@ TEST(Run_Wasm_MultipleCallIndirect) {
   module.function_table = fixed;
 
   // Builder the caller function.
-  BUILD(r, WASM_I32_ADD(WASM_CALL_INDIRECT(1, 
+  BUILD(r, WASM_I32_ADD(WASM_CALL_INDIRECT(1,
                                            WASM_GET_LOCAL(0),
                                            WASM_GET_LOCAL(1),
                                            WASM_GET_LOCAL(2)),
-                        WASM_CALL_INDIRECT(1, 
+                        WASM_CALL_INDIRECT(1,
                                            WASM_GET_LOCAL(1),
                                            WASM_GET_LOCAL(2),
                                            WASM_GET_LOCAL(0))));

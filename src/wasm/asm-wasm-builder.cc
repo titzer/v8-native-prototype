@@ -855,7 +855,8 @@ class AsmWasmBuilderImpl : public AstVisitor {
     ZoneHashMap::Entry* entry =
         global_variables_.Lookup(v, ComputePointerHash(v));
     if (entry == NULL) {
-      uint16_t index = builder_->AddGlobal(WasmOpcodes::MachineTypeFor(type), 0);
+      uint16_t index =
+        builder_->AddGlobal(WasmOpcodes::MachineTypeFor(type), 0);
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
       entry = global_variables_.LookupOrInsert(v, ComputePointerHash(v),

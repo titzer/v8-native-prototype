@@ -43,6 +43,7 @@ const LocalType kAstI32 = MachineRepresentation::kWord32;
 const LocalType kAstI64 = MachineRepresentation::kWord64;
 const LocalType kAstF32 = MachineRepresentation::kFloat32;
 const LocalType kAstF64 = MachineRepresentation::kFloat64;
+// We use kTagged here because kNone is already used by kAstStmt.
 const LocalType kAstEnd = MachineRepresentation::kTagged;
 
 // Functionality related to encoding memory accesses.
@@ -351,32 +352,6 @@ class WasmOpcodes {
       return kMemI32;
     }
   }
-//    switch (type) {
-//      case kMachInt8:
-//        return kMemI8;
-//       case kMachUint8:
-//         return kMemU8;
-//       case kMachInt16:
-//         return kMemI16;
-//       case kMachUint16:
-//         return kMemU16;
-//       case kMachInt32:
-//         return kMemI32;
-//       case kMachUint32:
-//         return kMemU32;
-//       case kMachInt64:
-//         return kMemI64;
-//       case kMachUint64:
-//         return kMemU64;
-//       case kMachFloat32:
-//         return kMemF32;
-//       case kMachFloat64:
-//         return kMemF64;
-//      default:
-//        UNREACHABLE();
-//        return kMemI32;
-//    }
-//  }
 
   static MachineType MachineTypeFor(LocalType type) {
     switch (type) {
@@ -421,25 +396,6 @@ class WasmOpcodes {
       UNREACHABLE();
       return kAstI32;
     }
-//     switch (type) {
-//       case kMachInt8:
-//       case kMachUint8:
-//       case kMachInt16:
-//       case kMachUint16:
-//       case kMachInt32:
-//       case kMachUint32:
-//         return kAstI32;
-//       case kMachInt64:
-//       case kMachUint64:
-//         return kAstI64;
-//       case kMachFloat32:
-//         return kAstF32;
-//       case kMachFloat64:
-//         return kAstF64;
-//       default:
-//         UNREACHABLE();
-//         return kAstI32;
-//     }
   }
 
   // TODO(titzer): remove this method
@@ -468,29 +424,6 @@ class WasmOpcodes {
       UNREACHABLE();
       return kExprNop;
     }
-//     switch (type) {
-//       case kMachInt8:
-//         return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;
-//       case kMachUint8:
-//         return store ? kExprI32StoreMem8 : kExprI32LoadMem8U;
-//       case kMachInt16:
-//         return store ? kExprI32StoreMem16 : kExprI32LoadMem16S;
-//       case kMachUint16:
-//         return store ? kExprI32StoreMem16 : kExprI32LoadMem16U;
-//       case kMachInt32:
-//       case kMachUint32:
-//         return store ? kExprI32StoreMem : kExprI32LoadMem;
-//       case kMachInt64:
-//       case kMachUint64:
-//         return store ? kExprI64StoreMem : kExprI64LoadMem;
-//       case kMachFloat32:
-//         return store ? kExprF32StoreMem : kExprF32LoadMem;
-//       case kMachFloat64:
-//         return store ? kExprF64StoreMem : kExprF64LoadMem;
-//       default:
-//         UNREACHABLE();
-//         return kExprNop;
-//     }
   }
 
   static byte LoadStoreAccessOf(bool with_offset) {
