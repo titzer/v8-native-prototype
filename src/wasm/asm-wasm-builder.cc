@@ -403,31 +403,31 @@ class AsmWasmBuilderImpl : public AstVisitor {
     MachineType mtype;
     int size;
     if (type->Is(cache_.kUint8Array)) {
-      mtype = kMachUint8;
+      mtype = MachineType::Uint8();
       size = 1;
     } else if (type->Is(cache_.kInt8Array)) {
-      mtype = kMachInt8;
+      mtype = MachineType::Int8();
       size = 1;
     } else if (type->Is(cache_.kUint16Array)) {
-      mtype = kMachUint16;
+      mtype = MachineType::Uint16();
       size = 2;
     } else if (type->Is(cache_.kInt16Array)) {
-      mtype = kMachInt16;
+      mtype = MachineType::Int16();
       size = 2;
     } else if (type->Is(cache_.kUint32Array)) {
-      mtype = kMachUint32;
+      mtype = MachineType::Uint32();
       size = 4;
     } else if (type->Is(cache_.kInt32Array)) {
-      mtype = kMachInt32;
+      mtype = MachineType::Int32();
       size = 4;
     } else if (type->Is(cache_.kUint32Array)) {
-      mtype = kMachUint32;
+      mtype = MachineType::Uint32();
       size = 4;
     } else if (type->Is(cache_.kFloat32Array)) {
-      mtype = kMachFloat32;
+      mtype = MachineType::Float32();
       size = 4;
     } else if (type->Is(cache_.kFloat64Array)) {
-      mtype = kMachFloat64;
+      mtype = MachineType::Float64();
       size = 8;
     } else {
       UNREACHABLE();
@@ -855,7 +855,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
     ZoneHashMap::Entry* entry =
         global_variables_.Lookup(v, ComputePointerHash(v));
     if (entry == NULL) {
-      uint16_t index = builder_->AddGlobal(type, 0);
+      uint16_t index = builder_->AddGlobal(WasmOpcodes::MachineTypeFor(type), 0);
       IndexContainer* container = new (zone()) IndexContainer();
       container->index = index;
       entry = global_variables_.LookupOrInsert(v, ComputePointerHash(v),

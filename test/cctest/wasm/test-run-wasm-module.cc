@@ -107,7 +107,7 @@ TEST(Run_WasmModule_ReadLoadedDataSegment) {
   f->ReturnType(kAstI32);
   f->Exported(1);
   byte code[] = {
-      WASM_LOAD_MEM(kMachInt32, WASM_I8(kDataSegmentDest0))};
+      WASM_LOAD_MEM(MachineType::Int32(), WASM_I8(kDataSegmentDest0))};
   f->EmitCode(code, sizeof(code));
   byte data[] = {0xaa, 0xbb, 0xcc, 0xdd};
   builder->AddDataSegment(
@@ -131,7 +131,8 @@ TEST(Run_WasmModule_CheckMemoryIsZero) {
     WASM_BLOCK(2,
 	       WASM_WHILE(
 			  WASM_I32_LTS(WASM_GET_LOCAL(localIndex), WASM_I32(kCheckSize)),
-			  WASM_IF_ELSE(WASM_LOAD_MEM(kMachInt32, WASM_GET_LOCAL(localIndex)),
+			  WASM_IF_ELSE(WASM_LOAD_MEM(MachineType::Int32(),
+             WASM_GET_LOCAL(localIndex)),
 				       WASM_BRV(2, WASM_I8(-1)),
 				       WASM_INC_LOCAL_BY(localIndex, 4))),
 	       WASM_I8(11))};
@@ -153,11 +154,12 @@ TEST(Run_WasmModule_CallMain_recursive) {
   byte code[] = {
       WASM_BLOCK(
           2, 
-          WASM_SET_LOCAL(localIndex, WASM_LOAD_MEM(kMachInt32, WASM_ZERO)),
+          WASM_SET_LOCAL(localIndex, WASM_LOAD_MEM(MachineType::Int32(),
+              WASM_ZERO)),
           WASM_IF_ELSE(WASM_I32_LTS(WASM_GET_LOCAL(localIndex), WASM_I8(5)),
                        WASM_BLOCK(2,
-                                  WASM_STORE_MEM(kMachInt32, WASM_ZERO,
-                                                 WASM_INC_LOCAL(localIndex)),
+                                  WASM_STORE_MEM(MachineType::Int32(),
+                                    WASM_ZERO, WASM_INC_LOCAL(localIndex)),
                                   WASM_BRV(1, WASM_CALL_FUNCTION0(0))),
                        WASM_BRV(0, WASM_I8(55))))
   };
@@ -171,8 +173,8 @@ TEST(Run_WasmModule_CallMain_recursive) {
 TEST(Run_WasmModule_Global) {
   Zone zone;
   WasmModuleBuilder* builder = new(&zone) WasmModuleBuilder(&zone);
-  uint32_t global1 = builder->AddGlobal(kMachInt32, 0);
-  uint32_t global2 = builder->AddGlobal(kMachInt32, 0);
+  uint32_t global1 = builder->AddGlobal(MachineType::Int32(), 0);
+  uint32_t global2 = builder->AddGlobal(MachineType::Int32(), 0);
   uint16_t f1_index = builder->AddFunction();
   WasmFunctionBuilder* f = builder->FunctionAt(f1_index);
   f->ReturnType(kAstI32);

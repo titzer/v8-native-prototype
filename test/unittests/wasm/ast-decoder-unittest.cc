@@ -24,9 +24,11 @@ static const byte kCodeSetLocal0[] = {kExprSetLocal, 0, kExprI8Const, 0};
 
 static const LocalType kLocalTypes[] = {kAstI32, kAstI64, kAstF32,
                                         kAstF64};
-static const MachineType kMachineTypes[] = {
-    kMachInt8,   kMachUint8, kMachInt16,  kMachUint16,  kMachInt32,
-    kMachUint32, kMachInt64, kMachUint64, kMachFloat32, kMachFloat64};
+static const MachineType machineTypes[] = {
+    MachineType::Int8(),   MachineType::Uint8(),  MachineType::Int16(),
+    MachineType::Uint16(), MachineType::Int32(),  MachineType::Uint32(),
+    MachineType::Int64(),  MachineType::Uint64(), MachineType::Float32(),
+    MachineType::Float64()};
 
 static const WasmOpcode kInt32BinopOpcodes[] = {
     kExprI32Add,  kExprI32Sub,  kExprI32Mul,  kExprI32DivS,
@@ -855,7 +857,7 @@ TEST_F(WasmDecoderTest, TypeConversions) {
 
 TEST_F(WasmDecoderTest, MacrosStmt) {
   VERIFY(WASM_SET_LOCAL(0, WASM_I32(87348)));
-  VERIFY(WASM_STORE_MEM(kMachInt32, WASM_I8(24), WASM_I8(40)));
+  VERIFY(WASM_STORE_MEM(MachineType::Int32(), WASM_I8(24), WASM_I8(40)));
   VERIFY(WASM_IF(WASM_GET_LOCAL(0), WASM_NOP));
   VERIFY(WASM_IF_ELSE(WASM_GET_LOCAL(0), WASM_NOP, WASM_NOP));
   VERIFY(WASM_NOP);
@@ -1095,8 +1097,8 @@ TEST_F(WasmDecoderTest, StoreMemOffset_varint) {
 TEST_F(WasmDecoderTest, AllLoadMemCombinations) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType local_type = kLocalTypes[i];
-    for (size_t j = 0; j < arraysize(kMachineTypes); j++) {
-      MachineType mem_type = kMachineTypes[j];
+    for (size_t j = 0; j < arraysize(machineTypes); j++) {
+      MachineType mem_type = machineTypes[j];
       byte code[] = {
           static_cast<byte>(WasmOpcodes::LoadStoreOpcodeOf(mem_type, false)),
           WasmOpcodes::LoadStoreAccessOf(false), kExprI8Const, 0};
@@ -1116,8 +1118,8 @@ TEST_F(WasmDecoderTest, AllLoadMemCombinations) {
 TEST_F(WasmDecoderTest, AllStoreMemCombinations) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType local_type = kLocalTypes[i];
-    for (size_t j = 0; j < arraysize(kMachineTypes); j++) {
-      MachineType mem_type = kMachineTypes[j];
+    for (size_t j = 0; j < arraysize(machineTypes); j++) {
+      MachineType mem_type = machineTypes[j];
       byte code[] = {static_cast<byte>(WasmOpcodes::LoadStoreOpcodeOf(mem_type, true)),
                      WasmOpcodes::LoadStoreAccessOf(false), kExprI8Const,
                      0, kExprGetLocal, 0};
@@ -1331,12 +1333,12 @@ TEST_F(WasmDecoderTest, Int32Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMachInt8);
-  module_env.AddGlobal(kMachUint8);
-  module_env.AddGlobal(kMachInt16);
-  module_env.AddGlobal(kMachUint16);
-  module_env.AddGlobal(kMachInt32);
-  module_env.AddGlobal(kMachUint32);
+  module_env.AddGlobal(MachineType::Int8());
+  module_env.AddGlobal(MachineType::Uint8());
+  module_env.AddGlobal(MachineType::Int16());
+  module_env.AddGlobal(MachineType::Uint16());
+  module_env.AddGlobal(MachineType::Int32());
+  module_env.AddGlobal(MachineType::Uint32());
 
   EXPECT_VERIFIES_INLINE(env, WASM_LOAD_GLOBAL(0));
   EXPECT_VERIFIES_INLINE(env, WASM_LOAD_GLOBAL(1));
@@ -1359,10 +1361,10 @@ TEST_F(WasmDecoderTest, Int32Globals_fail) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMachInt64);
-  module_env.AddGlobal(kMachUint64);
-  module_env.AddGlobal(kMachFloat32);
-  module_env.AddGlobal(kMachFloat64);
+  module_env.AddGlobal(MachineType::Int64());
+  module_env.AddGlobal(MachineType::Uint64());
+  module_env.AddGlobal(MachineType::Float32());
+  module_env.AddGlobal(MachineType::Float64());
 
   EXPECT_FAILURE_INLINE(env, WASM_LOAD_GLOBAL(0));
   EXPECT_FAILURE_INLINE(env, WASM_LOAD_GLOBAL(1));
@@ -1381,8 +1383,8 @@ TEST_F(WasmDecoderTest, Int64Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMachInt64);
-  module_env.AddGlobal(kMachUint64);
+  module_env.AddGlobal(MachineType::Int64());
+  module_env.AddGlobal(MachineType::Uint64());
 
   EXPECT_VERIFIES_INLINE(env, WASM_LOAD_GLOBAL(0));
   EXPECT_VERIFIES_INLINE(env, WASM_LOAD_GLOBAL(1));
@@ -1399,7 +1401,7 @@ TEST_F(WasmDecoderTest, Float32Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMachFloat32);
+  module_env.AddGlobal(MachineType::Float32());
 
   EXPECT_VERIFIES_INLINE(env, WASM_LOAD_GLOBAL(0));
   EXPECT_VERIFIES_INLINE(env, WASM_STORE_GLOBAL(0, WASM_GET_LOCAL(0)));
@@ -1413,7 +1415,7 @@ TEST_F(WasmDecoderTest, Float64Globals) {
   TestModuleEnv module_env;
   env->module = &module_env;
 
-  module_env.AddGlobal(kMachFloat64);
+  module_env.AddGlobal(MachineType::Float64());
 
   EXPECT_VERIFIES_INLINE(env, WASM_LOAD_GLOBAL(0));
   EXPECT_VERIFIES_INLINE(env, WASM_STORE_GLOBAL(0, WASM_GET_LOCAL(0)));
@@ -1423,8 +1425,8 @@ TEST_F(WasmDecoderTest, Float64Globals) {
 TEST_F(WasmDecoderTest, AllLoadGlobalCombinations) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType local_type = kLocalTypes[i];
-    for (size_t j = 0; j < arraysize(kMachineTypes); j++) {
-      MachineType mem_type = kMachineTypes[j];
+    for (size_t j = 0; j < arraysize(machineTypes); j++) {
+      MachineType mem_type = machineTypes[j];
       FunctionEnv env;
       FunctionSig sig(1, 0, &local_type);
       TestModuleEnv module_env;
@@ -1444,8 +1446,8 @@ TEST_F(WasmDecoderTest, AllLoadGlobalCombinations) {
 TEST_F(WasmDecoderTest, AllStoreGlobalCombinations) {
   for (size_t i = 0; i < arraysize(kLocalTypes); i++) {
     LocalType local_type = kLocalTypes[i];
-    for (size_t j = 0; j < arraysize(kMachineTypes); j++) {
-      MachineType mem_type = kMachineTypes[j];
+    for (size_t j = 0; j < arraysize(machineTypes); j++) {
+      MachineType mem_type = machineTypes[j];
       FunctionEnv env;
       FunctionSig sig(0, 1, &local_type);
       TestModuleEnv module_env;

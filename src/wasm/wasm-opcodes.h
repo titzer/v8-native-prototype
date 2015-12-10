@@ -37,13 +37,13 @@ enum MemTypeCode {
 
 // We reuse the internal machine type to represent WebAssembly AST types.
 // A typedef improves readability without adding a whole new type system.
-typedef MachineType LocalType;
-const LocalType kAstStmt = kMachNone;
-const LocalType kAstI32 = kMachInt32;
-const LocalType kAstI64 = kMachInt64;
-const LocalType kAstF32 = kMachFloat32;
-const LocalType kAstF64 = kMachFloat64;
-const LocalType kAstEnd = kTypeAny;
+typedef MachineRepresentation LocalType;
+const LocalType kAstStmt = MachineRepresentation::kNone;
+const LocalType kAstI32 = MachineRepresentation::kWord32;
+const LocalType kAstI64 = MachineRepresentation::kWord64;
+const LocalType kAstF32 = MachineRepresentation::kFloat32;
+const LocalType kAstF64 = MachineRepresentation::kFloat64;
+const LocalType kAstEnd = MachineRepresentation::kTagged;
 
 // Functionality related to encoding memory accesses.
 struct MemoryAccess {
@@ -303,7 +303,9 @@ class WasmOpcodes {
   static const char* OpcodeName(WasmOpcode opcode);
   static FunctionSig* Signature(WasmOpcode opcode);
 
-  static byte MemSize(MachineType type) { return ElementSizeOf(type); }
+  static byte MemSize(MachineType type) {
+    return 1 << ElementSizeLog2Of(type.representation());
+  }
 
   static LocalTypeCode LocalTypeCodeFor(LocalType type) {
     switch (type) {
@@ -324,80 +326,171 @@ class WasmOpcodes {
   }
 
   static MemTypeCode MemTypeCodeFor(MachineType type) {
+    if (type == MachineType::Int8()) {
+      return kMemI8;
+    } else if (type == MachineType::Uint8()) {
+      return kMemU8;
+    } else if (type == MachineType::Int16()) {
+      return kMemI16;
+    } else if (type == MachineType::Uint16()) {
+      return kMemU16;
+    } else if (type == MachineType::Int32()) {
+      return kMemI32;
+    } else if (type == MachineType::Uint32()) {
+      return kMemU32;
+    } else if (type == MachineType::Int64()) {
+      return kMemI64;
+    } else if (type == MachineType::Uint64()) {
+      return kMemU64;
+    } else if (type == MachineType::Float32()) {
+      return kMemF32;
+    } else if (type == MachineType::Float64()) {
+      return kMemF64;
+    } else {
+      UNREACHABLE();
+      return kMemI32;
+    }
+  }
+//    switch (type) {
+//      case kMachInt8:
+//        return kMemI8;
+//       case kMachUint8:
+//         return kMemU8;
+//       case kMachInt16:
+//         return kMemI16;
+//       case kMachUint16:
+//         return kMemU16;
+//       case kMachInt32:
+//         return kMemI32;
+//       case kMachUint32:
+//         return kMemU32;
+//       case kMachInt64:
+//         return kMemI64;
+//       case kMachUint64:
+//         return kMemU64;
+//       case kMachFloat32:
+//         return kMemF32;
+//       case kMachFloat64:
+//         return kMemF64;
+//      default:
+//        UNREACHABLE();
+//        return kMemI32;
+//    }
+//  }
+
+  static MachineType MachineTypeFor(LocalType type) {
     switch (type) {
-      case kMachInt8:
-        return kMemI8;
-      case kMachUint8:
-        return kMemU8;
-      case kMachInt16:
-        return kMemI16;
-      case kMachUint16:
-        return kMemU16;
-      case kMachInt32:
-        return kMemI32;
-      case kMachUint32:
-        return kMemU32;
-      case kMachInt64:
-        return kMemI64;
-      case kMachUint64:
-        return kMemU64;
-      case kMachFloat32:
-        return kMemF32;
-      case kMachFloat64:
-        return kMemF64;
+      case kAstI32:
+        return MachineType::Int32();
+      case kAstI64:
+        return MachineType::Int64();
+      case kAstF32:
+        return MachineType::Float32();
+      case kAstF64:
+        return MachineType::Float64();
+      case kAstStmt:
+        return MachineType::None();
       default:
         UNREACHABLE();
-        return kMemI32;
+        return MachineType::None();
     }
   }
 
   static LocalType LocalTypeFor(MachineType type) {
-    switch (type) {
-      case kMachInt8:
-      case kMachUint8:
-      case kMachInt16:
-      case kMachUint16:
-      case kMachInt32:
-      case kMachUint32:
-        return kAstI32;
-      case kMachInt64:
-      case kMachUint64:
-        return kAstI64;
-      case kMachFloat32:
-        return kAstF32;
-      case kMachFloat64:
-        return kAstF64;
-      default:
-        UNREACHABLE();
-        return kAstI32;
+    if (type == MachineType::Int8()) {
+      return kAstI32;
+    } else if (type == MachineType::Uint8()) {
+      return kAstI32;
+    } else if (type == MachineType::Int16()) {
+      return kAstI32;
+    } else if (type == MachineType::Uint16()) {
+      return kAstI32;
+    } else if (type == MachineType::Int32()) {
+      return kAstI32;
+    } else if (type == MachineType::Uint32()) {
+      return kAstI32;
+    } else if (type == MachineType::Int64()) {
+      return kAstI64;
+    } else if (type == MachineType::Uint64()) {
+      return kAstI64;
+    } else if (type == MachineType::Float32()) {
+      return kAstF32;
+    } else if (type == MachineType::Float64()) {
+      return kAstF64;
+    } else {
+      UNREACHABLE();
+      return kAstI32;
     }
+//     switch (type) {
+//       case kMachInt8:
+//       case kMachUint8:
+//       case kMachInt16:
+//       case kMachUint16:
+//       case kMachInt32:
+//       case kMachUint32:
+//         return kAstI32;
+//       case kMachInt64:
+//       case kMachUint64:
+//         return kAstI64;
+//       case kMachFloat32:
+//         return kAstF32;
+//       case kMachFloat64:
+//         return kAstF64;
+//       default:
+//         UNREACHABLE();
+//         return kAstI32;
+//     }
   }
 
   // TODO(titzer): remove this method
   static WasmOpcode LoadStoreOpcodeOf(MachineType type, bool store) {
-    switch (type) {
-      case kMachInt8:
-        return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;
-      case kMachUint8:
-        return store ? kExprI32StoreMem8 : kExprI32LoadMem8U;
-      case kMachInt16:
-        return store ? kExprI32StoreMem16 : kExprI32LoadMem16S;
-      case kMachUint16:
-        return store ? kExprI32StoreMem16 : kExprI32LoadMem16U;
-      case kMachInt32:
-      case kMachUint32:
-        return store ? kExprI32StoreMem : kExprI32LoadMem;
-      case kMachInt64:
-      case kMachUint64:
-        return store ? kExprI64StoreMem : kExprI64LoadMem;
-      case kMachFloat32:
-        return store ? kExprF32StoreMem : kExprF32LoadMem;
-      case kMachFloat64:
-        return store ? kExprF64StoreMem : kExprF64LoadMem;
-      default:
-        UNREACHABLE();
-        return kExprNop;
+    if (type == MachineType::Int8()) {
+      return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;
+    } else if (type == MachineType::Uint8()) {
+      return store ? kExprI32StoreMem8 : kExprI32LoadMem8U;
+    } else if (type == MachineType::Int16()) {
+      return store ? kExprI32StoreMem16 : kExprI32LoadMem16S;
+    } else if (type == MachineType::Uint16()) {
+      return store ? kExprI32StoreMem16 : kExprI32LoadMem16U;
+    } else if (type == MachineType::Int32()) {
+      return store ? kExprI32StoreMem : kExprI32LoadMem;
+    } else if (type == MachineType::Uint32()) {
+      return store ? kExprI32StoreMem : kExprI32LoadMem;
+    } else if (type == MachineType::Int64()) {
+      return store ? kExprI64StoreMem : kExprI64LoadMem;
+    } else if (type == MachineType::Uint64()) {
+      return store ? kExprI64StoreMem : kExprI64LoadMem;
+    } else if (type == MachineType::Float32()) {
+      return store ? kExprF32StoreMem : kExprF32LoadMem;
+    } else if (type == MachineType::Float64()) {
+      return store ? kExprF64StoreMem : kExprF64LoadMem;
+    } else {
+      UNREACHABLE();
+      return kExprNop;
     }
+//     switch (type) {
+//       case kMachInt8:
+//         return store ? kExprI32StoreMem8 : kExprI32LoadMem8S;
+//       case kMachUint8:
+//         return store ? kExprI32StoreMem8 : kExprI32LoadMem8U;
+//       case kMachInt16:
+//         return store ? kExprI32StoreMem16 : kExprI32LoadMem16S;
+//       case kMachUint16:
+//         return store ? kExprI32StoreMem16 : kExprI32LoadMem16U;
+//       case kMachInt32:
+//       case kMachUint32:
+//         return store ? kExprI32StoreMem : kExprI32LoadMem;
+//       case kMachInt64:
+//       case kMachUint64:
+//         return store ? kExprI64StoreMem : kExprI64LoadMem;
+//       case kMachFloat32:
+//         return store ? kExprF32StoreMem : kExprF32LoadMem;
+//       case kMachFloat64:
+//         return store ? kExprF64StoreMem : kExprF64LoadMem;
+//       default:
+//         UNREACHABLE();
+//         return kExprNop;
+//     }
   }
 
   static byte LoadStoreAccessOf(bool with_offset) {

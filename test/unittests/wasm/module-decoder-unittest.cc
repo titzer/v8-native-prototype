@@ -77,7 +77,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobal) {
     WasmGlobal* global = &result.val->globals->back();
 
     EXPECT_EQ(0, global->name_offset);
-    EXPECT_EQ(kMachInt32, global->type);
+    EXPECT_EQ(MachineType::Int32(), global->type);
     EXPECT_EQ(0, global->offset);
     EXPECT_EQ(false, global->exported);
   }
@@ -181,12 +181,12 @@ TEST_F(WasmModuleVerifyTest, TwoGlobals) {
     WasmGlobal* g1 = &result.val->globals->at(1);
 
     EXPECT_EQ(0, g0->name_offset);
-    EXPECT_EQ(kMachFloat32, g0->type);
+    EXPECT_EQ(MachineType::Float32(), g0->type);
     EXPECT_EQ(0, g0->offset);
     EXPECT_EQ(false, g0->exported);
 
     EXPECT_EQ(0, g1->name_offset);
-    EXPECT_EQ(kMachFloat64, g1->type);
+    EXPECT_EQ(MachineType::Float64(), g1->type);
     EXPECT_EQ(0, g1->offset);
     EXPECT_EQ(true, g1->exported);
   }
@@ -461,7 +461,7 @@ TEST_F(WasmModuleVerifyTest, OneGlobalOneFunctionWithNopBodyOneDataSegment) {
     WasmGlobal* global = &result.val->globals->back();
 
     EXPECT_EQ(0, global->name_offset);
-    EXPECT_EQ(kMachUint8, global->type);
+    EXPECT_EQ(MachineType::Uint8(), global->type);
     EXPECT_EQ(0, global->offset);
     EXPECT_EQ(false, global->exported);
 
