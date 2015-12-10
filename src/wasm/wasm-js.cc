@@ -123,7 +123,7 @@ void CompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (result.val) delete result.val;
 }
 
-v8::internal::wasm::WasmModuleIndex* GetModule(i::ParseInfo* info) {
+v8::internal::wasm::WasmModuleIndex* TranslateAsmModule(i::ParseInfo* info) {
   info->set_global();
   info->set_lazy(false);
   info->set_allow_lazy_parsing(false);
@@ -166,7 +166,7 @@ void AsmCompileRun(const v8::FunctionCallbackInfo<v8::Value>& args) {
   i::Handle<i::Script> script = factory->NewScript(Utils::OpenHandle(*source));
   i::ParseInfo info(&zone, script);
 
-  auto module = GetModule(&info);
+  auto module = TranslateAsmModule(&info);
   if (module == NULL) {
     thrower.Error("Asm.js validation failed");
     return;
@@ -198,7 +198,7 @@ void InstantiateModuleFromAsm(const v8::FunctionCallbackInfo<v8::Value>& args) {
   i::Handle<i::Script> script = factory->NewScript(Utils::OpenHandle(*source));
   i::ParseInfo info(&zone, script);
   
-  auto module = GetModule(&info);
+  auto module = TranslateAsmModule(&info);
   if (module == NULL) {
     thrower.Error("Asm.js validation failed");
     return;
