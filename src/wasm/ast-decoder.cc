@@ -918,58 +918,58 @@ class LR_WasmDecoder : public Decoder {
       }
 
       case kExprI32LoadMem8S:
-        return ReduceLoadMem(p, kAstI32, kMachInt8);
+        return ReduceLoadMem(p, kAstI32, MachineType::Int8());
       case kExprI32LoadMem8U:
-        return ReduceLoadMem(p, kAstI32, kMachUint8);
+        return ReduceLoadMem(p, kAstI32, MachineType::Uint8());
       case kExprI32LoadMem16S:
-        return ReduceLoadMem(p, kAstI32, kMachInt16);
+        return ReduceLoadMem(p, kAstI32, MachineType::Int16());
       case kExprI32LoadMem16U:
-        return ReduceLoadMem(p, kAstI32, kMachUint16);
+        return ReduceLoadMem(p, kAstI32, MachineType::Uint16());
       case kExprI32LoadMem:
-        return ReduceLoadMem(p, kAstI32, kMachInt32);
+        return ReduceLoadMem(p, kAstI32, MachineType::Int32());
 
       case kExprI64LoadMem8S:
-        return ReduceLoadMem(p, kAstI64, kMachInt8);
+        return ReduceLoadMem(p, kAstI64, MachineType::Int8());
       case kExprI64LoadMem8U:
-        return ReduceLoadMem(p, kAstI64, kMachUint8);
+        return ReduceLoadMem(p, kAstI64, MachineType::Uint8());
       case kExprI64LoadMem16S:
-        return ReduceLoadMem(p, kAstI64, kMachInt16);
+        return ReduceLoadMem(p, kAstI64, MachineType::Int16());
       case kExprI64LoadMem16U:
-        return ReduceLoadMem(p, kAstI64, kMachUint16);
+        return ReduceLoadMem(p, kAstI64, MachineType::Uint16());
       case kExprI64LoadMem32S:
-        return ReduceLoadMem(p, kAstI64, kMachInt32);
+        return ReduceLoadMem(p, kAstI64, MachineType::Int32());
       case kExprI64LoadMem32U:
-        return ReduceLoadMem(p, kAstI64, kMachUint32);
+        return ReduceLoadMem(p, kAstI64, MachineType::Uint32());
       case kExprI64LoadMem:
-        return ReduceLoadMem(p, kAstI64, kMachInt64);
+        return ReduceLoadMem(p, kAstI64, MachineType::Int64());
 
       case kExprF32LoadMem:
-        return ReduceLoadMem(p, kAstF32, kMachFloat32);
+        return ReduceLoadMem(p, kAstF32, MachineType::Float32());
 
       case kExprF64LoadMem:
-        return ReduceLoadMem(p, kAstF64, kMachFloat64);
+        return ReduceLoadMem(p, kAstF64, MachineType::Float64());
 
       case kExprI32StoreMem8:
-        return ReduceStoreMem(p, kAstI32, kMachInt8);
+        return ReduceStoreMem(p, kAstI32, MachineType::Int8());
       case kExprI32StoreMem16:
-        return ReduceStoreMem(p, kAstI32, kMachInt16);
+        return ReduceStoreMem(p, kAstI32, MachineType::Int16());
       case kExprI32StoreMem:
-        return ReduceStoreMem(p, kAstI32, kMachInt32);
+        return ReduceStoreMem(p, kAstI32, MachineType::Int32());
 
       case kExprI64StoreMem8:
-        return ReduceStoreMem(p, kAstI64, kMachInt8);
+        return ReduceStoreMem(p, kAstI64, MachineType::Int8());
       case kExprI64StoreMem16:
-        return ReduceStoreMem(p, kAstI64, kMachInt16);
+        return ReduceStoreMem(p, kAstI64, MachineType::Int16());
       case kExprI64StoreMem32:
-        return ReduceStoreMem(p, kAstI64, kMachInt32);
+        return ReduceStoreMem(p, kAstI64, MachineType::Int32());
       case kExprI64StoreMem:
-        return ReduceStoreMem(p, kAstI64, kMachInt64);
+        return ReduceStoreMem(p, kAstI64, MachineType::Int64());
 
       case kExprF32StoreMem:
-        return ReduceStoreMem(p, kAstF32, kMachFloat32);
+        return ReduceStoreMem(p, kAstF32, MachineType::Float32());
 
       case kExprF64StoreMem:
-        return ReduceStoreMem(p, kAstF64, kMachFloat64);
+        return ReduceStoreMem(p, kAstF64, MachineType::Float64());
 
       case kExprGrowMemory:
         TypeCheckLast(p, kAstI32);

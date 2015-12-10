@@ -375,7 +375,7 @@ Node* WasmGraphBuilder::Binop(wasm::WasmOpcode opcode, Node* left,
       Node* rem =
           graph->graph()->NewNode(m->Int32Mod(), left, right, d.if_false);
 
-      return d.Phi(kMachInt32, graph->Int32Constant(0), rem);
+      return d.Phi(MachineRepresentation::kWord32, graph->Int32Constant(0), rem);
     }
     case wasm::kExprI32RemU:
       op = m->Uint32Mod();
@@ -476,7 +476,7 @@ Node* WasmGraphBuilder::Binop(wasm::WasmOpcode opcode, Node* left,
       Node* rem =
           graph->graph()->NewNode(m->Int64Mod(), left, right, d.if_false);
 
-      return d.Phi(kMachInt64, graph->Int64Constant(0), rem);
+      return d.Phi(MachineRepresentation::kWord64, graph->Int64Constant(0), rem);
     }
     case wasm::kExprI64RemU:
       op = m->Uint64Mod();
@@ -1215,7 +1215,7 @@ Node* WasmGraphBuilder::CallIndirect(uint32_t index, Node** args) {
   const int fixed_offset = access.header_size - access.tag();
   {
     Node* load_sig =
-        g->NewNode(machine->Load(kMachAnyTagged), table,
+        g->NewNode(machine->Load(MachineType::AnyTagged()), table,
                    g->NewNode(machine->Int32Add(),
                               g->NewNode(machine->Word32Shl(), key,
                                          Int32Constant(kPointerSizeLog2)),
@@ -1229,7 +1229,7 @@ Node* WasmGraphBuilder::CallIndirect(uint32_t index, Node** args) {
   // Load code object from the table.
   int offset = fixed_offset + kPointerSize * table_size;
   Node* load_code =
-      g->NewNode(machine->Load(kMachAnyTagged), table,
+      g->NewNode(machine->Load(MachineType::AnyTagged()), table,
                  g->NewNode(machine->Int32Add(),
                             g->NewNode(machine->Word32Shl(), key,
                                        Int32Constant(kPointerSizeLog2)),
@@ -1528,9 +1528,9 @@ Node* WasmGraphBuilder::LoadMem(wasm::LocalType type, MachineType memtype,
 
   *effect = load;
 
-  if (type == wasm::kAstI64 && ElementSizeLog2Of(memtype) < 3) {
+  if (type == wasm::kAstI64 && ElementSizeLog2Of(memtype.representation()) < 3) {
     // TODO(titzer): TF zeroes the upper bits of 64-bit loads for subword sizes.
-    if (TypeOf(memtype) == kTypeInt32) {
+    if (memtype.IsSigned()) {
       // sign extend
       load = g->NewNode(graph->machine()->ChangeInt32ToInt64(), load);
     } else {
@@ -1777,7 +1777,8 @@ Handle<Code> CompileWasmFunction(wasm::ErrorThrower& thrower, Isolate* isolate,
   Graph graph(&zone);
   CommonOperatorBuilder common(&zone);
   MachineOperatorBuilder machine(
-      &zone, kMachPtr, InstructionSelector::SupportedMachineOperatorFlags());
+      &zone, MachineType::PointerRepresentation(),
+      InstructionSelector::SupportedMachineOperatorFlags());
   JSGraph jsgraph(isolate, &graph, &common, nullptr, nullptr, &machine);
   WasmGraphBuilder builder(&zone, &jsgraph);
   wasm::TreeResult result = wasm::BuildTFGraph(
