@@ -1,6 +1,8 @@
-[![Build Status](https://travis-ci.org/WebAssembly/v8-native-prototype.svg?branch=master)](https://travis-ci.org/WebAssembly/v8-native-prototype)
+<!--[![Build Status](https://travis-ci.org/WebAssembly/v8-native-prototype.svg?branch=master)](https://travis-ci.org/WebAssembly/v8-native-prototype)-->
 
-# WebAssembly V8 Native Prototype
+# The code of this project has been moved into the <br> [V8 repository](https://github.com/v8/v8).
+
+## WebAssembly V8 Native Prototype
 
 This repository contains additional source code needed to build a prototype
 implementation of WebAssembly incorporated into V8.
