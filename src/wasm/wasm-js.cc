@@ -141,7 +141,7 @@ v8::internal::wasm::WasmModuleIndex* TranslateAsmModule(i::ParseInfo* info) {
 
   auto module =
       v8::internal::wasm::AsmWasmBuilder(info->isolate(), info->zone(),
-                                         info->literal())
+                                         info->literal(), &typer)
           .Run();  
   return module;
 }
