@@ -10,6 +10,14 @@ script:
 compiler:
   - clang
 
+env:
+  - V8_ARCH=x64 V8_MODE=debug
+  - V8_ARCH=x64 V8_MODE=optdebug
+  - V8_ARCH=x64 V8_MODE=release
+  - V8_ARCH=ia32 V8_MODE=debug
+  - V8_ARCH=ia32 V8_MODE=optdebug
+  - V8_ARCH=ia32 V8_MODE=release
+
 os:
   - linux
   - osx

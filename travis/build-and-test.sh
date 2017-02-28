@@ -10,15 +10,20 @@ cd $(dirname ${BASH_SOURCE[0]})/..
 cd v8/v8
 
 echo "==== BUILDING V8 ===="
-make x64.optdebug wasm=on werror=no
+if [[ "${TRAVIS:-}" == "true" ]]; then
+  make ${V8_ARCH}.${V8_MODE} wasm=on werror=no
+else
+  # For local builds.
+  make ${V8_ARCH}.${V8_MODE} -j32
+fi
 
 echo "==== unittests ===="
-./out/x64.optdebug/unittests "--gtest_filter=Wasm*"
+./out/${V8_ARCH}.${V8_MODE}/unittests "--gtest_filter=Wasm*"
 
 echo "==== cctest/test-run-wasm* ===="
 ./tools/run-tests.py \
-  --no-presubmit --mode optdebug --arch x64 cctest/test-run-wasm*
+  --no-presubmit --mode ${V8_MODE} --arch ${V8_ARCH} cctest/test-run-wasm*
 
 echo "==== mjsunit/wasm/* ===="
 ./tools/run-tests.py \
-  --no-presubmit --mode optdebug --arch x64 mjsunit/wasm/*
+  --no-presubmit --mode ${V8_MODE} --arch ${V8_ARCH} mjsunit/wasm/*
